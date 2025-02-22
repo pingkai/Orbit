@@ -44,8 +44,8 @@ export const AboutProject = () => {
           <SmallText text={"join the community."}/>
           <Spacer/>
           <View style={{flexDirection:"row", gap:10, alignItems:"center", justifyContent:"space-between"}}>
-            <EachCommunityButton title={"Telegram"} icon={<EvilIcons name={"sc-telegram"} size={35}/>} color={"rgb(50,95,123)"} subTitle={'Melody'} url={"https://t.me/+-irbEXtzhwI1NzU1"}/>
-            <EachCommunityButton title={"Whatsapp"} icon={<FontAwesome name={"whatsapp"} size={35}/>} color={"rgb(52,123,50)"} subTitle={'Melody'} url={"https://whatsapp.com/channel/0029VaCr9oTIt5s5DxEQCI11"}/>
+            <EachCommunityButton title={"Telegram"} icon={<EvilIcons name={"sc-telegram"} size={35}/>} color={"rgb(50,95,123)"} subTitle={'Orbit'} url={"https://t.me/+-irbEXtzhwI1NzU1"}/>
+            <EachCommunityButton title={"Whatsapp"} icon={<FontAwesome name={"whatsapp"} size={35}/>} color={"rgb(52,123,50)"} subTitle={'Orbit'} url={"https://whatsapp.com/channel/0029VaCr9oTIt5s5DxEQCI11"}/>
           </View>
           <Spacer/>
           <PlainText text={"Are you a developer?"} nospace={true}/>
@@ -56,7 +56,7 @@ export const AboutProject = () => {
           }}>
             <EachCommunityButton style={{
               justifyContent:"space-around",
-            }} title={"Melody"} icon={<AntDesign name={"github"} size={40}/>} color={"rgb(46,46,46)"} subTitle={'An open source music player to listen music for free.'} url={"https://github.com/Infinite-Null/Melody"}/>
+            }} title={"Orbit"} icon={<AntDesign name={"github"} size={40}/>} color={"rgb(46,46,46)"} subTitle={'An open source music player to listen music for free.'} url={"https://github.com/Infinite-Null/Orbit"}/>
           </View>
           <Spacer/>
           <PlainText text={"Request a new feature?"} nospace={true}/>

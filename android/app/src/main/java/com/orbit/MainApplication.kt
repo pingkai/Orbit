@@ -1,4 +1,4 @@
-package com.melody
+package com.orbit
 import com.microsoft.codepush.react.CodePush
 import android.app.Application
 import com.facebook.react.PackageList

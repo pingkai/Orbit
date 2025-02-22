@@ -27,7 +27,7 @@ export const TopHeader = memo(({showHeader}) => {
         <PaddingConatiner>
           <SpaceBetween>
             <View style={{flex:1}}>
-              <Heading text={`Melody`} />
+              <Heading text={`Orbit`} />
             </View>
             <Pressable style={{
               padding:5,

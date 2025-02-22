@@ -29,7 +29,7 @@ export const InitialScreen = ({navigation}) => {
          fontSize:40,
          color:theme.colors.text,
          fontWeight:500,
-       }}>Melody</Animated.Text>
+       }}>Orbit</Animated.Text>
        <Animated.Text entering={FadeIn.delay(300)} style={{
          fontSize:15,
          color:theme.colors.primary,

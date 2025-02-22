@@ -19,7 +19,7 @@ export const Slide1 = ({navigation}) => {
          width:200,
          borderRadius:100,
        }}/></Animated.View>
-       <Animated.View  entering={FadeInDown.delay(500)}><Heading text={"Welcome to Melody"} nospace={true} style={{marginTop:10}}/></Animated.View>
+       <Animated.View  entering={FadeInDown.delay(500)}><Heading text={"Welcome to Orbit"} nospace={true} style={{marginTop:10}}/></Animated.View>
        <Animated.View entering={FadeInDown.delay(750)}><PlainText text={"listen to music for free"}/></Animated.View>
      </View>
       <BottomNextAndPrevious delay={100} onNextPress={()=>{

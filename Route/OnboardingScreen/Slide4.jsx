@@ -20,7 +20,7 @@ export const Slide4 = ({navigation}) => {
           borderRadius:100,
         }}/></Animated.View>
        <Heading text={"You are all set!"} nospace={true} style={{marginTop:10}}/>
-        <PlainText text={"Feel the melody"}/>
+        <PlainText text={"Feel the Orbit"}/>
       </View>
       <BottomNextAndPrevious nextText={"Lets Go"} delay={100} showPrevious={true} onPreviousPress={()=>{
         navigation.replace("Slide3")

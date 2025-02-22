@@ -28,7 +28,7 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
       .config({
         addAndroidDownloads:{
           useDownloadManager:true,
-          path:(path === "Downloads") ? dirs.LegacyDownloadDir + `/Melody/${FormatTitleAndArtist(Visible.title)}.m4a` : dirs.LegacyMusicDir + `/Melody/${FormatTitleAndArtist(Visible.title)}.m4a`,
+          path:(path === "Downloads") ? dirs.LegacyDownloadDir + `/Orbit/${FormatTitleAndArtist(Visible.title)}.m4a` : dirs.LegacyMusicDir + `/Orbit/${FormatTitleAndArtist(Visible.title)}.m4a`,
           notification:true,
           title:`${FormatTitleAndArtist(Visible.title)}`,
         },

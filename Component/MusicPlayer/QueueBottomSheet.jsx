@@ -2,7 +2,6 @@ import React, { useRef, useState } from "react";
 import BottomSheet from "@gorhom/bottom-sheet";
 import { QueueRenderSongs } from "./QueueRenderSongs";
 import { PlainText } from "../Global/PlainText";
-import Entypo from "react-native-vector-icons/Entypo";
 import { View } from "react-native";
 import Octicons from "react-native-vector-icons/Octicons";
 
