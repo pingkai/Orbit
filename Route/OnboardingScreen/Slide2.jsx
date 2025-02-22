@@ -1,7 +1,6 @@
 import { MainWrapper } from "../../Layout/MainWrapper";
-import { View } from "react-native";
+import { View,Image } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import FastImage from "react-native-fast-image";
 import { Heading } from "../../Component/Global/Heading";
 import { PlainText } from "../../Component/Global/PlainText";
 import { BottomNextAndPrevious } from "../../Component/RouteOnboarding/BottomNextAndPrevious";
@@ -11,13 +10,13 @@ import { SetLanguageValue } from "../../LocalStorage/Languages";
 
 export const Slide2 = ({navigation}) => {
   const [Languages, setLanguages] = useState([]);
+  
   async function onNextPress(language){
     if (language.length < 2){
-      // eslint-disable-next-line no-alert
       alert("Please select atleast 2 language")
     } else {
-      const Lang =  language.join(",")
-      await SetLanguageValue(Lang)
+      const Lang = language.join(",")
+      await SetLanguageValue(Lang);
       navigation.replace("Slide3")
     }
   }
@@ -25,21 +24,29 @@ export const Slide2 = ({navigation}) => {
     <MainWrapper>
       <View style={{
         alignItems:"center",
-        marginTop:10
       }}>
-        <Animated.View entering={FadeInDown.duration(500)}><FastImage source={require("../../Images/selectLanguage.gif")} style={{
-          height:200,
-          width:200,
-          borderRadius:100,
-        }}/></Animated.View>
-        <Animated.View  entering={FadeInDown.delay(500)}><Heading text={"What's Your Music Taste?"} nospace={true} style={{marginTop:10}}/></Animated.View>
-        <Animated.View entering={FadeInDown.delay(750)}><PlainText text={"select atleast 2 language"}/></Animated.View>
+        <Animated.View entering={FadeInDown.duration(500)}>
+          <Image 
+            source={require("../../Images/selectLanguage.gif")} 
+            style={{
+              height: 200,
+              width: 200,
+              borderRadius: 100,
+            }}
+          />
+        </Animated.View>
+        <Animated.View entering={FadeInDown.delay(500)} style={{ marginBottom: 10 }}>
+          <Heading text={"What's Your Music Taste?"} nospace={true} style={{ marginTop: 20 }}/>
+        </Animated.View>
+        <Animated.View entering={FadeInDown.delay(750)}>
+          <PlainText text={"Select atleast 2 language"} style={{fontSize:16}}/>
+        </Animated.View>
       </View>
       <View style={{
         flex:1,
         alignItems:"center",
         justifyContent:'flex-start',
-        marginTop:10,
+        marginTop:20,
       }}>
         <EachCheckBox data={Languages} onCheck1={(data)=>{
           setLanguages(()=>data)
@@ -83,11 +90,12 @@ export const Slide2 = ({navigation}) => {
         }}/>
 
       </View>
-      <BottomNextAndPrevious delay={100} showPrevious={true} onNextPress={()=>{
-        onNextPress(Languages)
-      }} onPreviousPress={()=>{
-        navigation.replace("Slide1")
-      }}/>
+      <BottomNextAndPrevious 
+        delay={100} 
+        showPrevious={true} 
+        onNextPress={() => onNextPress(Languages)} 
+        onPreviousPress={() => navigation.replace("Slide1")}
+      />
     </MainWrapper>
   );
 };

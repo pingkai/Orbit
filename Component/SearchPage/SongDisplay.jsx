@@ -44,8 +44,9 @@ export default function SongDisplay({data, limit, Searchtext}) {
     return artist
   }
   return (
-     <View>
-      {Data?.data?.results?.length !== 0 && <FlatList showsVerticalScrollIndicator={false} keyExtractor={(item, index) => String(index)} onEndReached={()=>{
+    <View>
+      {Data?.data?.results?.length !== 0 && <FlatList 
+        showsVerticalScrollIndicator={false} keyExtractor={(item, index) => String(index)} onEndReached={()=>{
         setTimeout(()=>{
           setPage(Page + 1)
           fetchSearchData(Searchtext, Page)
@@ -56,11 +57,27 @@ export default function SongDisplay({data, limit, Searchtext}) {
         if(item.item.LoadingComponent  === true){
             return <LoadingComponent loading={Loading} height={100}/>
         }else{
-            return <EachSongCard  artistID={item.item?.primaryArtistsId} language={item.item?.language} duration={item.item?.duration} image={item?.item?.image[2]?.url ?? ""} id={item.item?.id} width={width * 0.95} title={item.item?.name} artist={FormatArtist(item.item?.artists?.primary)} url={item.item?.downloadUrl} style={{
-                marginBottom:13,
-            }}/>
-        }
-      }}/>}
+            return <EachSongCard  
+              artistID={item.item?.primaryArtistsId} 
+              language={item.item?.language} 
+              duration={item.item?.duration} 
+              image={item?.item?.image[2]?.url ?? ""} 
+              id={item.item?.id} 
+              width={width * 0.95} 
+              title={item.item?.name} 
+              artist={FormatArtist(item.item?.artists?.primary)} 
+              url={item.item?.downloadUrl}
+              getPosition={(event) => {
+                const { pageY } = event.nativeEvent;
+                return { y: pageY };
+              }}
+              style={{
+                marginBottom: 13,
+              }}
+            />
+          }
+        }}
+      />}
       {Data?.data?.results?.length === 0 && <View style={{
         height:400,
         alignItems:"center",

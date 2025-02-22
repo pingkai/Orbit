@@ -24,7 +24,7 @@ function EachTabs({item,isActive,index,setActive}) {
         {isActive &&  <Animated.View entering={ZoomIn.duration(300)} exiting={ZoomOut.duration(300)} style={{
             // width:width * 0.02,
             // height:width * 0.02,
-            backgroundColor:theme.colors.primary,
+            backgroundColor:"#32CD32",
             borderRadius:100000000000,
             paddingVertical:7,
         }}><Text style={{

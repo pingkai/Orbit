@@ -24,8 +24,8 @@ const QueueBottomSheet = () => {
         }}
         handleComponent={props => {
           return <View style={{alignItems:"center", justifyContent:"center", backgroundColor:"transparent", height:60}}>
-            <Octicons name={"dash"} size={24} color="white" />
-            <PlainText text={"Song Queue"}/>
+            <Octicons name={"dash"} size={40} color="white" />
+            <PlainText text={"Up Next"} style={{fontWeight: 'bold', fontSize: 18}}/>
           </View>
         }}
         backgroundStyle={{

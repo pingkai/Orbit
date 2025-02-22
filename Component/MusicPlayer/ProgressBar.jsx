@@ -23,7 +23,7 @@ export const ProgressBar = () => {
         onSlidingComplete={(progress)=>{
           SetProgressSong(progress)
         }}
-        style={{width: width, height: 40}}
+        style={{width: width * 0.95, height: 40}}
         minimumValue={0}
         maximumValue={duration}
         value={(position >= duration) ? 0 : position}
@@ -32,8 +32,8 @@ export const ProgressBar = () => {
         thumbTintColor={"white"}
       />
       <View style={{flexDirection:"row", justifyContent:"space-between", width:"90%"}}>
-        <SmallText text={(position >= duration) ? "0:00" : formatTime(position)}/>
-        <SmallText text={formatTime(duration)}/>
+        <SmallText text={(position >= duration) ? "0:00" : formatTime(position)} style={{fontSize: 15}}/>
+        <SmallText text={formatTime(duration)} style={{fontSize: 15}}/>
       </View>
     </>
   );

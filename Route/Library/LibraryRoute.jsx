@@ -16,4 +16,3 @@ export const LibraryRoute = () => {
     </Stack.Navigator>
   );
 };
-

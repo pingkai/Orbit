@@ -107,12 +107,21 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
             <SmallText text={FormatTitleAndArtist(artist)} style={{width:titleandartistwidth ? titleandartistwidth : width1 * 0.67}}/>
           </View>
         </Pressable>
-        <EachSongMenuButton Onpress={()=>{
-          setVisible({
-            visible:true,
-            title,artist,image,id,url,duration,language,
-          })
-        }}/>
+        <EachSongMenuButton 
+              Onpress={({pageY}) => {
+                setVisible({
+                  visible: true,
+                  title,
+                  artist,
+                  image,
+                  id,
+                  url,
+                  duration,
+                  language,
+                  position: { y: pageY }
+                });
+              }}
+            />
       </View>
     </>
   );

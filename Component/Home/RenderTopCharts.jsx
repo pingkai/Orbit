@@ -12,17 +12,12 @@ export const RenderTopCharts = ({playlist}) => {
     }
   }
   return (
-    <>
-      {data.map((e,i)=><View style={{
-        gap:15,
-      }}>
-        {/* eslint-disable-next-line no-shadow */}
-        {e.map((e,index) => <View style={{
-          marginRight:15,
-        }}>
-          <EachPlaylistCard image={e.image[2].link} name={e.title} follower={e.subtitle} key={i+index} id={e.id}/>
-        </View>)}
-      </View>)}
-    </>
+    <View style={{flexDirection: 'row'}}>
+      {data.map((item, index) => (
+        <View key={item.id || index} style={{marginRight: 10}}>
+          {/* rest of your item rendering */}
+        </View>
+      ))}
+    </View>
   );
 };

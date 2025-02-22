@@ -13,9 +13,11 @@ import { GetDownloadPath } from "../../LocalStorage/AppSettings";
 import DeviceInfo from "react-native-device-info";
 import { AddSongsToQueue, getIndexQuality} from "../../MusicPlayerFunctions";
 import Context from "../../Context/Context";
+import TrackPlayer from "react-native-track-player";
 
 export const EachSongMenuModal = ({Visible, setVisible}) => {
   const {updateTrack} = useContext(Context)
+  
   async function actualDownload () {
     let dirs = ReactNativeBlobUtil.fs.dirs
     const path = await GetDownloadPath()
@@ -46,7 +48,48 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
       })
     setVisible({visible: false})
   }
-
+  async function playNext() {
+    const quality = await getIndexQuality()
+    const song = {
+      url: Visible.url[quality].url,
+      title: FormatTitleAndArtist(Visible.title),
+      artist: FormatTitleAndArtist(Visible.artist),
+      artwork: Visible.image,
+      duration: Visible.duration,
+      id: Visible.id,
+      language: Visible.language,
+      image: Visible.image,
+      downloadUrl: Visible.url,
+    }
+    
+    try {
+      const queue = await TrackPlayer.getQueue();
+      const currentIndex = await TrackPlayer.getCurrentTrack();
+      
+      // If no track is playing, add to beginning and play
+      if (currentIndex === null || queue.length === 0) {
+        await TrackPlayer.add(song);
+        await TrackPlayer.play();
+      } else {
+        await TrackPlayer.add(song, currentIndex + 1);
+      }
+      
+      updateTrack();
+      setVisible({visible: false});
+      ToastAndroid.showWithGravity(
+        `Song Will Play Next`,
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
+    } catch (error) {
+      console.log("Play next error:", error);
+      ToastAndroid.showWithGravity(
+        `Unable to add song`,
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
+    }
+  }
   const getPermission = async () => {
     if (Platform.OS === 'ios') {
       actualDownload();
@@ -94,78 +137,98 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
   }
   const size = Dimensions.get("window").height
   return (
-    <Modal onBackButtonPress={()=>setVisible({visible: false})} onSwipeComplete={()=>setVisible({visible: false})} onBackdropPress={()=>setVisible({visible: false})} swipeDirection={['up', 'left', 'right', 'down']} isVisible={Visible.visible} style={{
-      justifyContent: 'flex-end',
-      margin: 0,
-    }}>
+    <Modal 
+      onBackButtonPress={() => setVisible({visible: false})} 
+      onBackdropPress={() => setVisible({visible: false})} 
+      isVisible={Visible.visible} 
+      backdropOpacity={0}
+      animationIn="fadeIn"
+      animationOut="fadeOut"
+      animationInTiming={50}
+      animationOutTiming={50}
+      useNativeDriver
+      hideModalContentWhileAnimating
+      style={{
+        margin: 0,
+        position: 'absolute',
+        top: typeof Visible.position?.y === 'number' ? Visible.position.y : 0,
+        right: 16,
+        justifyContent: 'flex-start',
+      }}
+    >
       <View style={{
-        backgroundColor:"rgb(18,18,18)",
-        elevation:10,
+        backgroundColor: "rgb(28,28,28)",
+        borderRadius: 10,
+        width: 200,
+        overflow: 'hidden',
+        elevation: 10,
+        transform: [
+          { translateY: -50 },
+          { scale: Visible.visible ? 1 : 0.95 }
+        ],
+        opacity: Visible.visible ? 1 : 0,
       }}>
-        <Spacer/>
-        <View
-          style={{
-            flexDirection: 'row',
-            justifyContent:"space-between",
-            paddingHorizontal:15,
-            paddingTop:5,
-            alignItems:"center",
-            gap:10,
-          }}>
-          <View style={{
-            flexDirection:"row",
-            flex:1,
-          }}>
-            <FastImage
-              source={{
-                uri: Visible.image ?? "https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png",
-              }}
-              style={{
-                height: (size *  0.1) - 30,
-                width: (size *  0.1) - 30,
-                borderRadius: 10,
-              }}
-            />
-            <View style={{
-              flex:1,
-              height:(size *  0.1) - 30,
-              alignItems:"flex-start",
-              justifyContent:"center",
-              paddingHorizontal:10,
-            }}>
-              <PlainText text={FormatTitleAndArtist(Visible?.title) ?? "No music :("} style={{color:"white"}}/>
-              <SmallText text={FormatTitleAndArtist(Visible?.artist) ?? "Explore now!"} maxLine={1}/>
-            </View>
-          </View>
-        </View>
-        <Spacer/>
-        <View style={{
-          flexDirection:"row",
-          gap:10,
-          paddingHorizontal:10,
-        }}>
-          <EachModalButton text={"Add to Queue"} icon={<MaterialCommunityIcons name={"playlist-music-outline"} size={25} color={"white"}/>} Onpress={addSongToQueue}/>
-         <EachModalButton text={"Download"} Onpress={getPermission} icon={<AntDesign name={"download"} size={25} color={"white"}/>}/>
-        </View>
-        <Spacer/>
-        <Spacer/>
-        <Spacer/>
+        {/* <MenuButton
+          icon={<MaterialCommunityIcons name="magnify" size={22} color="white"/>}
+          text="Search Home"
+          onPress={() => {
+            setVisible({visible: false});
+          }}
+        /> */}
+        <MenuButton
+          icon={<MaterialCommunityIcons name="play-box-multiple" size={22} color="white"/>}
+          text="Play Next"
+          onPress={playNext}
+        />
+        <MenuButton
+          icon={<MaterialCommunityIcons name="playlist-music" size={22} color="white"/>}
+          text="Add to Queue"
+          onPress={addSongToQueue}
+        />
+        {/* <MenuButton
+          icon={<MaterialCommunityIcons name="playlist-plus" size={22} color="white"/>}
+          text="Add to Playlist"
+          onPress={() =>
+        /> */}
+        <MenuButton
+          icon={<MaterialCommunityIcons name="download" size={22} color="white"/>}
+          text="Download"
+          onPress={getPermission}
+        />
+        {/* <MenuButton
+          icon={<MaterialCommunityIcons name="youtube" size={22} color="white"/>}
+          text="Watch Video"
+          onPress={() => {}}
+        />
+        <MenuButton
+          icon={<MaterialCommunityIcons name="share-variant" size={22} color="white"/>}
+          text="Share"
+          onPress={() => {}}
+        /> */}
       </View>
     </Modal>
   );
 };
-function EachModalButton({icon,text,Onpress}){
-  return  <Pressable onPress={()=>Onpress()} style={{
-    height:100,
-    backgroundColor:"rgb(41,47,49)",
-    borderRadius:10,
-    flex:1,
-    alignItems:"center",
-    justifyContent:"center",
-    elevation:5,
-  }}>
+
+const MenuButton = ({icon, text, onPress}) => (
+  <Pressable 
+    onPress={onPress}
+    android_ripple={{color: 'rgba(255,255,255,0.1)'}}
+    style={{
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 12,
+      paddingHorizontal: 16,
+    }}
+  >
     {icon}
-    <Spacer/>
-    <PlainText text={text} style={{color:"white", paddingRight:0}}/>
+    <PlainText 
+      text={text} 
+      style={{
+        color: "white",
+        marginLeft: 16,
+        fontSize: 14,
+      }}
+    />
   </Pressable>
-}
+);
