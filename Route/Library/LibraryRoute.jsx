@@ -4,6 +4,9 @@ import { Library } from "./Library";
 import { LikedSongPage } from "./LikedSongPage";
 import { LikedPlaylistPage } from "./LikedPlaylistPage";
 import { AboutProject } from "./AboutProject";
+import { CustomPlaylist } from "./CustomPlaylist";
+import { CustomPlaylistView } from "../../Component/Playlist/CustomPlaylistView";
+
 const Stack = createNativeStackNavigator();
 export const LibraryRoute = () => {
   return (
@@ -11,6 +14,8 @@ export const LibraryRoute = () => {
       <Stack.Screen  name="LibraryPage" component={Library} />
       <Stack.Screen  name="Playlist" component={Playlist} />
       <Stack.Screen name={"LikedSongs"} component={LikedSongPage}/>
+      <Stack.Screen name={"CustomPlaylist"} component={CustomPlaylist} />
+      <Stack.Screen name={"CustomPlaylistView"} component={CustomPlaylistView} />
       <Stack.Screen name={"LikedPlaylists"} component={LikedPlaylistPage}/>
       <Stack.Screen name={"AboutProject"} component={AboutProject}/>
     </Stack.Navigator>

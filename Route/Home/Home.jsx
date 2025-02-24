@@ -54,16 +54,44 @@ export const Home = () => {
               <HorizontalScrollSongs id={Data.data.charts[0].id}/>
               <Heading text={"Recommended"}/>
             </PaddingConatiner>
-            <FlatList horizontal={true} showsHorizontalScrollIndicator={false} contentContainerStyle={{
-              paddingLeft:13,
-              gap:15,
-            }} data={Data?.data?.playlists ?? []} renderItem={(item,i)=><EachPlaylistCard name={item.item.title} follower={item.item.subtitle} key={item.index} image={item.item.image[2].link} id={item.item.id}/>}/>
+            <FlatList
+              horizontal={true}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingLeft: 13,
+                gap: 15,
+              }}
+              data={Data?.data?.playlists ?? []}
+              renderItem={({ item, index }) => (
+                <EachPlaylistCard
+                  name={item.title.length > 20 ? item.title.substring(0, 20) + '...' : item.title}
+                  follower={item.subtitle.length > 20 ? item.subtitle.substring(0, 20) + '...' : item.subtitle}
+                  key={index}
+                  image={item.image[2].link}
+                  id={item.id}
+                />
+              )}
+            />
             <PaddingConatiner>
               <Heading text={"Trending Albums"}/>
             </PaddingConatiner>
-            <FlatList horizontal={true} showsHorizontalScrollIndicator={false} contentContainerStyle={{
-              paddingLeft:13,
-            }} data={Data?.data?.trending?.albums ?? []} renderItem={(item)=><EachAlbumCard image={item.item.image[2].link} artists={item.item.artists} key={item.index} name={item.item.name} id={item.item.id}/>}/>
+            <FlatList
+              horizontal={true}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingLeft: 13,
+              }}
+              data={Data?.data?.trending?.albums ?? []}
+              renderItem={({ item, index }) => (
+                <EachAlbumCard
+                  image={item.image[2].link}
+                  artists={item.artists}
+                  key={index}
+                  name={item.name.length > 20 ? item.name.substring(0, 20) + '...' : item.name}
+                  id={item.id}
+                />
+              )}
+            />
             <PaddingConatiner>
               <HorizontalScrollSongs id={Data?.data?.charts[1]?.id}/>
             </PaddingConatiner>

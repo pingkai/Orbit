@@ -36,7 +36,7 @@ export const LikeSongButton = memo(function LikeSongButton({size}) {
     <Pressable onPress={()=>{
         LikeASong()
     }}>
-      <AntDesign name={Liked ? "heart" : "hearto"} size={size ? size : 15} color={Liked ? 'rgb(234,113,113)' : theme.colors.text}/>
+      <AntDesign name={Liked ? "heart" : "hearto"} size={size ? size : 15} color={Liked ? 'rgb(230, 28, 28)' : theme.colors.text}/>
     </Pressable>
   );
 })

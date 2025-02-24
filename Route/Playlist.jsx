@@ -34,7 +34,7 @@ export const Playlist = ({route}) => {
   }
   useEffect(() => {
     fetchPlaylistData()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
   return (

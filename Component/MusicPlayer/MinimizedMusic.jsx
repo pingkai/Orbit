@@ -65,8 +65,13 @@ export const MinimizedMusic = memo(({setIndex, color}) => {
               justifyContent:"center",
               paddingHorizontal:10,
             }}>
-              <PlainText text={currentPlaying?.title ?? "No music :("}/>
-              <SmallText text={currentPlaying?.artist ?? "Explore now!"} maxLine={1}/>
+              <PlainText 
+                text={currentPlaying?.title.length > 20 ? currentPlaying.title.substring(0, 20) + '...' : currentPlaying?.title ?? "No music :("}
+              />
+              <SmallText 
+                text={currentPlaying?.artist.length > 20 ? currentPlaying.artist.substring(0, 20) + '...' : currentPlaying?.artist ?? "Explore now!"} 
+                maxLine={1}
+              />
             </View>
           </View>
         </GestureDetector>

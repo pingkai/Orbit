@@ -39,9 +39,9 @@ export const QueueRenderSongs = memo(function QueueRenderSongs() {
       data={upcomingQueue}
       renderItem={(item) => (
         <EachSongQueue 
-          title={item.item.title}
+          title={item.item.title.length > 20 ? item.item.title.substring(0, 20) + '...' : item.item.title}
           key={item.item.id}
-          artist={item.item.artist}
+          artist={item.item.artist.length > 20 ? item.item.title.substring(0, 20) + '...' :item.item.artist}
           id={item.item.id}
           index={currentIndex + item.index + 1}
           image={item.item.artwork}

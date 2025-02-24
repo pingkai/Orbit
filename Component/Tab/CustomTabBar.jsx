@@ -1,6 +1,7 @@
 import React, { useContext, useEffect } from "react";
 import { View, StyleSheet, Pressable } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons"
 import Animated, { withSpring, useAnimatedStyle, withTiming } from "react-native-reanimated";
 import Context from "../../Context/Context";
 
@@ -32,7 +33,7 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
     } else if (label === "Discover") {
       return <Ionicons name={isDiabled ? "compass-outline" : "compass"} color={color} size={size} />
     } else if (label === "Library") {
-      return <Ionicons name={isDiabled ? "library-outline" : "library"} color={color} size={size} />
+      return <MaterialCommunityIcons  name={isDiabled ? "folder-music-outline" : "folder-music"} color={color} size={size} />
     }
   }
   if (Index === 1) return null;

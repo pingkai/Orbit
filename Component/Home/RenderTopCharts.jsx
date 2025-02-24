@@ -14,8 +14,16 @@ export const RenderTopCharts = ({playlist}) => {
   return (
     <View style={{flexDirection: 'row'}}>
       {data.map((item, index) => (
-        <View key={item.id || index} style={{marginRight: 10}}>
-          {/* rest of your item rendering */}
+        <View key={index} style={{marginRight: 10}}>
+          {item.map((e, i) => (
+            <EachPlaylistCard 
+              image={e.image[2].link} 
+              name={e.title} 
+              follower={e.subtitle} 
+              key={e.id} 
+              id={e.id}
+            />
+          ))}
         </View>
       ))}
     </View>

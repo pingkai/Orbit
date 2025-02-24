@@ -2,6 +2,18 @@ import TrackPlayer from "react-native-track-player";
 import { setRepeatMode } from "react-native-track-player/lib/trackPlayer";
 import { GetPlaybackQuality } from "./LocalStorage/AppSettings";
 
+let isPlayerInitialized = false;
+
+export const setupPlayer = async () => {
+  try {
+    if (!isPlayerInitialized) {
+      await TrackPlayer.setupPlayer();
+      isPlayerInitialized = true;
+    }
+  } catch (error) {
+    console.log('Error setting up player:', error);
+  }
+};
 async function PlayOneSong(song){
   await  TrackPlayer.reset()
   await TrackPlayer.add([song]);

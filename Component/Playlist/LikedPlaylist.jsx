@@ -32,7 +32,7 @@ async function storeLikedSongs(){
     <Pressable onPress={()=>{
       storeLikedSongs()
     }}>
-      <AntDesign size={20} name={Liked ? "heart" : "hearto"} color={Liked ? 'rgb(227,97,97)' : theme.colors.text}/>
+      <AntDesign size={30} name={Liked ? "heart" : "hearto"} color={Liked ? 'rgb(236, 21, 21)' : theme.colors.text}/>
     </Pressable>
   );
 };

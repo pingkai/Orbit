@@ -54,11 +54,12 @@ export const ChangeName = ({navigation}) => {
         <Pressable onPress={()=>{
           OnConfirm(Name)
         }} style={{
-          padding:10,
+          padding:15,
           alignItems:"center",
           justifyContent:'center',
-          backgroundColor:theme.colors.primary,
+          backgroundColor:"#32CD32",
           borderRadius:10,
+          marginTop:10,
         }}>
           <PlainText text={"Change Name"} style={{
             color:"black",

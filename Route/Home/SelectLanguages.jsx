@@ -94,7 +94,7 @@ export const SelectLanguages = ({navigation}) => {
           padding:15,
           alignItems:"center",
           justifyContent:'center',
-          backgroundColor:theme.colors.primary,
+          backgroundColor:"#32CD32",
           borderRadius:10,
         }}>
           <PlainText text={"Confirm"} style={{

@@ -69,12 +69,12 @@ export const LanguageDetailPage = ({route}) => {
             <PaddingConatiner>
               <HorizontalScrollSongs id={Data?.data?.charts[3]?.id}/>
             </PaddingConatiner>
-            <PaddingConatiner>
+            {/* <PaddingConatiner>
               <Heading text={"Recommended Albums"}/>
             </PaddingConatiner>
             <FlatList horizontal={true} showsHorizontalScrollIndicator={false} contentContainerStyle={{
               paddingLeft:13,
-            }} data={Data?.data?.albums ?? []} renderItem={(item)=><EachAlbumCard image={item?.item?.image[2]?.link ?? ""} artists={item.item.artists} key={item.index} name={item.item.name} id={item.item.id}/>}/>
+            }} data={Data?.data?.albums ?? []} renderItem={(item)=><EachAlbumCard image={item?.item?.image[2]?.link ?? ""} artists={item.item.artists} key={item.index} name={item.item.name} id={item.item.id}/>}/> */}
             <PaddingConatiner>
               <HorizontalScrollSongs id={Data?.data?.charts[2]?.id}/>
             </PaddingConatiner>

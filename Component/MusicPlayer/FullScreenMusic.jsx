@@ -21,6 +21,10 @@ import { useActiveTrack } from "react-native-track-player";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { PlayNextSong, PlayPreviousSong } from "../../MusicPlayerFunctions";
 import SleepTimerButton from "./SleepTimer";
+import ReactNativeBlobUtil from "react-native-blob-util";
+import { PermissionsAndroid, Platform, ToastAndroid } from "react-native";
+import DeviceInfo from "react-native-device-info";
+import { GetDownloadPath } from "../../LocalStorage/AppSettings";
 
 export const FullScreenMusic = ({ color, Index, setIndex }) => {
   const pan = Gesture.Pan();
@@ -60,6 +64,66 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
       setLoading(false)
     }
   }
+  const actualDownload = async () => {
+    let dirs = ReactNativeBlobUtil.fs.dirs;
+    const path = await GetDownloadPath();
+    ToastAndroid.showWithGravity(
+      `Download Started`,
+      ToastAndroid.SHORT,
+      ToastAndroid.CENTER,
+    );
+    ReactNativeBlobUtil
+      .config({
+        addAndroidDownloads: {
+          useDownloadManager: true,
+          path: (path === "Downloads") ? dirs.LegacyDownloadDir + `/Orbit/${currentPlaying.title}.m4a` : dirs.LegacyMusicDir + `/Orbit/${currentPlaying.title}.m4a`,
+          notification: true,
+          title: `${currentPlaying.title}`,
+        },
+        fileCache: true,
+      })
+      .fetch('GET', currentPlaying.url, {})
+      .then((res) => {
+        console.log('The file saved to ', res.path());
+        ToastAndroid.showWithGravity(
+          "Download successfully Completed",
+          ToastAndroid.SHORT,
+          ToastAndroid.CENTER,
+        );
+      })
+      .catch((error) => {
+        console.log("Download error", error);
+        ToastAndroid.showWithGravity(
+          "Download failed",
+          ToastAndroid.SHORT,
+          ToastAndroid.CENTER,
+        );
+      });
+  };
+  const getPermission = async () => {
+    if (Platform.OS === 'ios') {
+      actualDownload();
+    } else {
+      try {
+        let deviceVersion = DeviceInfo.getSystemVersion();
+        let granted = PermissionsAndroid.RESULTS.DENIED;
+        if (deviceVersion >= 13) {
+          granted = PermissionsAndroid.RESULTS.GRANTED;
+        } else {
+          granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+          );
+        }
+        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+          actualDownload();
+        } else {
+          console.log("Please grant permission");
+        }
+      } catch (err) {
+        console.log("Permission error", err);
+      }
+    }
+  };
   return (
     <Animated.View entering={FadeInDown.delay(200)} style={{ backgroundColor: "rgb(0,0,0)", flex: 1 }}>
       <ShowLyrics Loading={Loading} Lyric={Lyric} setShowDailog={setShowDailog} ShowDailog={ShowDailog} />
@@ -102,7 +166,17 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
               />
             </GestureDetector>
             <Spacer />
-            <Heading text={currentPlaying?.title ?? "No music :("} style={{ textAlign: "center", paddingHorizontal: 2, marginBottom: 10, marginTop: 5, fontSize: 30 }} nospace={true} />
+            <Heading 
+              text={
+                currentPlaying?.title 
+                  ? currentPlaying.title.length > 20 
+                    ? currentPlaying.title.substring(0, 20) + "..." 
+                    : currentPlaying.title 
+                  : "No music :("
+              } 
+              style={{ textAlign: "center", paddingHorizontal: 2, marginBottom: 10, marginTop: 5, fontSize: 30 }} 
+              nospace={true} 
+            />
             <SmallText
               text={currentPlaying?.artist
                 ? currentPlaying.artist.length > 20
@@ -116,7 +190,7 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
             <ProgressBar />
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-around", width: "100%" }}>
               <View >
-                <LikeSongButton size={20} />
+                <LikeSongButton size={25} />
               </View>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 20 }}>
                 <PreviousSongButton size={30} />
@@ -135,7 +209,9 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
                   PlayPauseButton.pause();
                 }}
               />
-              <Ionicons name="download-outline" size={25} color="white" />
+              <Pressable onPress={getPermission}>
+                <Ionicons name="download-outline" size={25} color="white" />
+              </Pressable>
             </View>
           </LinearGradient>
         </View>

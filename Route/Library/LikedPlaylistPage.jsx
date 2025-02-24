@@ -25,20 +25,34 @@ export const LikedPlaylistPage = () => {
     getAllLikedSongs()
   }, []);
   return (
-    <Animated.ScrollView scrollEventThrottle={16} ref={AnimatedRef} contentContainerStyle={{
-      paddingBottom:65,
-      backgroundColor:"rgba(0,0,0)",
-    }}>
+    <Animated.ScrollView 
+      scrollEventThrottle={16} 
+      ref={AnimatedRef} 
+      contentContainerStyle={{
+        paddingBottom: 65,
+        backgroundColor: "rgba(0,0,0)",
+      }}
+    >
       <LikedPagesTopHeader AnimatedRef={AnimatedRef} url={require("../../Images/LikedPlaylist.png")} />
       <LikedDetails name={"Liked Playlists"} dontShowPlayButton={true}/>
       <PaddingConatiner>
-        <View style={{backgroundColor:theme.colors.background, flexDirection:'row', alignItems:"center", justifyContent:"space-between", flexWrap:"wrap"}}>
-          {LikedPlaylist.map((e,i)=>{
-            if (e){
-              return <EachPlaylistCard name={e.name} image={e.image} id={e.id} follower={e.follower} MainContainerStyle={{
-                width:"48%",
-              }}/>
+        <View style={{backgroundColor: theme.colors.background, flexDirection: 'row', alignItems: "center", justifyContent: "space-between", flexWrap: "wrap"}}>
+          {LikedPlaylist.map((e, i) => {
+            if (e) {
+              return (
+                <EachPlaylistCard 
+                  key={e.id || `playlist-${i}`} // Added unique key
+                  name={e.name}
+                  image={e.image}
+                  id={e.id}
+                  follower={e.follower}
+                  MainContainerStyle={{
+                    width: "48%",
+                  }}
+                />
+              );
             }
+            return null; // Added explicit return for when e is falsy
           })}
           <View/>
         </View>

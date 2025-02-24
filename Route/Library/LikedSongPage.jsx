@@ -44,7 +44,7 @@ export const LikedSongPage = () => {
       paddingBottom:55,
       backgroundColor:"rgba(0,0,0)",
     }}>
-      <LikedPagesTopHeader AnimatedRef={AnimatedRef} url={require("../../Images/LikedSong.png")} />
+      <LikedPagesTopHeader AnimatedRef={AnimatedRef} url={require("../../Images/likedMusic.webp")} />
       <LikedDetails name={"Liked Songs"} Data={LikedSongs}/>
      <View style={{paddingHorizontal:10, backgroundColor:theme.colors.background}}>
        {LikedSongs.map((e,i) =>{

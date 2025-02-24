@@ -1,46 +1,53 @@
-import { Dimensions, ImageBackground, Pressable, View } from "react-native";
-import FastImage from "react-native-fast-image";
+import { Dimensions, Pressable, View, Animated } from "react-native";
 import { PlainText } from "../Global/PlainText";
 import { useNavigation } from "@react-navigation/native";
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useRef } from "react";
 
-export const EachLibraryCard = ({image, text, navigate}) => {
-  const width = Dimensions.get("window").width
-  const containerWidth = width * 0.45
-  const navigation = useNavigation()
+export const EachLibraryCard = ({ icon, text, navigate }) => {
+  const width = Dimensions.get("window").width;
+  const containerWidth = width * 0.9; // Adjusted for one card per row
+  const navigation = useNavigation();
+  const scaleValue = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleValue, {
+      toValue: 0.95,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleValue, {
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  };
+
   return (
-    <Pressable onPress={()=>{
-        navigation.navigate(navigate)
-    }} style={{
-      marginVertical:8,
-      height:containerWidth,
-      width:containerWidth,
-      borderRadius:7,
-      overflow:"hidden",
-    }}>
-      <ImageBackground blurRadius={10} source={image} style={{
-        height:containerWidth,
-        width:containerWidth,
-      }}>
+    <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
+      <Pressable
+        onPress={() => {
+          navigation.navigate(navigate);
+        }}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={{
+          marginVertical: 4, // Reduced vertical margin for tighter spacing
+          height: 60, // Fixed height for a row-like appearance
+          width: containerWidth,
+          flexDirection: "row", // Align items in a row
+          alignItems: "center",
+          paddingHorizontal: 15,
+        }}
+      >
+        <MaterialCommunityIcons name={icon} size={25} color="white" />
         <View style={{
-          alignItems:"center",
-          justifyContent:"space-between",
-          flex:1,
-          backgroundColor:"rgba(0,0,0,0.53)",
+          marginLeft: 20, // Increased space between icon and text
         }}>
-          <FastImage source={image} style={{
-            height:"80%",
-            width:"100%",
-          }}/>
-          <View style={{
-            flex:1,
-            alignItems:"center",
-            justifyContent:"center",
-            paddingHorizontal:15,
-          }}>
-            <PlainText text={text}/>
-          </View>
+          <PlainText text={text} style={{fontSize:18, fontWeight: 'bold'}} />
         </View>
-      </ImageBackground>
-    </Pressable>
+      </Pressable>
+    </Animated.View>
   );
 };

@@ -1,44 +1,58 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Pressable, Modal, View, Text, StyleSheet, TextInput } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { PlaySong, PauseSong } from '../../MusicPlayerFunctions'; 
 
-let sleepTimerRef = null;
-
-export const SleepTimerButton = ({ size = 25, onSleepComplete }) => {
-  const [isActive, setIsActive] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [customTime, setCustomTime] = useState('');
-  const [timeUnit, setTimeUnit] = useState('minutes');
-
+export const SleepTimerButton = ({ size = 25 }) => {
+  const [isTimerActive, setIsTimerActive] = useState(false); 
+  const [modalVisible, setModalVisible] = useState(false); 
+  const [customTime, setCustomTime] = useState(''); 
+  const [timeUnit, setTimeUnit] = useState('minutes'); 
+  const [remainingTime, setRemainingTime] = useState(0);
+  const timerRef = useRef(null); 
+  const countdownRef = useRef(null); 
   const timerOptions = [
     { label: '15 minutes', value: 15 * 60 },
     { label: '30 minutes', value: 30 * 60 },
     { label: '45 minutes', value: 45 * 60 },
     { label: '1 hour', value: 60 * 60 },
   ];
-
   const clearTimer = () => {
-    if (sleepTimerRef) {
-      clearTimeout(sleepTimerRef);
-      sleepTimerRef = null;
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
     }
-    setIsActive(false);
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
+    setIsTimerActive(false);
+    setRemainingTime(0);
   };
-
   const setSleepTimer = (seconds) => {
     clearTimer();
-    sleepTimerRef = setTimeout(() => {
-      if (onSleepComplete) {
-        onSleepComplete();
-      }
+    PlaySong(); // Start playback when the timer is set
+    setRemainingTime(seconds);
+    countdownRef.current = setInterval(() => {
+      setRemainingTime((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownRef.current);
+          countdownRef.current = null;
+          PauseSong(); // Pause playback when countdown reaches zero
+          setIsTimerActive(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    timerRef.current = setTimeout(() => {
+      PauseSong(); // Ensure playback stops after the specified duration
       clearTimer();
     }, seconds * 1000);
-
-    setIsActive(true);
+    setIsTimerActive(true);
     setModalVisible(false);
     setCustomTime('');
   };
-
   const handleCustomTimer = () => {
     const time = parseInt(customTime, 10);
     if (!isNaN(time) && time > 0) {
@@ -46,18 +60,32 @@ export const SleepTimerButton = ({ size = 25, onSleepComplete }) => {
       setSleepTimer(seconds);
     }
   };
-
+  useEffect(() => {
+    return () => {
+      clearTimer();
+    };
+  }, []);
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
   return (
-    <>
-      <Pressable 
-        onPress={() => isActive ? clearTimer() : setModalVisible(true)}
-        style={{ marginTop: 15 }}
+    <View style={styles.container}>
+      <Pressable
+        onPress={() => (isTimerActive ? clearTimer() : setModalVisible(true))}
+        style={styles.button}
       >
         <MaterialCommunityIcons
-          name={isActive ? "timer" : "timer-outline"}
+          name={isTimerActive ? 'timer' : 'timer-outline'}
           size={size}
-          color={isActive ? "#1DB954" : "white"}
+          color={isTimerActive ? '#1DB954' : 'white'}
         />
+        {isTimerActive && (
+          <Text style={styles.remainingTime}>
+            {formatTime(remainingTime)}
+          </Text>
+        )}
       </Pressable>
 
       <Modal
@@ -69,7 +97,7 @@ export const SleepTimerButton = ({ size = 25, onSleepComplete }) => {
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Set Sleep Timer</Text>
-            
+
             {timerOptions.map((option) => (
               <Pressable
                 key={option.value}
@@ -98,10 +126,14 @@ export const SleepTimerButton = ({ size = 25, onSleepComplete }) => {
                     ]}
                     onPress={() => setTimeUnit('minutes')}
                   >
-                    <Text style={[
-                      styles.unitButtonText,
-                      timeUnit === 'minutes' && styles.unitButtonTextActive,
-                    ]}>Min</Text>
+                    <Text
+                      style={[
+                        styles.unitButtonText,
+                        timeUnit === 'minutes' && styles.unitButtonTextActive,
+                      ]}
+                    >
+                      Min
+                    </Text>
                   </Pressable>
                   <Pressable
                     style={[
@@ -110,10 +142,14 @@ export const SleepTimerButton = ({ size = 25, onSleepComplete }) => {
                     ]}
                     onPress={() => setTimeUnit('hours')}
                   >
-                    <Text style={[
-                      styles.unitButtonText,
-                      timeUnit === 'hours' && styles.unitButtonTextActive,
-                    ]}>Hour</Text>
+                    <Text
+                      style={[
+                        styles.unitButtonText,
+                        timeUnit === 'hours' && styles.unitButtonTextActive,
+                      ]}
+                    >
+                      Hour
+                    </Text>
                   </Pressable>
                 </View>
               </View>
@@ -137,11 +173,23 @@ export const SleepTimerButton = ({ size = 25, onSleepComplete }) => {
           </View>
         </View>
       </Modal>
-    </>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    marginTop: 15,
+  },
+  button: {
+    alignItems: 'center',
+  },
+  remainingTime: {
+    color: 'white',
+    fontSize: 12,
+    marginTop: 4,
+  },
   modalContainer: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -179,7 +227,7 @@ const styles = StyleSheet.create({
   customTimerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'space-between',
     marginBottom: 10,
   },
   customTimerInput: {
@@ -190,6 +238,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     fontSize: 16,
     textAlign: 'center',
+    marginRight: 10,
   },
   customTimerButton: {
     backgroundColor: '#1DB954',

@@ -111,16 +111,23 @@ android {
             signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            // Add this line to fix CodePush asset merging
+            packagingOptions {
+                exclude "**/CodePushHash"
+            }
         }
     }
 }
 
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
+    implementation fileTree(dir: "libs", include: ["*.jar"])
     implementation("com.facebook.react:react-android")
     implementation("com.facebook.react:flipper-integration")
     implementation ('com.facebook.fresco:fresco:2.0.0')
     implementation ('com.facebook.fresco:animated-gif:2.0.0')
+    implementation "com.facebook.react:react-native:+"
+    implementation project(':react-native-get-music-files')
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
     } else {

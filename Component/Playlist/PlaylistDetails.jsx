@@ -48,14 +48,15 @@ export const PlaylistDetails = ({name,listener,notReleased,Data, Loading, id, im
           paddingLeft:5,
           maxWidth:width * 0.8,
         }}>
-          <Heading text={name}/>
+          <Heading text={name.length > 20 ? name.substring(0, 20) + '...' : name }/>
           <View style={{flexDirection:"row",gap:5}}>
             <Ionicons name={"musical-note"} size={16}/>
             <SmallText text={listener}/>
           </View>
           <Spacer/>
-          <LikedPlaylist id={id} image={image} name={name} follower={follower}/>
+          {/* <LikedPlaylist id={id} image={image} name={name} follower={follower}/> */}
         </View>
+        <LikedPlaylist id={id} image={image} name={name} follower={follower}/>
         <PlayButton Loading={Loading} onPress={()=>{
           if (!Loading){
             AddToPlayer()

@@ -35,12 +35,44 @@ export const HorizontalScrollSongs = ({id}) => {
         {!Loading && <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
           <View>
             {Data?.data?.songs?.slice(0,4)?.map((e,i)=><View style={{marginBottom:7}}>
-              <EachSongCard index={i} isFromPlaylist={true} Data={Data} artist={FormatArtist(e?.artists?.primary)} language={e?.language} playlist={true} artistID={e?.primary_artists_id} key={i} duration={e?.duration} image={e?.image[2]?.url} id={e?.id} width={width * 0.80} title={e?.name}  url={e?.downloadUrl} titleandartistwidth={width * 0.5}/>
+              <EachSongCard 
+                index={i} 
+                isFromPlaylist={true} 
+                Data={Data} 
+                artist={FormatArtist(e?.artists?.primary).length > 20 ? FormatArtist(e?.artists?.primary).substring(0, 20) + '...' : FormatArtist(e?.artists?.primary)}
+                language={e?.language} 
+                playlist={true} 
+                artistID={e?.primary_artists_id} 
+                key={i} 
+                duration={e?.duration} 
+                image={e?.image[2]?.url} 
+                id={e?.id} 
+                width={width * 0.80} 
+                title={e?.name}  
+                url={e?.downloadUrl} 
+                titleandartistwidth={width * 0.5}
+              />
             </View>)}
           </View>
           <View>
             {Data?.data?.songs?.slice(4,8)?.map((e,i)=><View style={{marginBottom:7}}>
-              <EachSongCard index={i + 4} Data={Data} isFromPlaylist={true}  artist={FormatArtist(e?.artists?.primary)} language={e?.language} playlist={true} artistID={e?.primary_artists_id} key={i} duration={e?.duration} image={e?.image[2]?.url} id={e?.id} width={width * 0.80} title={e?.name}  url={e?.downloadUrl} titleandartistwidth={width * 0.5}/>
+              <EachSongCard 
+                index={i + 4} 
+                Data={Data} 
+                isFromPlaylist={true}  
+                artist={FormatArtist(e?.artists?.primary).length > 20 ? FormatArtist(e?.artists?.primary).substring(0, 20) + '...' : FormatArtist(e?.artists?.primary)}
+                language={e?.language} 
+                playlist={true} 
+                artistID={e?.primary_artists_id} 
+                key={i} 
+                duration={e?.duration} 
+                image={e?.image[2]?.url} 
+                id={e?.id} 
+                width={width * 0.80} 
+                title={e?.name}  
+                url={e?.downloadUrl} 
+                titleandartistwidth={width * 0.5}
+              />
             </View>)}
           </View>
           </ScrollView>}
