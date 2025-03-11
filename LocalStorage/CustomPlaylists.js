@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+// Check that this function is using the same key
 async function GetCustomPlaylists() {
   try {
     const value = await AsyncStorage.getItem('CustomPlaylists');
@@ -9,7 +10,8 @@ async function GetCustomPlaylists() {
       return {};
     }
   } catch (e) {
-    console.log("Error reading custom playlists");
+    console.log("Error retrieving custom playlists", e);
+    return {};
   }
 }
 

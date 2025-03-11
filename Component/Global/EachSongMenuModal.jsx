@@ -14,7 +14,6 @@ import { GetCustomPlaylists, AddSongToCustomPlaylist } from "../../LocalStorage/
 import { useState } from "react";
 import { ScrollView, TextInput } from "react-native";
 import { CreateCustomPlaylist } from "../../LocalStorage/CustomPlaylists";
-import { Heading } from "../Global/Heading";
 import FastImage from "react-native-fast-image";
 const styles = {
   emptyState: {
@@ -272,13 +271,7 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
           ],
           opacity: Visible.visible ? 1 : 0,
         }}>
-          {/* <MenuButton
-            icon={<MaterialCommunityIcons name="magnify" size={22} color="white"/>}
-            text="Search Home"
-            onPress={() => {
-              setVisible({visible: false});
-            }}
-          /> */}
+        
           <MenuButton
             icon={<MaterialCommunityIcons name="play-box-multiple" size={22} color="white"/>}
             text="Play Next"
@@ -299,16 +292,7 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
             text="Download"
             onPress={getPermission}
           />
-          {/* <MenuButton
-            icon={<MaterialCommunityIcons name="youtube" size={22} color="white"/>}
-            text="Watch Video"
-            onPress={() => {}}
-          />
-          <MenuButton
-            icon={<MaterialCommunityIcons name="share-variant" size={22} color="white"/>}
-            text="Share"
-            onPress={() => {}}
-          /> */}
+          
         </View>
       </Modal>
       <Modal
@@ -316,54 +300,52 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
         onBackdropPress={() => setShowPlaylistModal(false)}
         onBackButtonPress={() => setShowPlaylistModal(false)}
         style={{
-          margin: 20,
+          margin: 0,
           justifyContent: 'center',
+          alignItems: 'center',
         }}
       >
         <View style={{
-          backgroundColor: "rgb(28,28,28)",
+          backgroundColor: "#121212",
           borderRadius: 10,
           padding: 20,
-          maxHeight: '80%',
+          width: '80%',
+          maxHeight: '70%',
         }}>
-          <Heading text="Add to Playlist" />
-          <View style={{ marginVertical: 15 }}>
-            <TextInput
-              placeholder="Create new playlist..."
-              placeholderTextColor="gray"
-              value={newPlaylistName}
-              onChangeText={setNewPlaylistName}
-              style={{
-                borderWidth: 1,
-                borderColor: 'gray',
-                borderRadius: 5,
-                padding: 10,
-                color: 'white',
-                marginBottom: 10,
-              }}
-            />
-            <Pressable
-              onPress={handleCreatePlaylist}
-              style={{
-                backgroundColor: '#1DB954',
-                padding: 10,
-                borderRadius: 5,
-                alignItems: 'center',
-              }}
-            >
-              <PlainText text="Create New Playlist" style={{ color: 'white' }} />
-            </Pressable>
-          </View>
+          <TextInput
+            placeholder="Create new playlist..."
+            placeholderTextColor="rgba(255,255,255,0.5)"
+            value={newPlaylistName}
+            onChangeText={setNewPlaylistName}
+            style={{
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.2)',
+              borderRadius: 5,
+              padding: 12,
+              color: 'white',
+              marginBottom: 10,
+            }}
+          />
+          
+          <Pressable
+            onPress={handleCreatePlaylist}
+            style={{
+              backgroundColor: '#1DB954',
+              padding: 12,
+              borderRadius: 5,
+              alignItems: 'center',
+              marginBottom: 15,
+            }}
+          >
+            <PlainText text="Create New Playlist" style={{ color: 'white' }} />
+          </Pressable>
+          
           <ScrollView style={{ maxHeight: 300 }}>
             {Object.keys(availablePlaylists).length === 0 ? (
-              <View style={styles.emptyState}>
-                <FastImage
-                  source={require('../../Images/wav.png')}
-                  style={styles.emptyStateImage}
-                />
+              <View style={{ padding: 10, alignItems: 'center' }}>
                 <PlainText 
-                  text="No playlists available. Create one!" 
-                  style={{ color: 'gray', textAlign: 'center', marginTop: 10 }}
+                  text="No playlists available" 
+                  style={{ color: 'white', textAlign: 'center' }}
                 />
               </View>
             ) : (
@@ -371,17 +353,38 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
                 <Pressable
                   key={name}
                   onPress={() => addSongToSelectedPlaylist(name)}
-                  style={styles.playlistItem}
+                  android_ripple={{color: 'rgba(255,255,255,0.1)'}}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    padding: 12,
+                    backgroundColor: '#282828',
+                    borderRadius: 5,
+                    marginBottom: 8,
+                  }}
                 >
                   <FastImage
                     source={getPlaylistImage(availablePlaylists[name])}
-                    style={styles.playlistImage}
+                    style={{
+                      width: 50,
+                      height: 50,
+                      borderRadius: 4,
+                    }}
                   />
-                  <View style={styles.playlistInfo}>
-                    <PlainText text={name} style={styles.playlistName} />
+                  <View style={{ marginLeft: 12, flex: 1 }}>
+                    <PlainText 
+                      text={name} 
+                      style={{
+                        color: 'white',
+                        fontSize: 16,
+                      }}
+                    />
                     <PlainText 
                       text={`${availablePlaylists[name].length} songs`} 
-                      style={styles.songCount}
+                      style={{
+                        color: 'gray',
+                        fontSize: 12,
+                      }}
                     />
                   </View>
                 </Pressable>

@@ -39,7 +39,7 @@ export const ChangeName = ({navigation}) => {
           width:200,
           borderRadius:100,
         }}/></Animated.View>
-        <Animated.View  entering={FadeInDown.delay(500)}><Heading text={"What should I call you?"} nospace={true} style={{marginTop:10}}/></Animated.View>
+        <Animated.View  entering={FadeInDown.delay(500)}><Heading text={"What should I call you?"} nospace={true} style={{marginTop:10,marginBottom:10}}/></Animated.View>
         <TextInput placeholderTextColor={theme.colors.text} value={Name} onChangeText={(text)=>{
           setName(text)
         }} textAlign={'center'} placeholder={"Enter your name"} style={{

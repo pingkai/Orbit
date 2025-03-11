@@ -7415,12 +7415,19 @@ react-native-vector-icons@^10.0.3:
     prop-types "^15.7.2"
     yargs "^16.1.1"
 
+react-native-volume-control@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.npmjs.org/react-native-volume-control/-/react-native-volume-control-1.0.1.tgz"
+  integrity sha512-LbFD6AoFltkYxFQEn5SlZsdHGtY4x/A7kkh6CJuzSWjyJMvNDNLTXiQ8YnSVTGiio/qhhWLXXfOMOothxo/16Q==
+  dependencies:
+    prop-types "^15.6.0"
+
 react-native-volume-manager@^2.0.8:
   version "2.0.8"
   resolved "https://registry.npmjs.org/react-native-volume-manager/-/react-native-volume-manager-2.0.8.tgz"
   integrity sha512-aZM47/mYkdQ4CbXpKYO6Ajiczv7fxbQXZ9c0H8gRuQUaS3OCz/MZABer6o9aDWq0KMNsQ7q7GVFLRPnSSeeMmw==
 
-react-native@*, "react-native@^0.0.0-0 || >=0.60 <1.0", "react-native@>= 0.55.x", react-native@>=0.50.0, react-native@>=0.57.0, react-native@>=0.60.0, react-native@>=0.60.0-rc.2, react-native@>=0.65.0, react-native@>=0.70.0, react-native@0.73.4:
+react-native@*, "react-native@^0.0.0-0 || >=0.60 <1.0", "react-native@>= 0.55.x", react-native@>=0.31.0, react-native@>=0.50.0, react-native@>=0.57.0, react-native@>=0.60.0, react-native@>=0.60.0-rc.2, react-native@>=0.65.0, react-native@>=0.70.0, react-native@0.73.4:
   version "0.73.4"
   resolved "https://registry.npmjs.org/react-native/-/react-native-0.73.4.tgz"
   integrity sha512-VtS+Yr6OOTIuJGDECIYWzNU8QpJjASQYvMtfa/Hvm/2/h5GdB6W9H9TOmh13x07Lj4AOhNMx3XSsz6TdrO4jIg==

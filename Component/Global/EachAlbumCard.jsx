@@ -9,6 +9,13 @@ import LinearGradient from "react-native-linear-gradient";
 export const EachAlbumCard = memo(function EachAlbumCard({image,name,artists,id,mainContainerStyle,Search}) {
   const navigation = useNavigation()
   let artistsNames = ""
+  
+  // Improved truncation function that works for any text
+  function truncateText(text, limit = 15) {
+    if (!text) return "";
+    return text.length > limit ? text.slice(0, limit) + "..." : text;
+  }
+  
   if (!Search){
     if (artists.length > 3){
       for (let i = 0; i < 3; i++){
@@ -30,15 +37,21 @@ export const EachAlbumCard = memo(function EachAlbumCard({image,name,artists,id,
         }
       })
     }
+    
+    // Truncate the combined artists string if it's too long
+    artistsNames = truncateText(artistsNames);
   }
+  
+  // We'll keep the original function for backward compatibility
   function formattedText (text){
-    if (text.length >= 45){
-      return text.slice(0,45) + "..."
+    if (text.length >= 15){
+      return text.slice(0,15) + "..."
     }
     else {
       return text
     }
   }
+  
   return (
     <Pressable onPress={()=>{
       navigation.navigate("Album" , {id})
@@ -68,7 +81,7 @@ export const EachAlbumCard = memo(function EachAlbumCard({image,name,artists,id,
             padding:10,
           }}>
             <PlainText text={formattedText(name)}/>
-            <SmallText text={!Search ? artistsNames : artists}/>
+            <SmallText text={!Search ? artistsNames : truncateText(artists)}/>
           </LinearGradient>
         </View>
       </ImageBackground>

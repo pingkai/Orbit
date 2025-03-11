@@ -1,10 +1,10 @@
-import { Dimensions, ImageBackground, View, Pressable } from "react-native";
+import { Dimensions, ImageBackground, View, Pressable, BackHandler } from "react-native";
 import FastImage from "react-native-fast-image";
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import LinearGradient from "react-native-linear-gradient";
 import { Heading } from "../Global/Heading";
 import { SmallText } from "../Global/SmallText";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { FadeInDown, runOnJS, useSharedValue, useAnimatedStyle, withTiming } from "react-native-reanimated";
 import { PlayPauseButton } from "./PlayPauseButton";
 import { Spacer } from "../Global/Spacer";
 import { NextSongButton } from "./NextSongButton";
@@ -25,24 +25,134 @@ import ReactNativeBlobUtil from "react-native-blob-util";
 import { PermissionsAndroid, Platform, ToastAndroid } from "react-native";
 import DeviceInfo from "react-native-device-info";
 import { GetDownloadPath } from "../../LocalStorage/AppSettings";
+import TrackPlayer from 'react-native-track-player'; // Add this import
+import VolumeControl, { VolumeControlEvents } from 'react-native-volume-control'; // Import both VolumeControl and VolumeControlEvents
 
 export const FullScreenMusic = ({ color, Index, setIndex }) => {
-  const pan = Gesture.Pan();
-  pan.onFinalize((e) => {
-    if (e.translationX > 100) {
-      PlayPreviousSong()
-    } else if (e.translationX < -100) {
-      PlayNextSong()
-    } else {
-      setIndex(0)
-    }
-  })
   const width = Dimensions.get("window").width
+  const height = Dimensions.get("window").height; // Get height once here
   const currentPlaying = useActiveTrack()
   const [ShowDailog, setShowDailog] = useState(false);
   const [Lyric, setLyric] = useState({});
   const [Loading, setLoading] = useState(false);
+  const [currentVolume, setCurrentVolume] = useState(0.5);
+  
+  const volumeAdjustmentActive = useSharedValue(0);
+  const startY = useSharedValue(0);
+  const lastVolume = useSharedValue(0.5);
+  const volumeBarHeight = useSharedValue(100);
+  
+  // Create animated style for the volume overlay
+  const volumeOverlayStyle = useAnimatedStyle(() => ({
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    opacity: volumeAdjustmentActive.value, // Remove withTiming for immediate response
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  }));
+  
+  // Animated style for the volume bar - no animation for immediate visual feedback
+  const volumeBarStyle = useAnimatedStyle(() => ({
+    width: 6,
+    height: volumeBarHeight.value,
+    backgroundColor: '#4169E1', // Royal blue color like in your image
+    borderRadius: 3,
+    marginBottom: 10,
+  }));
+  
+  // Get initial volume on component mount and set up volume change listener
+  useEffect(() => {
+    // Get initial system volume
+    const getInitialVolume = async () => {
+      try {
+        // Get the system volume instead of TrackPlayer volume
+        const vol = await VolumeControl.getVolume();
+        setCurrentVolume(vol);
+        lastVolume.value = vol;
+        volumeBarHeight.value = vol * 200;
+      } catch (error) {
+        console.log("Error getting volume:", error);
+      }
+    };
+    
+    // Set up volume change listener to update UI when volume changes from hardware buttons
+    const volumeListener = VolumeControlEvents.addListener('volumeChange', (volume) => {
+      setCurrentVolume(volume);
+      volumeBarHeight.value = volume * 200;
+    });
+    
+    getInitialVolume();
+    
+    // Clean up listener on unmount
+    return () => {
+      volumeListener.remove();
+    };
+  }, []);
+  
+  // Create callback functions for volume control with better sensitivity
+  const adjustVolume = useCallback(async (newVolume) => {
+    // Ensure volume is between 0 and 1
+    const clampedVolume = Math.max(0, Math.min(1, newVolume));
+    // Set system volume directly
+    await VolumeControl.setVolume(clampedVolume);
+    
+    // No need to set state here as the listener will update it
+  }, []);
+  
+  // Create a gesture handler with improved volume control
+  const pan = Gesture.Pan()
+    .onBegin((e) => {
+      'worklet';
+      startY.value = e.absoluteY;
+      volumeAdjustmentActive.value = 0.9; // Show overlay immediately
+      
+      // Use current volume state
+      lastVolume.value = currentVolume;
+    })
+    .onUpdate((e) => {
+      'worklet';
+      // Calculate volume change with better sensitivity
+      // Negative value means swipe up (increase volume)
+      const movement = -e.translationY / 80; // More sensitive adjustment
+      
+      // Calculate new volume based on last known volume
+      const newVolume = Math.max(0, Math.min(1, lastVolume.value + movement));
+      
+      // Update volume bar height immediately for responsive feedback
+      volumeBarHeight.value = newVolume * 200;
+      
+      // Update actual system volume
+      runOnJS(adjustVolume)(newVolume);
+    })
+    .onFinalize((e) => {
+      'worklet';
+      // Hide volume overlay immediately
+      volumeAdjustmentActive.value = 0;
+      
+      // Handle horizontal swipes for track navigation
+      if (e.translationX > 100) {
+        runOnJS(PlayPreviousSong)();
+      } else if (e.translationX < -100) {
+        runOnJS(PlayNextSong)();
+      } else if (Math.abs(e.translationY) < 20 && Math.abs(e.translationX) < 20) {
+        runOnJS(setIndex)(0);
+      }
+    });
+  
+  // Add back button handler to prevent app from closing
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      setIndex(0);
+      return true; // Prevents default back behavior (app closing)
+    });
 
+    return () => backHandler.remove(); // Clean up on unmount
+  }, [setIndex]);
+  
   async function GetLyrics() {
     setShowDailog(true)
     try {
@@ -154,23 +264,29 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
             </View>
             <Spacer height={20} />
             <GestureDetector gesture={pan}>
-              <FastImage
-                source={{
-                  uri: currentPlaying?.artwork ?? "https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png",
-                }}
-                style={{
-                  height: width * 0.9,
-                  width: width * 0.9,
-                  borderRadius: 10,
-                }}
-              />
+              <View>
+                <FastImage
+                  source={{
+                    uri: currentPlaying?.artwork ?? "https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png",
+                  }}
+                  style={{
+                    height: width * 0.9,
+                    width: width * 0.9,
+                    borderRadius: 10,
+                  }}
+                />
+                <Animated.View style={volumeOverlayStyle}>
+                  <Animated.View style={volumeBarStyle} />
+                  <SmallText text={`${Math.round(currentVolume * 100)}%`} style={{ color: 'white', marginTop: 5 }} />
+                </Animated.View>
+              </View>
             </GestureDetector>
             <Spacer />
             <Heading 
               text={
                 currentPlaying?.title 
-                  ? currentPlaying.title.length > 20 
-                    ? currentPlaying.title.substring(0, 20) + "..." 
+                  ? currentPlaying.title.length > 18 
+                    ? currentPlaying.title.substring(0, 18) + "..." 
                     : currentPlaying.title 
                   : "No music :("
               } 

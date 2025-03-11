@@ -48,8 +48,8 @@ export const HorizontalScrollSongs = ({id}) => {
                 image={e?.image[2]?.url} 
                 id={e?.id} 
                 width={width * 0.80} 
-                title={e?.name}  
-                url={e?.downloadUrl} 
+                title={e?.name?.length > 20 ? e?.name?.substring(0, 20) + '...' : e?.name}  
+                url={e?.downloadUrl}
                 titleandartistwidth={width * 0.5}
               />
             </View>)}

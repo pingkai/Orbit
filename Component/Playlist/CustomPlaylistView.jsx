@@ -8,9 +8,8 @@ import TrackPlayer from 'react-native-track-player';
 import { AddPlaylist, AddSongsToQueue } from '../../MusicPlayerFunctions';
 import Context from '../../Context/Context';
 import Modal from "react-native-modal";
-import { GetCustomPlaylists, AddSongToCustomPlaylist } from '../../LocalStorage/CustomPlaylists';
+import { GetCustomPlaylists, AddSongToCustomPlaylist, CreateCustomPlaylist } from '../../LocalStorage/CustomPlaylists';
 import { StyleSheet } from 'react-native';
-import { Heading } from '../Global/Heading';
 
 export const CustomPlaylistView = ({ route, navigation }) => {
   const { playlistName, songs } = route.params;
@@ -21,7 +20,24 @@ export const CustomPlaylistView = ({ route, navigation }) => {
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [availablePlaylists, setAvailablePlaylists] = useState({});
   const [newPlaylistName, setNewPlaylistName] = useState('');
-  const [showOptions, setShowOptions] = useState(false);
+  const handleCreatePlaylist = async () => {
+    if (newPlaylistName.trim()) {
+      await CreateCustomPlaylist(newPlaylistName);
+      const playlists = await GetCustomPlaylists();
+      setAvailablePlaylists(playlists);
+      setNewPlaylistName('');
+      ToastAndroid.show(
+        "Playlist created successfully",
+        ToastAndroid.SHORT
+      );
+    }
+  };
+  const getPlaylistImage = (playlist) => {
+    if (!playlist || playlist.length === 0) {
+      return require('../../Images/wav.png');
+    }
+    return { uri: playlist[playlist.length - 1].image };
+  };
   const handlePlayPlaylist = async () => {
     await TrackPlayer.reset();
     await AddPlaylist(songs);
@@ -69,15 +85,26 @@ export const CustomPlaylistView = ({ route, navigation }) => {
   };
   const handleDeleteFromPlaylist = async (song) => {
     try {
+      // Get the latest playlists data
       const playlists = await GetCustomPlaylists();
+      
+      // Filter out the song to be deleted
       const updatedSongs = playlists[playlistName].filter(s => s.id !== song.id);
+      
+      // Update the playlist with filtered songs
       playlists[playlistName] = updatedSongs;
-      await AsyncStorage.setItem('@custom_playlists', JSON.stringify(playlists));
+      
+      // Save to AsyncStorage - IMPORTANT: Use the EXACT same key as in your CustomPlaylists.js file
+      await AsyncStorage.setItem('CustomPlaylists', JSON.stringify(playlists));
+      
+      // Update local state and navigation params to reflect changes immediately
+      navigation.setParams({ songs: updatedSongs });
+      
       ToastAndroid.show('Song removed from playlist', ToastAndroid.SHORT);
       setMenuVisible(false);
-      navigation.goBack();
     } catch (error) {
       console.log('Delete error:', error);
+      ToastAndroid.show('Failed to remove song', ToastAndroid.SHORT);
     }
   };
   const addSongToSelectedPlaylist = async (targetPlaylist) => {
@@ -151,7 +178,7 @@ export const CustomPlaylistView = ({ route, navigation }) => {
         isVisible={menuVisible}
         onBackdropPress={() => setMenuVisible(false)}
         onBackButtonPress={() => setMenuVisible(false)}
-        backdropOpacity={0}
+        backdropOpacity={0.3}
         animationIn="fadeIn"
         animationOut="fadeOut"
         style={[styles.menuModal, { top: menuPosition.y }]}
@@ -179,20 +206,98 @@ export const CustomPlaylistView = ({ route, navigation }) => {
       <Modal
         isVisible={showPlaylistModal}
         onBackdropPress={() => setShowPlaylistModal(false)}
-        style={styles.playlistModal}
+        onBackButtonPress={() => setShowPlaylistModal(false)}
+        style={{
+          margin: 0,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
       >
-        <View style={styles.playlistModalContent}>
-          <Heading text="Add to Playlist" />
-          <ScrollView style={styles.playlistList}>
-            {Object.keys(availablePlaylists).map((playlist) => (
-              <Pressable
-                key={playlist}
-                style={styles.playlistItem}
-                onPress={() => addSongToSelectedPlaylist(playlist)}
-              >
-                <PlainText text={playlist} style={styles.playlistName} />
-              </Pressable>
-            ))}
+        <View style={{
+          backgroundColor: "#121212",
+          borderRadius: 10,
+          padding: 20,
+          width: '80%',
+          maxHeight: '70%',
+        }}>
+          <TextInput
+            placeholder="Create new playlist..."
+            placeholderTextColor="rgba(255,255,255,0.5)"
+            value={newPlaylistName}
+            onChangeText={setNewPlaylistName}
+            style={{
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.2)',
+              borderRadius: 5,
+              padding: 12,
+              color: 'white',
+              marginBottom: 10,
+            }}
+          />
+          
+          <Pressable
+            onPress={handleCreatePlaylist}
+            style={{
+              backgroundColor: '#1DB954',
+              padding: 12,
+              borderRadius: 5,
+              alignItems: 'center',
+              marginBottom: 15,
+            }}
+          >
+            <PlainText text="Create New Playlist" style={{ color: 'white' }} />
+          </Pressable>
+          
+          <ScrollView style={{ maxHeight: 300 }}>
+            {Object.keys(availablePlaylists).length === 0 ? (
+              <View style={{ padding: 10, alignItems: 'center' }}>
+                <PlainText 
+                  text="No playlists available" 
+                  style={{ color: 'white', textAlign: 'center' }}
+                />
+              </View>
+            ) : (
+              Object.keys(availablePlaylists).map((name) => (
+                <Pressable
+                  key={name}
+                  onPress={() => addSongToSelectedPlaylist(name)}
+                  android_ripple={{color: 'rgba(255,255,255,0.1)'}}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    padding: 12,
+                    backgroundColor: '#282828',
+                    borderRadius: 5,
+                    marginBottom: 8,
+                  }}
+                >
+                  <FastImage
+                    source={getPlaylistImage(availablePlaylists[name])}
+                    style={{
+                      width: 50,
+                      height: 50,
+                      borderRadius: 4,
+                    }}
+                  />
+                  <View style={{ marginLeft: 12, flex: 1 }}>
+                    <PlainText 
+                      text={name} 
+                      style={{
+                        color: 'white',
+                        fontSize: 16,
+                      }}
+                    />
+                    <PlainText 
+                      text={`${availablePlaylists[name].length} songs`} 
+                      style={{
+                        color: 'gray',
+                        fontSize: 12,
+                      }}
+                    />
+                  </View>
+                </Pressable>
+              ))
+            )}
           </ScrollView>
         </View>
       </Modal>
@@ -222,11 +327,12 @@ const styles = StyleSheet.create({
   playlistCover: {
     width: 120,
     height: 120,
-    borderRadius: 8,
+    borderRadius: 10,
   },
   playlistInfo: {
     marginLeft: 15,
     flex: 1,
+    justifyContent: 'space-between',
   },
   controls: {
     flexDirection: 'row',
@@ -239,7 +345,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#282828',
     padding: 8,
-    paddingHorizontal: 15,
+    paddingHorizontal: 12,
     borderRadius: 20,
   },
   playButton: {
@@ -256,12 +362,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 16,
     justifyContent: 'flex-start',
+    alignItems: 'flex-end', // Add this to align the menu to the right
   },
   menuContainer: {
     backgroundColor: '#282828',
-    borderRadius: 4,
+    borderRadius: 8, // Increased from 4 to 8
     width: 200,
     overflow: 'hidden',
+    elevation: 10, // Ensure the menu has proper elevation
   },
   playlistModalContent: {
     backgroundColor: '#282828',
@@ -324,13 +432,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#282828',
     padding: 10,
+    paddingHorizontal: 15,
     borderRadius: 20,
     gap: 5,
   },
   playButton: {
     backgroundColor: '#1DB954',
-    padding: 12,
-    borderRadius: 25,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   controlText: {
     color: 'white',

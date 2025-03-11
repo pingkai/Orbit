@@ -18,8 +18,8 @@ export const RenderTopCharts = ({playlist}) => {
           {item.map((e, i) => (
             <EachPlaylistCard 
               image={e.image[2].link} 
-              name={e.title} 
-              follower={e.subtitle} 
+              name={e.title.length > 18? e.title.substring(0, 18) + '...' : e.title} 
+              follower={e.subtitle > 18? e.subtitle.substring(0, 18) + '...' : e.subtitle} 
               key={e.id} 
               id={e.id}
             />

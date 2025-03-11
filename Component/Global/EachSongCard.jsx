@@ -17,6 +17,10 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
   const currentPlaying = useActiveTrack()
   const playerState = usePlaybackState()
 
+  const formatText = (text) => {
+    const formattedText = FormatTitleAndArtist(text)
+    return formattedText?.length > 20 ? formattedText.substring(0, 20) + "..." : formattedText
+  }
 
   async function AddSongToPlayer (){
     if (isFromPlaylist){
@@ -26,8 +30,8 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
         if (i >= index){
           ForMusicPlayer.push({
             url:e?.downloadUrl[quality].url,
-            title:FormatTitleAndArtist(e?.name),
-            artist:FormatTitleAndArtist(FormatArtist(e?.artists?.primary)),
+            title: formatText(e?.name),
+            artist: formatText(FormatArtist(e?.artists?.primary)),
             artwork:e?.image[2]?.url,
             image:e?.image[2]?.url,
             duration:e?.duration,
@@ -44,8 +48,8 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
         if (i >= index) {
           Final.push({
             url:e.url,
-            title:e?.title,
-            artist:e?.artist,
+            title: formatText(e?.title),
+            artist: formatText(e?.artist),
             artwork:e?.artwork,
             duration:e?.duration,
             id:e?.id,
@@ -60,8 +64,8 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
       const quality = await getIndexQuality()
       const song  = {
         url: url[quality].url,
-        title:FormatTitleAndArtist(title),
-        artist:FormatTitleAndArtist(artist),
+        title: formatText(title),
+        artist: formatText(artist),
         artwork:image,
         duration,
         id,
@@ -103,16 +107,16 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
           <View style={{
             flex:1,
           }}>
-            <PlainText text={FormatTitleAndArtist(title)} style={{width:titleandartistwidth ? titleandartistwidth : width1 * 0.67}}/>
-            <SmallText text={FormatTitleAndArtist(artist)} style={{width:titleandartistwidth ? titleandartistwidth : width1 * 0.67}}/>
+            <PlainText text={formatText(title)} style={{width:titleandartistwidth ? titleandartistwidth : width1 * 0.67}}/>
+            <SmallText text={formatText(artist)} style={{width:titleandartistwidth ? titleandartistwidth : width1 * 0.67}}/>
           </View>
         </Pressable>
         <EachSongMenuButton 
               Onpress={({pageY}) => {
                 setVisible({
                   visible: true,
-                  title,
-                  artist,
+                  title: formatText(title),
+                  artist: formatText(artist),
                   image,
                   id,
                   url,

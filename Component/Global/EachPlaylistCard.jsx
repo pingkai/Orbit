@@ -30,8 +30,8 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({image, name, fo
         <View style={{
           width:"85%",
         }}>
-          <PlainText text={name}/>
-          <SmallText text={follower}/>
+          <PlainText text={name.length > 18? name.substring(0, 18) + '...' : name}/>
+          <SmallText text={follower.length > 20 ? follower.substring(0,20) + "...." : follower}/>
         </View>
         <FontAwesome5 name={"play"} size={15} color={theme.colors.text}/>
       </SpaceBetween>

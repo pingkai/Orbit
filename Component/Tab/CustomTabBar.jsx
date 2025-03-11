@@ -94,8 +94,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 8,
     borderRadius: 12,
-    width: 80,  // Added width
-    height: 40  // Added height to maintain square shape
+    width: 80,
+    height: 40
   }
-}); // Added closing parenthesis and brace
+}); 
   

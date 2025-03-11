@@ -1,5 +1,5 @@
 import { MainWrapper } from "../../Layout/MainWrapper";
-import { View,Image } from "react-native";
+import { View, Image, StyleSheet, Dimensions, ScrollView } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Heading } from "../../Component/Global/Heading";
 import { PlainText } from "../../Component/Global/PlainText";
@@ -7,6 +7,10 @@ import { BottomNextAndPrevious } from "../../Component/RouteOnboarding/BottomNex
 import { EachCheckBox } from "../../Component/RouteOnboarding/EachCheckBox";
 import { useState } from "react";
 import { SetLanguageValue } from "../../LocalStorage/Languages";
+
+// Get screen dimensions
+const { width, height } = Dimensions.get('window');
+const isSmallDevice = height < 700;
 
 export const Slide2 = ({navigation}) => {
   const [Languages, setLanguages] = useState([]);
@@ -22,32 +26,33 @@ export const Slide2 = ({navigation}) => {
   }
   return (
     <MainWrapper>
-      <View style={{
-        alignItems:"center",
-      }}>
+      <View style={styles.headerContainer}>
         <Animated.View entering={FadeInDown.duration(500)}>
           <Image 
             source={require("../../Images/selectLanguage.gif")} 
-            style={{
-              height: 200,
-              width: 200,
-              borderRadius: 100,
-            }}
+            style={styles.headerImage}
           />
         </Animated.View>
-        <Animated.View entering={FadeInDown.delay(500)} style={{ marginBottom: 10 }}>
-          <Heading text={"What's Your Music Taste?"} nospace={true} style={{ marginTop: 20 }}/>
+        <Animated.View entering={FadeInDown.delay(500)} style={styles.headingContainer}>
+          <Heading 
+            text={"What's Your Music Taste?"} 
+            nospace={true} 
+            style={styles.heading}
+          />
         </Animated.View>
         <Animated.View entering={FadeInDown.delay(750)}>
-          <PlainText text={"Select atleast 2 language"} style={{fontSize:16}}/>
+          <PlainText 
+            text={"Select atleast 2 language"} 
+            style={styles.subHeading}
+          />
         </Animated.View>
       </View>
-      <View style={{
-        flex:1,
-        alignItems:"center",
-        justifyContent:'flex-start',
-        marginTop:20,
-      }}>
+      
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
+        showsVerticalScrollIndicator={false}
+      >
         <EachCheckBox data={Languages} onCheck1={(data)=>{
           setLanguages(()=>data)
         }} checkbox1={"English"} checkbox2={"Hindi"} onCheck2={(data)=>{
@@ -88,8 +93,8 @@ export const Slide2 = ({navigation}) => {
         }} checkbox1={"Odia"} checkbox2={"Assamese"} onCheck2={(data)=>{
           setLanguages(data)
         }}/>
+      </ScrollView>
 
-      </View>
       <BottomNextAndPrevious 
         delay={100} 
         showPrevious={true} 
@@ -99,3 +104,34 @@ export const Slide2 = ({navigation}) => {
     </MainWrapper>
   );
 };
+
+const styles = StyleSheet.create({
+  headerContainer: {
+    alignItems: "center",
+    paddingTop: isSmallDevice ? 10 : 20,
+  },
+  headerImage: {
+    height: isSmallDevice ? 120 : 200,
+    width: isSmallDevice ? 120 : 200,
+    borderRadius: 100,
+  },
+  headingContainer: {
+    marginBottom: isSmallDevice ? 5 : 10,
+  },
+  heading: {
+    marginTop: isSmallDevice ? 10 : 20,
+    fontSize: isSmallDevice ? 20 : 24,
+  },
+  subHeading: {
+    fontSize: isSmallDevice ? 14 : 16,
+  },
+  scrollView: {
+    flex: 1,
+    width: '100%',
+  },
+  scrollViewContent: {
+    alignItems: "center",
+    paddingTop: isSmallDevice ? 10 : 20,
+    paddingBottom: 20,
+  }
+});

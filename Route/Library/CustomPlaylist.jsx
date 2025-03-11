@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
-import { View, Modal, TextInput, Pressable, Text, FlatList, StyleSheet, Animated, Easing } from "react-native";
+import { View, Modal, TextInput, Pressable, Text, FlatList, StyleSheet, Animated, Easing, ToastAndroid } from "react-native";
 import { GetCustomPlaylists, CreateCustomPlaylist } from "../../LocalStorage/CustomPlaylists";
 import { useTheme } from "@react-navigation/native";
 import { Heading } from "../../Component/Global/Heading";
 import { SmallText } from "../../Component/Global/SmallText";
 import { Spacer } from "../../Component/Global/Spacer";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
-import FastImage from "react-native-fast-image"; // Add this import
+import FastImage from "react-native-fast-image";
 import { useNavigation } from "@react-navigation/native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const CustomPlaylist = () => {
   const navigation = useNavigation();
@@ -42,10 +43,48 @@ export const CustomPlaylist = () => {
     }).start();
   }, []);
 
-  const renderPlaylist = ({ item, index }) => {
-    const translateY = new Animated.Value(20); // Reduced from 30
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedPlaylist, setSelectedPlaylist] = useState('');
+  const [newPlaylistName, setNewPlaylistName] = useState('');
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+
+  const handleDeletePlaylist = async (playlistName) => {
+    const customPlaylists = await GetCustomPlaylists();
+    delete customPlaylists[playlistName];
+    await AsyncStorage.setItem('CustomPlaylists', JSON.stringify(customPlaylists));
+    loadPlaylists();
+    setMenuVisible(false);
+    ToastAndroid.show('Playlist deleted', ToastAndroid.SHORT);
+  };
+
+  const handleEditPlaylist = () => {
+    setNewPlaylistName(selectedPlaylist);
+    setEditModalVisible(true);
+    setMenuVisible(false);
+  };
+
+  const handleUpdatePlaylistName = async () => {
+    if (newPlaylistName.trim() && newPlaylistName !== selectedPlaylist) {
+      const customPlaylists = await GetCustomPlaylists();
+      customPlaylists[newPlaylistName] = customPlaylists[selectedPlaylist];
+      delete customPlaylists[selectedPlaylist];
       
-    Animated.timing(translateY, { // Changed from spring to timing
+      await AsyncStorage.setItem('CustomPlaylists', JSON.stringify(customPlaylists));
+      loadPlaylists();
+      setEditModalVisible(false);
+      ToastAndroid.show('Playlist name updated', ToastAndroid.SHORT);
+    } else if (newPlaylistName === selectedPlaylist) {
+      setEditModalVisible(false);
+    } else {
+      ToastAndroid.show('Please enter a valid name', ToastAndroid.SHORT);
+    }
+  };
+
+  const renderPlaylist = ({ item, index }) => {
+    const translateY = new Animated.Value(20); 
+      
+    Animated.timing(translateY, { 
       toValue: 0,
       duration: 300,
       delay: index * 100,
@@ -78,12 +117,22 @@ export const CustomPlaylist = () => {
               style={styles.text}
               />
             </View>
+            <Pressable
+              onPress={(event) => {
+                const { pageX, pageY } = event.nativeEvent;
+                setMenuPosition({ x: pageX - 150, y: pageY - 30 });
+                setSelectedPlaylist(item);
+                setMenuVisible(true);
+              }}
+              style={styles.menuButton}
+            >
+              <MaterialIcons name="more-vert" size={24} color={theme.colors.text} />
+            </Pressable>
           </View>
         </Pressable>
       </Animated.View>
     );
   };
-
   return (
     <View style={styles.container}>
       {!hasPlaylists ? (
@@ -116,7 +165,6 @@ export const CustomPlaylist = () => {
           />
         </>
       )}
-
       <Modal
         animationType="slide"
         transparent={true}
@@ -149,6 +197,71 @@ export const CustomPlaylist = () => {
           </View>
         </View>
       </Modal>
+      <Modal
+        transparent={true}
+        visible={menuVisible}
+        onRequestClose={() => setMenuVisible(false)}
+        animationType="fade"
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setMenuVisible(false)}
+        >
+          <View 
+            style={[
+              styles.menuContainer, 
+              { top: menuPosition.y, right: 20 }
+            ]}
+          >
+            <Pressable 
+              style={styles.menuItem}
+              onPress={handleEditPlaylist}
+            >
+              <MaterialIcons name="edit" size={22} color="white" />
+              <Text style={styles.menuText}>Edit Playlist</Text>
+            </Pressable>
+            <Pressable 
+              style={styles.menuItem}
+              onPress={() => handleDeletePlaylist(selectedPlaylist)}
+            >
+              <MaterialIcons name="delete" size={22} color="white" />
+              <Text style={styles.menuText}>Delete Playlist</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={editModalVisible}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={[styles.modalContent, { backgroundColor: '#121212' }]}>
+            <Heading text="Edit Playlist Name" />
+            <SmallText text="Enter new playlist name" style={styles.modalLabel} />
+            <TextInput
+              placeholder="Playlist name"
+              placeholderTextColor="rgba(255,255,255,0.5)"
+              value={newPlaylistName}
+              onChangeText={setNewPlaylistName}
+              style={styles.input}
+            />
+            <Pressable 
+              style={styles.createPlaylistButton}
+              onPress={handleUpdatePlaylistName}
+            >
+              <Text style={styles.createButtonText}>Update</Text>
+            </Pressable>
+            <Pressable 
+              style={styles.cancelButton}
+              onPress={() => setEditModalVisible(false)}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -174,28 +287,28 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   playlistItem: {
-    padding: 2, // Reduced from 4
+    padding: 2,
     borderRadius: 12,
-    marginBottom: 0, // Reduced from 1
+    marginBottom: 0,
   },
   playlistContent: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 12,
-    padding: 6, // Reduced from 8
+    padding: 6,
   },
   playlistInfo: {
     flex: 1,
-    gap: 0, // Reduced from 2
+    gap: 0, 
   },
   playlistImage: {
     width: 50,
     height: 50,
     borderRadius: 10,
-    marginRight: 10, // Reduced from 15
+    marginRight: 10,
   },
   playlistTitle: {
-    fontSize:16, // Added font size
+    fontSize:16,
   },
   modalContainer: {
     flex: 1,
@@ -236,6 +349,45 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '500',
+  },
+  cancelButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  text:{
+    fontSize:12,
+  },
+  menuButton: {
+    padding: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  menuContainer: {
+    position: 'absolute',
+    backgroundColor: '#282828',
+    borderRadius: 8,
+    width: 180,
+    overflow: 'hidden',
+    elevation: 5,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    paddingHorizontal: 16,
+  },
+  menuText: {
+    color: 'white',
+    marginLeft: 12,
+    fontSize: 14,
+  },
+  menuText: {
+    color: 'white',
+    marginLeft: 12,
+    fontSize: 14,
   },
   cancelButtonText: {
     color: 'white',

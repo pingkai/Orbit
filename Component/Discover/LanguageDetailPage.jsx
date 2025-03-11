@@ -16,9 +16,16 @@ export const LanguageDetailPage = ({route}) => {
   const [Loading, setLoading] = useState(true);
   const [Data, setData] = useState({});
   const {language} = route.params
+  
+  // Add truncate function
+  const truncateText = (text, limit = 20) => {
+    return text?.length > limit ? text.substring(0, limit) + '...' : text;
+  };
+  
   function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1);
   }
+  
   async function fetchHomePageData(){
     try {
       setLoading(true)
@@ -56,7 +63,13 @@ export const LanguageDetailPage = ({route}) => {
             </PaddingConatiner>
             <FlatList horizontal={true} showsHorizontalScrollIndicator={false} contentContainerStyle={{
               paddingLeft:13,
-            }} data={Data?.data?.trending?.albums ?? []} renderItem={(item)=><EachAlbumCard image={item.item.image[2].link} artists={item.item.artists} key={item.index} name={item.item.name} id={item.item.id}/>}/>
+            }} data={Data?.data?.trending?.albums ?? []} renderItem={(item)=><EachAlbumCard 
+              image={item.item.image[2].link} 
+              artists={truncateText(item.item.artists)} 
+              key={item.index} 
+              name={truncateText(item.item.name)} 
+              id={item.item.id}
+            />}/>
             <PaddingConatiner>
               <HorizontalScrollSongs id={Data?.data?.charts[1]?.id}/>
             </PaddingConatiner>
@@ -69,12 +82,7 @@ export const LanguageDetailPage = ({route}) => {
             <PaddingConatiner>
               <HorizontalScrollSongs id={Data?.data?.charts[3]?.id}/>
             </PaddingConatiner>
-            {/* <PaddingConatiner>
-              <Heading text={"Recommended Albums"}/>
-            </PaddingConatiner>
-            <FlatList horizontal={true} showsHorizontalScrollIndicator={false} contentContainerStyle={{
-              paddingLeft:13,
-            }} data={Data?.data?.albums ?? []} renderItem={(item)=><EachAlbumCard image={item?.item?.image[2]?.link ?? ""} artists={item.item.artists} key={item.index} name={item.item.name} id={item.item.id}/>}/> */}
+            
             <PaddingConatiner>
               <HorizontalScrollSongs id={Data?.data?.charts[2]?.id}/>
             </PaddingConatiner>

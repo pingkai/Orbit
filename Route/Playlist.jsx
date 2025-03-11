@@ -7,13 +7,16 @@ import { EachSongCard } from "../Component/Global/EachSongCard";
 import { useEffect, useState } from "react";
 import { getPlaylistData } from "../Api/Playlist";
 import { LoadingComponent } from "../Component/Global/Loading";
-import { useTheme } from "@react-navigation/native";
 import { PlainText } from "../Component/Global/PlainText";
 import { SmallText } from "../Component/Global/SmallText";
 import FormatArtist from "../Utils/FormatArtists";
 
+// Add this truncate function
+const truncateText = (text, limit = 20) => {
+  return text?.length > limit ? text.substring(0, limit) + '...' : text;
+};
+
 export const Playlist = ({route}) => {
-  const theme = useTheme();
   const AnimatedRef = useAnimatedRef()
   const [Loading, setLoading] = useState(true)
   const [Data, setData] = useState({});
@@ -44,7 +47,7 @@ export const Playlist = ({route}) => {
          backgroundColor:"#101010",
       }}>
         <PlaylistTopHeader AnimatedRef={AnimatedRef} url={image} />
-        <PlaylistDetails id={id} image={image} name={name} follower={follower} listener={follower ?? ""} releasedDate={Data?.data?.releaseDate ?? ""} Data={Data}  Loading={Loading}/>
+        <PlaylistDetails id={id} image={image} name={truncateText(name)} follower={follower} listener={follower ?? ""} releasedDate={Data?.data?.releaseDate ?? ""} Data={Data}  Loading={Loading}/>
          {Loading &&
            <LoadingComponent loading={Loading} height={200}/>}
         {!Loading && <View style={{
@@ -52,9 +55,25 @@ export const Playlist = ({route}) => {
           backgroundColor:"#101010",
           gap:7,
         }}>
-          {Data?.data?.songs?.map((e,i)=><EachSongCard Data={Data} isFromPlaylist={true} index={i}  artist={FormatArtist(e?.artists?.primary)} language={e?.language} playlist={true} artistID={e?.primary_artists_id} key={i} duration={e?.duration} image={e?.image[2]?.url} id={e?.id} width={"100%"} title={e?.name}  url={e?.downloadUrl} style={{
-            marginBottom:15,
-          }}/>)}
+          {Data?.data?.songs?.map((e,i)=><EachSongCard 
+            Data={Data} 
+            isFromPlaylist={true} 
+            index={i}  
+            artist={FormatArtist(e?.artists?.primary)} 
+            language={e?.language} 
+            playlist={true} 
+            artistID={e?.primary_artists_id} 
+            key={i} 
+            duration={e?.duration} 
+            image={e?.image[2]?.url} 
+            id={e?.id} 
+            width={"100%"} 
+            title={truncateText(e?.name)}  
+            url={e?.downloadUrl} 
+            style={{
+              marginBottom:15,
+            }}
+          />)}
         </View>}
       </Animated.ScrollView>
       {Data?.songs?.length <= 0 && <View style={{
