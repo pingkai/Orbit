@@ -229,12 +229,16 @@ export const MyMusicPage = () => {
             );
             
             // Convert RNFS files to the same format as MusicFiles
-            tracks = allFiles.flat().map((file, index) => ({
-              path: file.path,
-              title: file.name,
-              author: 'Unknown Artist',
-              duration: 0 // We don't have duration info from RNFS
-            }));
+            tracks = allFiles.flat().map((file, index) => {
+              const title = file.name.replace(/\.(mp3|m4a|wav|ogg|flac)$/, ''); // Remove file extension
+              const artist = extractArtistFromTitle(title); // Extract artist name
+              return {
+                path: file.path,
+                title: title,
+                artist: artist, // Use extracted artist name
+                duration: 0 // We don't have duration info from RNFS
+              };
+            });
             
             console.log('Tracks fetched with RNFS fallback:', tracks.length);
           } catch (fallbackErr) {
@@ -252,8 +256,8 @@ export const MyMusicPage = () => {
           const musicFilesList = tracks.map((song, index) => {
             const musicItem = {
             id: song.path || `${index}`,
-              title: song.title || song.path?.split('/').pop() || `Track ${index + 1}`,
-              artist: song.author || 'Unknown Artist', // Note: 'author' is correct per library docs
+              title: song.title && song.title.length > 20 ? `${song.title.substring(0, 20)}...` : song.title || song.path?.split('/').pop() || `Track ${index + 1}`,
+              artist: song.artist && song.artist.length > 20 ? `${song.artist.substring(0, 20)}...` : song.artist || 'Unknown Artist', // Note: 'artist' is correct per library docs
               duration: formatDuration(song.duration || 0),
               path: song.path, // Add path for playback
               cover: song.cover || null // Add cover art if available
@@ -283,6 +287,13 @@ export const MyMusicPage = () => {
     const minutes = Math.floor(duration / 60000);
     const seconds = Math.floor((duration % 60000) / 1000);
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  };
+
+  // Function to extract artist from title
+  const extractArtistFromTitle = (title) => {
+    const regex = /- (.+)$/; // Matches everything after the last hyphen
+    const match = title.match(regex);
+    return match ? match[1].trim() : "Unknown Artist"; // Return the artist name or "Unknown Artist"
   };
 
   if (loading && !localMusic.length) {
@@ -316,7 +327,12 @@ export const MyMusicPage = () => {
         data={localMusic}
         keyExtractor={(item) => item.id}
         renderItem={({ item, index }) => (
-          <LocalMusicCard song={item} index={index} allSongs={localMusic} />
+          <LocalMusicCard 
+            song={item} 
+            index={index} 
+            allSongs={localMusic} 
+            artist={item.artist.length > 20 ? item.artist.substring(0, 20) + "..." : item.artist}
+          />
         )}
         ListEmptyComponent={<Text style={styles.emptyText}>No music files available.</Text>}
         contentContainerStyle={styles.listContainer}
