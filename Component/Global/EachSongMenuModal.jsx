@@ -11,6 +11,7 @@ import { AddSongsToQueue, getIndexQuality} from "../../MusicPlayerFunctions";
 import Context from "../../Context/Context";
 import TrackPlayer from "react-native-track-player";
 import { GetCustomPlaylists, AddSongToCustomPlaylist } from "../../LocalStorage/CustomPlaylists";
+import { GetLocalMusicFavorites, AddLocalMusicToFavorites, RemoveLocalMusicFromFavorites, IsLocalMusicFavorite } from "../../LocalStorage/StoreLocalMusic";
 import { useState } from "react";
 import { ScrollView, TextInput } from "react-native";
 import { CreateCustomPlaylist } from "../../LocalStorage/CustomPlaylists";
@@ -59,6 +60,23 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [availablePlaylists, setAvailablePlaylists] = useState({});
+  const [isFavorite, setIsFavorite] = useState(false);
+  
+  // Check if the song is a local music file
+  const isLocalMusic = Visible.isLocalMusic === true;
+  
+  // Check if the song is a favorite when the modal opens
+  React.useEffect(() => {
+    if (Visible.visible && Visible.id) {
+      const checkFavoriteStatus = async () => {
+        if (isLocalMusic) {
+          const isFav = await IsLocalMusicFavorite(Visible.id);
+          setIsFavorite(isFav);
+        }
+      };
+      checkFavoriteStatus();
+    }
+  }, [Visible.visible, Visible.id, isLocalMusic]);
   
   async function actualDownload () {
     let dirs = ReactNativeBlobUtil.fs.dirs
@@ -91,17 +109,33 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
     setVisible({visible: false})
   }
   async function playNext() {
-    const quality = await getIndexQuality()
-    const song = {
-      url: Visible.url[quality].url,
-      title: FormatTitleAndArtist(Visible.title),
-      artist: FormatTitleAndArtist(Visible.artist),
-      artwork: Visible.image,
-      duration: Visible.duration,
-      id: Visible.id,
-      language: Visible.language,
-      image: Visible.image,
-      downloadUrl: Visible.url,
+    let song;
+    
+    if (isLocalMusic) {
+      // Format local music for player
+      song = {
+        url: Visible.path,
+        title: FormatTitleAndArtist(Visible.title),
+        artist: FormatTitleAndArtist(Visible.artist),
+        artwork: Visible.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
+        duration: Visible.duration,
+        id: Visible.id,
+        isLocalMusic: true
+      };
+    } else {
+      // Format online music for player
+      const quality = await getIndexQuality()
+      song = {
+        url: Visible.url[quality].url,
+        title: FormatTitleAndArtist(Visible.title),
+        artist: FormatTitleAndArtist(Visible.artist),
+        artwork: Visible.image,
+        duration: Visible.duration,
+        id: Visible.id,
+        language: Visible.language,
+        image: Visible.image,
+        downloadUrl: Visible.url,
+      }
     }
     
     try {
@@ -155,18 +189,76 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
         console.log("display error",err)    }
     }
   };
+  
+  // Function to handle adding/removing local music from favorites
+  async function toggleLocalMusicFavorite() {
+    try {
+      const isCurrentlyFavorite = await IsLocalMusicFavorite(Visible.id);
+      
+      if (isCurrentlyFavorite) {
+        await RemoveLocalMusicFromFavorites(Visible.id);
+        ToastAndroid.showWithGravity(
+          "Removed from favorites",
+          ToastAndroid.SHORT,
+          ToastAndroid.CENTER
+        );
+      } else {
+        const song = {
+          id: Visible.id,
+          title: Visible.title,
+          artist: Visible.artist,
+          path: Visible.path,
+          duration: Visible.duration,
+          cover: Visible.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
+          isLocalMusic: true
+        };
+        await AddLocalMusicToFavorites(song);
+        ToastAndroid.showWithGravity(
+          "Added to favorites",
+          ToastAndroid.SHORT,
+          ToastAndroid.CENTER
+        );
+      }
+      
+      setIsFavorite(!isCurrentlyFavorite);
+      setVisible({visible: false});
+    } catch (error) {
+      console.log("Error toggling favorite status:", error);
+      ToastAndroid.showWithGravity(
+        "Failed to update favorites",
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER
+      );
+    }
+  };
   async function addSongToQueue(){
-    const quality = await getIndexQuality()
-    const song  = {
-      url: Visible.url[quality].url,
-      title:FormatTitleAndArtist(Visible.title),
-      artist:FormatTitleAndArtist(Visible.artist),
-      artwork:Visible.image,
-      duration:Visible.duration,
-      id:Visible.id,
-      language:Visible.language,
-      image:Visible.image,
-      downloadUrl:Visible.url,
+    let song;
+    
+    if (isLocalMusic) {
+      // Format local music for queue
+      song = {
+        url: Visible.path,
+        title: FormatTitleAndArtist(Visible.title),
+        artist: FormatTitleAndArtist(Visible.artist),
+        artwork: Visible.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
+        duration: Visible.duration,
+        id: Visible.id,
+        isLocalMusic: true
+      };
+    } else {
+      // Format online music for queue
+      const quality = await getIndexQuality()
+      song = {
+        url: Visible.url[quality].url,
+        title:FormatTitleAndArtist(Visible.title),
+        artist:FormatTitleAndArtist(Visible.artist),
+        artwork:Visible.image,
+        duration:Visible.duration,
+        id:Visible.id,
+        language:Visible.language,
+        image:Visible.image,
+        downloadUrl:Visible.url,
+      }
     }
    await AddSongsToQueue([song])
     updateTrack()
@@ -185,18 +277,34 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
     setShowPlaylistModal(true);
   }
   async function addSongToSelectedPlaylist(playlistName) {
-    const quality = await getIndexQuality();
-    const song = {
-      url: Visible.url[quality].url,
-      title: FormatTitleAndArtist(Visible.title),
-      artist: FormatTitleAndArtist(Visible.artist),
-      artwork: Visible.image,
-      duration: Visible.duration,
-      id: Visible.id,
-      language: Visible.language,
-      image: Visible.image,
-      downloadUrl: Visible.url,
-    };
+    let song;
+    
+    if (isLocalMusic) {
+      // Format local music for playlist
+      song = {
+        url: Visible.path,
+        title: FormatTitleAndArtist(Visible.title),
+        artist: FormatTitleAndArtist(Visible.artist),
+        artwork: Visible.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
+        duration: Visible.duration,
+        id: Visible.id,
+        isLocalMusic: true
+      };
+    } else {
+      // Format online music for playlist
+      const quality = await getIndexQuality();
+      song = {
+        url: Visible.url[quality].url,
+        title: FormatTitleAndArtist(Visible.title),
+        artist: FormatTitleAndArtist(Visible.artist),
+        artwork: Visible.image,
+        duration: Visible.duration,
+        id: Visible.id,
+        language: Visible.language,
+        image: Visible.image,
+        downloadUrl: Visible.url,
+      };
+    }
   
     const playlists = await GetCustomPlaylists();
     const playlist = playlists[playlistName] || [];
@@ -287,11 +395,19 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
             text="Add to Playlist"
             onPress={handleAddToPlaylist}
           />
-          <MenuButton
-            icon={<MaterialCommunityIcons name="download" size={22} color="white"/>}
-            text="Download"
-            onPress={getPermission}
-          />
+          {isLocalMusic ? (
+            <MenuButton
+              icon={<MaterialCommunityIcons name={isFavorite ? "heart" : "heart-outline"} size={22} color={isFavorite ? "#ff5252" : "white"}/>}
+              text={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
+              onPress={toggleLocalMusicFavorite}
+            />
+          ) : (
+            <MenuButton
+              icon={<MaterialCommunityIcons name="download" size={22} color="white"/>}
+              text="Download"
+              onPress={getPermission}
+            />
+          )}
           
         </View>
       </Modal>

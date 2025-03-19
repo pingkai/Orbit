@@ -1880,6 +1880,11 @@
     prompts "^2.4.2"
     semver "^7.5.2"
 
+"@react-native-community/netinfo@^11.4.1":
+  version "11.4.1"
+  resolved "https://registry.npmjs.org/@react-native-community/netinfo/-/netinfo-11.4.1.tgz"
+  integrity sha512-B0BYAkghz3Q2V09BF88RA601XursIEA111tnc2JOaN7axJWmNefmfjZqw/KdSxKZp7CZUuPpjBmz/WCR9uaHYg==
+
 "@react-native-community/slider@^4.5.0":
   version "4.5.0"
   resolved "https://registry.npmjs.org/@react-native-community/slider/-/slider-4.5.0.tgz"
@@ -7427,7 +7432,7 @@ react-native-volume-manager@^2.0.8:
   resolved "https://registry.npmjs.org/react-native-volume-manager/-/react-native-volume-manager-2.0.8.tgz"
   integrity sha512-aZM47/mYkdQ4CbXpKYO6Ajiczv7fxbQXZ9c0H8gRuQUaS3OCz/MZABer6o9aDWq0KMNsQ7q7GVFLRPnSSeeMmw==
 
-react-native@*, "react-native@^0.0.0-0 || >=0.60 <1.0", "react-native@>= 0.55.x", react-native@>=0.31.0, react-native@>=0.50.0, react-native@>=0.57.0, react-native@>=0.60.0, react-native@>=0.60.0-rc.2, react-native@>=0.65.0, react-native@>=0.70.0, react-native@0.73.4:
+react-native@*, "react-native@^0.0.0-0 || >=0.60 <1.0", "react-native@>= 0.55.x", react-native@>=0.31.0, react-native@>=0.50.0, react-native@>=0.57.0, react-native@>=0.59, react-native@>=0.60.0, react-native@>=0.60.0-rc.2, react-native@>=0.65.0, react-native@>=0.70.0, react-native@0.73.4:
   version "0.73.4"
   resolved "https://registry.npmjs.org/react-native/-/react-native-0.73.4.tgz"
   integrity sha512-VtS+Yr6OOTIuJGDECIYWzNU8QpJjASQYvMtfa/Hvm/2/h5GdB6W9H9TOmh13x07Lj4AOhNMx3XSsz6TdrO4jIg==
