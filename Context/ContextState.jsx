@@ -22,6 +22,7 @@ const ContextState = (props)=>{
     const [Visible, setVisible] = useState({
         visible:false,
     });
+    const [previousScreen, setPreviousScreen] = useState(null);
 
     const [Queue, setQueue] = useState([]);
     async function updateTrack (){
@@ -88,7 +89,7 @@ const ContextState = (props)=>{
     useEffect(() => {
         InitialSetup()
     }, []);
-    return <Context.Provider value={{currentPlaying,  Repeat, setRepeat, updateTrack, Index, setIndex, QueueIndex, setQueueIndex, setVisible, Queue}}>
+    return <Context.Provider value={{currentPlaying,  Repeat, setRepeat, updateTrack, Index, setIndex, QueueIndex, setQueueIndex, setVisible, Queue, previousScreen, setPreviousScreen}}>
         {props.children}
          <EachSongMenuModal setVisible={setVisible} Visible={Visible}/>
     </Context.Provider>

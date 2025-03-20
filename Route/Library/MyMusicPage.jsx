@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, FlatList, ActivityIndicator, PermissionsAndroid, StyleSheet, Button, Linking, Platform, ToastAndroid } from 'react-native';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
+import { View, Text, FlatList, ActivityIndicator, PermissionsAndroid, StyleSheet, Button, Linking, Platform, ToastAndroid, Image, Pressable } from 'react-native';
+import { AnimatedSearchBar } from '../../Component/Global/AnimatedSearchBar';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import MusicFiles from 'react-native-get-music-files';
 import { LocalMusicCard } from '../../Component/MusicPlayer/LocalMusicCard';
@@ -7,6 +8,10 @@ import Context from '../../Context/Context';
 import { useTheme } from '@react-navigation/native';
 import { StorageManager } from '../../Utils/StorageManager';
 import NetInfo from '@react-native-community/netinfo';
+import TrackPlayer, { useActiveTrack } from 'react-native-track-player';
+import { useTrackPlayerEvents, Event } from 'react-native-track-player';
+import Ionicons from "react-native-vector-icons/Ionicons";
+import { PlaySong, PauseSong } from '../../MusicPlayerFunctions';
 
 export const MyMusicPage = () => {
   const theme = useTheme();
@@ -14,6 +19,10 @@ export const MyMusicPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isOffline, setIsOffline] = useState(false);
+  const currentPlaying = useActiveTrack();
+  const { Index, setIndex } = useContext(Context);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchVisible, setIsSearchVisible] = useState(false);
 
   const styles = StyleSheet.create({
     container: {
@@ -32,7 +41,7 @@ export const MyMusicPage = () => {
       color: theme.colors.text,
     },
     listContainer: {
-      paddingBottom: 16,
+      paddingBottom: 70, // Extra padding to account for controls
     },
     listItem: {
       padding: 12,
@@ -40,7 +49,8 @@ export const MyMusicPage = () => {
       borderBottomColor: 'rgba(255,255,255,0.1)',
     },
     title: {
-      fontSize: 16,
+      fontSize: 20,
+      fontWeight: 'bold',
       color: theme.colors.text,
     },
     subtitle: {
@@ -66,6 +76,34 @@ export const MyMusicPage = () => {
       textAlign: 'center',
       padding: 16,
     },
+    offlineBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 10, // Reduced padding from 16 to 10
+      paddingBottom: 5, // Added smaller bottom padding
+      marginBottom: 0, // Added to ensure no extra margin
+    },
+    offlineIcon: {
+      width: 24,
+      height: 24,
+      marginRight: 8,
+    },
+    offlineBannerText: {
+      fontSize: 16,
+      color: theme.colors.textSecondary,
+    },
+    controlButton: {
+      padding: 10,
+    },
+    headerContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 16,
+      paddingTop: 5, // Reduced top padding to bring it closer to the offline message
+      borderBottomWidth: 1,
+      borderBottomColor: 'rgba(255,255,255,0.1)',
+    }
   });
 
   const requestStoragePermission = async () => {
@@ -248,7 +286,11 @@ export const MyMusicPage = () => {
         }
 
         if (!tracks || tracks.length === 0) {
-          if (!cachedData?.music?.length) {
+          if (fetchError && cachedData?.music?.length) {
+            // Use cached data if available when fetch fails
+            tracks = cachedData.music;
+            console.log('Using cached music data');
+          } else if (!cachedData?.music?.length) {
             setError('No music files found on your device.');
             console.log('Set error: No music files found');
           }
@@ -296,6 +338,150 @@ export const MyMusicPage = () => {
     return match ? match[1].trim() : "Unknown Artist"; // Return the artist name or "Unknown Artist"
   };
 
+  const loadLocalTracks = async () => {
+    try {
+      // Format tracks for TrackPlayer
+      const formattedTracks = localMusic.map(song => ({
+        id: song.id,
+        url: `file://${song.path}`,
+        title: song.title,
+        artist: song.artist,
+        artwork: song.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
+        isLocal: true
+      }));
+  
+      // Reset the queue and add all tracks
+      await TrackPlayer.reset();
+      await TrackPlayer.add(formattedTracks);
+      console.log('Added tracks to queue:', formattedTracks.length);
+    } catch (error) {
+      console.error('Error loading local tracks:', error);
+    }
+  };
+
+  const loadAndPlayTrack = async (index) => {
+    if (index < 0 || index >= localMusic.length) return;
+    
+    try {
+      // Find the track at the requested index
+      const song = localMusic[index];
+      
+      // Format all tracks for the queue
+      const formattedTracks = localMusic.map(track => ({
+        id: track.id,
+        url: `file://${track.path}`,
+        title: track.title,
+        artist: track.artist,
+        artwork: track.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
+        isLocal: true
+      }));
+      
+      // Reset player and add all tracks, starting with the selected one
+      await TrackPlayer.reset();
+      await TrackPlayer.add([
+        ...formattedTracks.slice(index),
+        ...formattedTracks.slice(0, index)
+      ]);
+      await TrackPlayer.play();
+      
+      // Open the fullscreen player
+      setIndex(1);
+    } catch (error) {
+      console.error('Error loading and playing track:', error);
+    }
+  };
+
+  const events = [Event.PlaybackActiveTrackChanged,
+    Event.PlaybackError,
+    Event.PlaybackState,
+    Event.PlaybackQueueEnded
+  ];
+
+  useTrackPlayerEvents(events, async (event) => {
+    try {
+      if (event.type === Event.PlaybackState) {
+        const state = await TrackPlayer.getState();
+        if (state === TrackPlayer.STATE_STOPPED || state === TrackPlayer.STATE_ENDED) {
+          // When playback stops or ends, automatically play the next track
+          const queue = await TrackPlayer.getQueue();
+          const currentTrack = await TrackPlayer.getCurrentTrack();
+          
+          if (queue.length > 0) {
+            if (currentTrack === null) {
+              // If no track is playing, start from the beginning
+              await TrackPlayer.skip(0);
+            } else {
+              // Try to play the next track
+              const nextTrack = await TrackPlayer.getTrack(currentTrack + 1);
+              if (nextTrack) {
+                await TrackPlayer.skipToNext();
+              } else {
+                // If we're at the end, loop back to the first track
+                await TrackPlayer.skip(0);
+              }
+            }
+            await TrackPlayer.play();
+          }
+        }
+      } else if (event.type === Event.PlaybackQueueEnded) {
+        // When the queue ends, restart from the beginning
+        const queue = await TrackPlayer.getQueue();
+        if (queue.length > 0) {
+          await TrackPlayer.skip(0);
+          await TrackPlayer.play();
+        }
+      } else if (event.type === Event.PlaybackError) {
+        console.error('Playback error:', event);
+        // Try to recover by playing the next track
+        await TrackPlayer.skipToNext();
+        await TrackPlayer.play();
+      }
+    } catch (error) {
+      console.error('Error in track player event handler:', error);
+    }
+  });
+
+  // Functions to handle track navigation
+  const playPreviousSong = useCallback(async () => {
+    try {
+      const currentTrack = await TrackPlayer.getActiveTrack();
+      if (!currentTrack) {
+        // If no track is currently playing, play the first one
+        await loadAndPlayTrack(0);
+        return;
+      }
+
+      const currentIndex = localMusic.findIndex(track => track.id === currentTrack.id);
+      const prevIndex = (currentIndex - 1 + localMusic.length) % localMusic.length; // Wrap around to the last track
+      await loadAndPlayTrack(prevIndex);
+    } catch (error) {
+      console.error('Error playing previous song:', error);
+    }
+  }, [localMusic]);
+
+  const playNextSong = useCallback(async () => {
+    try {
+      const currentTrack = await TrackPlayer.getActiveTrack();
+      if (!currentTrack) {
+        // If no track is currently playing, play the first one
+        await loadAndPlayTrack(0);
+        return;
+      }
+
+      const currentIndex = localMusic.findIndex(track => track.id === currentTrack.id);
+      const nextIndex = (currentIndex + 1) % localMusic.length; // Wrap around to the first track
+      await loadAndPlayTrack(nextIndex);
+    } catch (error) {
+      console.error('Error playing next song:', error);
+    }
+  }, [localMusic]);
+
+  // Removed automatic track loading on component mount to give user more control
+
+  if (isOffline) {
+    console.log('Device is offline, but still displaying local music');
+  }
+
   if (loading && !localMusic.length) {
     return (
       <View style={styles.centered}>
@@ -322,9 +508,32 @@ export const MyMusicPage = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>My Music</Text>
+      
+      {isOffline && (
+        <View style={styles.offlineBanner}>
+          <Image
+            source={require('../../Images/offline.png')}
+            style={styles.offlineIcon}
+            resizeMode="contain"
+          />
+          <Text style={styles.offlineBannerText}>You're currently offline</Text>
+        </View>
+      )}
+      
       <FlatList
-        data={localMusic}
+        ListHeaderComponent={
+          <View style={styles.headerContainer}>
+            <Text style={styles.title}>My Music</Text>
+            <AnimatedSearchBar
+              onChange={setSearchQuery}
+              placeholder="Search songs..."
+            />
+          </View>
+        }
+        data={localMusic.filter(item => 
+          item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          item.artist.toLowerCase().includes(searchQuery.toLowerCase())
+        )}
         keyExtractor={(item) => item.id}
         renderItem={({ item, index }) => (
           <LocalMusicCard 
@@ -337,6 +546,16 @@ export const MyMusicPage = () => {
         ListEmptyComponent={<Text style={styles.emptyText}>No music files available.</Text>}
         contentContainerStyle={styles.listContainer}
       />
+      
+      {/* Add buttons for next and previous song */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 10 }}>
+        <Pressable onPress={playPreviousSong} style={styles.controlButton}>
+          <Ionicons name="play-skip-back" size={24} color="white" />
+        </Pressable>
+        <Pressable onPress={playNextSong} style={styles.controlButton}>
+          <Ionicons name="play-skip-forward" size={24} color="white" />
+        </Pressable>
+      </View>
     </View>
   );
 };

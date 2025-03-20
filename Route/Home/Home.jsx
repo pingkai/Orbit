@@ -1,5 +1,5 @@
 import { MainWrapper } from "../../Layout/MainWrapper";
-import { FlatList, ScrollView, View } from "react-native";
+import { FlatList, ScrollView, View, Text } from "react-native";
 import { Heading } from "../../Component/Global/Heading";
 import { HorizontalScrollSongs } from "../../Component/Global/HorizontalScrollSongs";
 import { RouteHeading } from "../../Component/Home/RouteHeading";
@@ -13,21 +13,38 @@ import { EachPlaylistCard } from "../../Component/Global/EachPlaylistCard";
 import { GetLanguageValue } from "../../LocalStorage/Languages";
 import { TopHeader } from "../../Component/Home/TopHeader";
 import { DisplayTopGenres } from "../../Component/Home/DisplayTopGenres";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 export const Home = () => {
   const [Loading, setLoading] = useState(true);
-  const [Data, setData] = useState({});
+  const [Data, setData] = useState({ data: { charts: [], playlists: [], trending: { albums: [] } } });
   const [showHeader, setShowHeader] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   async function fetchHomePageData(){
     try {
-      setLoading(true)
-      const Languages = await GetLanguageValue()
-      const data = await getHomePageData(Languages)
-      setData(data)
+      setLoading(true);
+      const networkState = await NetInfo.fetch();
+      setIsOffline(!networkState.isConnected);
+
+      // Try to load cached data first
+      const cachedData = await AsyncStorage.getItem('homePageData');
+      if (cachedData) {
+        setData(JSON.parse(cachedData));
+      }
+
+      if (networkState.isConnected) {
+        const Languages = await GetLanguageValue();
+        const data = await getHomePageData(Languages);
+        setData(data);
+        // Cache the new data
+        await AsyncStorage.setItem('homePageData', JSON.stringify(data));
+      }
     } catch (e) {
-      console.log(e);
+      console.log('Error fetching data:', e);
+      // If there's an error and we're offline, we'll continue with cached data
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
   useEffect(() => {
@@ -51,7 +68,7 @@ export const Home = () => {
              {/*<DisplayTopSection playlist={Data.data.charts.filter((e)=>e.type === 'playlist')}/>*/}
             <DisplayTopGenres/>
             <PaddingConatiner>
-              <HorizontalScrollSongs id={Data.data.charts[0].id}/>
+              <HorizontalScrollSongs id={Data.data.charts[0]?.id}/>
               <Heading text={"Recommended"}/>
             </PaddingConatiner>
             <FlatList
@@ -94,6 +111,18 @@ export const Home = () => {
             />
             <PaddingConatiner>
               <HorizontalScrollSongs id={Data?.data?.charts[1]?.id}/>
+            {isOffline && (
+              <PaddingConatiner>
+                <Text style={{
+                  color: '#666',
+                  textAlign: 'center',
+                  marginTop: 10,
+                  marginBottom: 10
+                }}>
+                  You're offline. Some content may not be available.
+                </Text>
+              </PaddingConatiner>
+            )}
             </PaddingConatiner>
             <PaddingConatiner>
               <Heading text={"Top Charts"}/>

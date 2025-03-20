@@ -5,14 +5,24 @@ import Context from "../../Context/Context";
 import TrackPlayer, { Event, useTrackPlayerEvents } from "react-native-track-player";
 
 export const QueueRenderSongs = memo(function QueueRenderSongs() {
-  const { Queue } = useContext(Context);
+  const { Queue, currentPlaying } = useContext(Context);
   const [upcomingQueue, setUpcomingQueue] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+
+  const filterQueueBySource = (queue, currentTrack) => {
+    if (!currentTrack) return queue;
+    const isLocalTrack = currentTrack.isLocalMusic || currentTrack.path;
+    return queue.filter(track => {
+      const isTrackLocal = track.isLocalMusic || track.path;
+      return isLocalTrack === isTrackLocal;
+    });
+  };
 
   useTrackPlayerEvents([Event.PlaybackTrackChanged], async ({ nextTrack }) => {
     if (nextTrack !== null) {
       setCurrentIndex(nextTrack);
-      const remainingQueue = Queue.slice(nextTrack + 1);
+      const filteredQueue = filterQueueBySource(Queue, Queue[nextTrack]);
+      const remainingQueue = filteredQueue.slice(nextTrack + 1);
       setUpcomingQueue(remainingQueue);
     }
   });
@@ -22,7 +32,8 @@ export const QueueRenderSongs = memo(function QueueRenderSongs() {
       const index = await TrackPlayer.getCurrentTrack();
       if (index !== null) {
         setCurrentIndex(index);
-        const remainingQueue = Queue.slice(index + 1);
+        const filteredQueue = filterQueueBySource(Queue, Queue[index]);
+        const remainingQueue = filteredQueue.slice(index + 1);
         setUpcomingQueue(remainingQueue);
       }
     };

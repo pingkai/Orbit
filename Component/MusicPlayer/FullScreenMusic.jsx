@@ -1,4 +1,4 @@
-import { Dimensions, ImageBackground, View, Pressable, BackHandler, Text, FlatList, TouchableOpacity } from "react-native";
+import { Dimensions, ImageBackground, View, Pressable, BackHandler, Text, FlatList, TouchableOpacity, Image } from "react-native";
 import FastImage from "react-native-fast-image";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import LinearGradient from "react-native-linear-gradient";
@@ -28,6 +28,8 @@ import TrackPlayer from 'react-native-track-player';
 import VolumeControl, { VolumeControlEvents } from 'react-native-volume-control';
 import NetInfo from "@react-native-community/netinfo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useTrackPlayerEvents } from "react-native-track-player";
+import { Event } from "react-native-track-player";
 
 // Import SleepTimerButton from its dedicated component file
 import { SleepTimerButton } from './SleepTimer';
@@ -55,32 +57,48 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
   const isVolumeAdjustmentActive = useSharedValue(false); // Explicit flag for volume adjustment state
   const volumeChangeRef = useRef(null); // Add missing ref for volume change timeout
 
-  // Network status monitoring
+  // Add error handling for track loading
   useEffect(() => {
     // Initial check of the network status
     const checkInitialConnection = async () => {
-      const networkState = await NetInfo.fetch();
-      setIsOffline(!networkState.isConnected);
-      if (!networkState.isConnected) {
-        loadCachedData();
-        loadLocalTracks();
+      try {
+        const networkState = await NetInfo.fetch();
+        setIsOffline(!networkState.isConnected);
+        if (!networkState.isConnected) {
+          await loadCachedData();
+          await loadLocalTracks();
+        }
+      } catch (error) {
+        console.error('Error checking network status:', error);
+        // Assume offline if there's an error
+        setIsOffline(true);
+        await loadCachedData();
+        await loadLocalTracks();
       }
     };
     
     checkInitialConnection();
 
-    // Subscribe to network state updates
+    // Subscribe to network state updates with error handling
     const unsubscribe = NetInfo.addEventListener(state => {
-      setIsOffline(!state.isConnected);
-      if (!state.isConnected) {
-        loadCachedData();
-        loadLocalTracks();
+      try {
+        setIsOffline(!state.isConnected);
+        if (!state.isConnected) {
+          loadCachedData();
+          loadLocalTracks();
+        }
+      } catch (error) {
+        console.error('Error handling network change:', error);
       }
     });
 
     // Cache current track if it exists
     if (currentPlaying) {
-      cacheCurrentTrack(currentPlaying);
+      try {
+        cacheCurrentTrack(currentPlaying);
+      } catch (error) {
+        console.error('Error caching current track:', error);
+      }
     }
 
     // Cleanup subscription
@@ -119,7 +137,7 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     }
   };
 
-  // Function to load local tracks from device storage
+  // Function to load local tracks with improved error handling
   const loadLocalTracks = async () => {
     try {
       const path = await GetDownloadPath();
@@ -138,7 +156,6 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
       
       // List files in the directory
       const files = await ReactNativeBlobUtil.fs.ls(downloadDir);
-      console.log('Found files:', files);
       
       // Filter music files
       const musicFiles = files.filter(file => 
@@ -154,46 +171,54 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
         return;
       }
       
-      // Function to extract artist from title
+      // Extract artist from title
       const extractArtistFromTitle = (title) => {
-        const regex = /- (.+)$/; // Matches everything after the last hyphen
+        const regex = /- (.+)$/;
         const match = title.match(regex);
-        return match ? match[1].trim() : "Unknown Artist"; // Return the artist name or "Unknown Artist"
+        return match ? match[1].trim() : "Unknown Artist";
       };
 
       // Format tracks for TrackPlayer
       const formattedTracks = musicFiles.map(file => {
-        const title = file.replace(/\.(mp3|m4a|wav|flac)$/, ''); // Remove file extension
-        const artist = extractArtistFromTitle(title); // Extract artist name
+        const title = file.replace(/\.(mp3|m4a|wav|flac)$/, '');
+        const artist = extractArtistFromTitle(title);
 
         return {
           id: `local_${file}`,
           url: `file://${downloadDir}/${file}`,
           title: title,
-          artist: artist, // Use extracted artist name
-          artwork: 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png', // Default artwork
+          artist: artist,
+          artwork: 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
           isLocal: true
         };
       });
       
-      console.log('Formatted local tracks:', formattedTracks);
       setLocalTracks(formattedTracks);
       
-      // If we're offline and there's no current track playing, play the first local track
-      if (isOffline && (!currentPlaying || !currentPlaying.id) && formattedTracks.length > 0) {
-        try {
-          await TrackPlayer.reset();
-          await TrackPlayer.add(formattedTracks);
-          await TrackPlayer.play();
-        } catch (error) {
-          console.error('Error playing local track:', error);
-        }
-      }
+      // Don't automatically reset and add tracks here
+      // This allows the MyMusicPage component to handle track playback
+      console.log('Found local tracks:', formattedTracks.length);
+      
+      return formattedTracks;
     } catch (error) {
       console.error('Error loading local tracks:', error);
       setLocalTracks([]);
+      return [];
     }
   };
+
+  // Make sure queue is set up for auto-play
+  useTrackPlayerEvents([Event.PlaybackQueueEnded, Event.PlaybackTrackChanged], async (event) => {
+    try {
+      if (event.type === Event.PlaybackQueueEnded && localTracks.length > 0) {
+        // When queue ends, restart from beginning
+        await TrackPlayer.skip(0);
+        await TrackPlayer.play();
+      }
+    } catch (error) {
+      console.error('Error in track player event handler:', error);
+    }
+  });
 
   // Create animated style for the volume overlay with immediate response
   const volumeOverlayStyle = useAnimatedStyle(() => ({
@@ -607,6 +632,14 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
 
   return (
     <Animated.View entering={FadeInDown.delay(200)} style={{ backgroundColor: "rgb(0,0,0)", flex: 1 }}>
+      {/* Show GIF when offline or playing local music */}
+      {(isOffline || (currentPlaying && currentPlaying.isLocal)) && (
+        <Image
+          source={require('../../Images/b.gif')} // Ensure the path is correct
+          style={{ width: width, height: height, position: 'absolute', top: 0, left: 0 }}
+          resizeMode="cover"
+        />
+      )}
       <ShowLyrics Loading={Loading} Lyric={Lyric} setShowDailog={setShowDailog} ShowDailog={ShowDailog} />
       {renderLocalTracksList()}
       <ImageBackground 
@@ -634,15 +667,20 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
            <Spacer height={5} />
             <GestureDetector gesture={combinedGestures}>
               <View>
-                <FastImage
-                  source={{ 
-                    uri: currentPlaying?.artwork ?? 
-                         (isOffline && cachedTracks.length > 0 ? 
-                           cachedTracks[0].artwork : 
-                           "https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png") 
-                  }}
-                  style={{ height: width * 0.9, width: width * 0.9, borderRadius: 10 }}
-                />
+                {(isOffline || (currentPlaying && currentPlaying.isLocal)) ? (
+                  <Image
+                    source={require('../../Images/i.gif')}
+                    style={{ height: width * 0.9, width: width * 0.9, borderRadius: 10 }}
+                  />
+                ) : (
+                  <FastImage
+                    source={{ 
+                      uri: currentPlaying?.artwork ?? 
+                        "https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png"
+                    }}
+                    style={{ height: width * 0.9, width: width * 0.9, borderRadius: 10 }}
+                  />
+                )}
                 <Animated.View style={volumeOverlayStyle}>
                   <Ionicons name={getVolumeIconName()} size={24} color="white" style={{ marginBottom: 10 }} />
                   <View style={volumeBarContainerStyle}>
@@ -728,26 +766,7 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
       </ImageBackground>
       <QueueBottomSheet Index={1} />
       
-      {/* Add a button to show local tracks when offline */}
-      {isOffline && (
-        <Pressable 
-          style={{
-            position: 'absolute', 
-            bottom: 75, 
-            right: width * 0.1,
-            backgroundColor: 'rgba(255,255,255,0.15)',
-            width: 50,
-            height: 50,
-            borderRadius: 25,
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 100
-          }}
-          onPress={() => setShowLocalTracks(true)}
-        >
-          <Ionicons name="list" size={24} color="white" />
-        </Pressable>
-      )}
     </Animated.View>
   );
 };
+

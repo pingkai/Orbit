@@ -9,14 +9,41 @@ import { useTheme } from "@react-navigation/native";
 import CustomTabBar from '../Component/Tab/CustomTabBar';
 import BottomSheetMusic from '../Component/MusicPlayer/BottomSheetMusic';
 import { View } from 'react-native';
-import { useContext } from 'react';
+import { useContext, useEffect } from 'react';
 import Context from '../Context/Context';
 import { FullScreenMusic } from '../Component/MusicPlayer/FullScreenMusic';
+import { useNavigation } from '@react-navigation/native';
 
 const Tab = createBottomTabNavigator();
 export const RootRoute = () => {
   const theme = useTheme();
-  const { Index, setIndex } = useContext(Context);
+  const { Index, setIndex, previousScreen, setPreviousScreen } = useContext(Context);
+  const navigation = useNavigation();
+
+  // Track screen changes to remember which screen the user was on before opening fullscreen player
+  useEffect(() => {
+    if (Index === 1) {
+      const currentState = navigation.getState();
+      if (currentState && currentState.routes && currentState.routes.length > 0) {
+        // Get the active route information
+        const currentTabRoute = currentState.routes[currentState.index];
+        
+        // Store both the main tab and the nested screen state
+        const nestedState = currentTabRoute.state;
+        let fullNavPath = currentTabRoute.name; // Start with the tab name
+        
+        // If there's a nested navigation state, get the current active route
+        if (nestedState && nestedState.routes && nestedState.routes.length > 0) {
+          const activeNestedRoute = nestedState.routes[nestedState.index];
+          // Store the full navigation path (tab/screen)
+          fullNavPath = `${currentTabRoute.name}/${activeNestedRoute.name}`;
+        }
+        
+        // Set the name of the current main tab and nested screen
+        setPreviousScreen(fullNavPath);
+      }
+    }
+  }, [Index, setPreviousScreen, navigation]);
 
   return (
     <View style={{ flex: 1 }}>

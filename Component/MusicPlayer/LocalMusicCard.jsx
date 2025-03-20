@@ -9,9 +9,10 @@ import { useActiveTrack, usePlaybackState } from 'react-native-track-player';
 import { useTheme } from '@react-navigation/native';
 import * as RNFS from 'react-native-fs';
 import { PlayOneSong } from '../../MusicPlayerFunctions';
+import TrackPlayer from 'react-native-track-player';
 
-export const LocalMusicCard = ({ song, index, allSongs }) => {
-  const { updateTrack, setVisible } = useContext(Context);
+export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
+  const { updateTrack, setVisible, setIndex } = useContext(Context);
   const currentPlaying = useActiveTrack();
   const playerState = usePlaybackState();
   const menuButtonRef = useRef(null);
@@ -65,21 +66,57 @@ export const LocalMusicCard = ({ song, index, allSongs }) => {
     }
   };
 
-  const playSong = async () => {
-    // Format the song for the player
-    const formattedSong = {
-      url: song.path,
-      title: song.title,
-      artist: song.artist,
-      // Use a default artwork or generate one based on the song title
-      artwork: song.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
-      duration: song.duration,
-      id: song.id,
-      isLocalMusic: true,
-    };
-
-    await PlayOneSong(formattedSong);
-    updateTrack();
+  const handlePress = async () => {
+    try {
+      // Format all tracks for the queue
+      const formattedTracks = allSongs.map(track => ({
+        id: track.id,
+        url: track.url || `file://${track.path}`,
+        title: track.title,
+        artist: track.artist,
+        artwork: track.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
+        isLocal: true
+      }));
+      
+      // Reset player and add all tracks
+      await TrackPlayer.reset();
+      
+      // Add all tracks to queue, starting with the selected one
+      const tracksToAdd = [
+        ...formattedTracks.slice(index),
+        ...formattedTracks.slice(0, index)
+      ];
+      
+      await TrackPlayer.add(tracksToAdd);
+      
+      // Start playback
+      await TrackPlayer.play();
+      
+      // Open the fullscreen player
+      setIndex(1);
+    } catch (error) {
+      console.error('Error playing track:', error);
+      
+      // Fallback method if the normal approach fails
+      try {
+        const song = allSongs[index];
+        const singleTrack = {
+          id: song.id,
+          url: song.url || `file://${song.path}`,
+          title: song.title,
+          artist: song.artist,
+          artwork: song.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
+          isLocal: true
+        };
+        
+        await TrackPlayer.reset();
+        await TrackPlayer.add(singleTrack);
+        await TrackPlayer.play();
+        setIndex(1);
+      } catch (fallbackError) {
+        console.error('Fallback method also failed:', fallbackError);
+      }
+    }
   };
 
   const isCurrentlyPlaying = currentPlaying?.id === song.id && playerState.state === 'playing';
@@ -87,7 +124,7 @@ export const LocalMusicCard = ({ song, index, allSongs }) => {
 
   return (
     <View style={styles.container}>
-      <Pressable onPress={playSong} style={styles.songInfo}>
+      <Pressable onPress={handlePress} style={styles.songInfo}>
         <View style={styles.imageContainer}>
           <FastImage 
             source={isCurrentlyPlaying ? require("../../Images/playing.gif") : 
