@@ -11,9 +11,11 @@ export const QueueRenderSongs = memo(function QueueRenderSongs() {
 
   const filterQueueBySource = (queue, currentTrack) => {
     if (!currentTrack) return queue;
-    const isLocalTrack = currentTrack.isLocalMusic || currentTrack.path;
+    // Check all possible indicators of a local track
+    const isLocalTrack = currentTrack.isLocalMusic || currentTrack.path || currentTrack.isLocal || currentTrack.url?.startsWith('file://');
     return queue.filter(track => {
-      const isTrackLocal = track.isLocalMusic || track.path;
+      // Apply the same check to each track in the queue
+      const isTrackLocal = track.isLocalMusic || track.path || track.isLocal || track.url?.startsWith('file://');
       return isLocalTrack === isTrackLocal;
     });
   };

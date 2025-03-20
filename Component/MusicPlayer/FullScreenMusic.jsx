@@ -539,10 +539,10 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     if (isOffline) {
       return (
         <View style={{ 
-          backgroundColor: 'rgba(0,0,0,0.7)', 
-          padding: 10, 
+          backgroundColor: '#FF5252', 
+          padding: 8, 
           position: 'absolute', 
-          top: 60, 
+          top: 0, 
           left: 0, 
           right: 0, 
           zIndex: 100,
@@ -550,9 +550,9 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
           justifyContent: 'center',
           flexDirection: 'row'
         }}>
-          <Ionicons name="cloud-offline-outline" size={18} color="#FF5252" />
+          <Ionicons name="cloud-offline-outline" size={18} color="white" />
           <Text style={{ color: 'white', marginLeft: 5, fontWeight: 'bold' }}>
-            You're offline - Playing local music
+            OFFLINE MODE - Playing local music
           </Text>
         </View>
       );
@@ -652,9 +652,9 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
         }} 
         style={{ flex: 1 }}
       >
+        {renderOfflineBanner()}
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.44)" }}>
           <LinearGradient start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} colors={['rgba(4,4,4,0.23)', 'rgba(9,9,9,0.47)', 'rgba(0,0,0,0.65)', 'rgba(0,0,0,0.89)', 'rgba(0,0,0,0.9)', "rgba(0,0,0,1)"]} style={{ flex: 1, alignItems: "center" }}>
-            {renderOfflineBanner()}
             <Pressable
               onPress={() => setIndex(0)}
               style={{ position: 'absolute', top: 20, left: 20, zIndex: 10 }}
@@ -668,9 +668,10 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
             <GestureDetector gesture={combinedGestures}>
               <View>
                 {(isOffline || (currentPlaying && currentPlaying.isLocal)) ? (
-                  <Image
+                  <FastImage
                     source={require('../../Images/i.gif')}
                     style={{ height: width * 0.9, width: width * 0.9, borderRadius: 10 }}
+                    resizeMode={FastImage.resizeMode.contain}
                   />
                 ) : (
                   <FastImage
