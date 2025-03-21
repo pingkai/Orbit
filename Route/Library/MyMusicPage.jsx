@@ -1,20 +1,21 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
-import { View, Text, FlatList, ActivityIndicator, PermissionsAndroid, StyleSheet, Button, Linking, Platform, ToastAndroid, Image, Pressable } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, PermissionsAndroid, StyleSheet, Button, Linking, Platform, ToastAndroid, Image, Pressable, BackHandler } from 'react-native';
 import { AnimatedSearchBar } from '../../Component/Global/AnimatedSearchBar';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import MusicFiles from 'react-native-get-music-files';
 import { LocalMusicCard } from '../../Component/MusicPlayer/LocalMusicCard';
 import Context from '../../Context/Context';
-import { useTheme } from '@react-navigation/native';
+import { useTheme, useNavigation } from '@react-navigation/native';
 import { StorageManager } from '../../Utils/StorageManager';
 import NetInfo from '@react-native-community/netinfo';
 import TrackPlayer, { useActiveTrack } from 'react-native-track-player';
 import { useTrackPlayerEvents, Event } from 'react-native-track-player';
 import Ionicons from "react-native-vector-icons/Ionicons";
-import { PlaySong, PauseSong } from '../../MusicPlayerFunctions';
+import Cover from "../../Images/Music.jpeg";
 
 export const MyMusicPage = () => {
   const theme = useTheme();
+  const navigation = useNavigation();
   const [localMusic, setLocalMusic] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -216,7 +217,7 @@ export const MyMusicPage = () => {
             title: true,
             artist: true,
             duration: true,
-            cover: false,
+            cover: true,
             minimumSongDuration: 10000,
             batchNumber: 100,
           });
@@ -301,8 +302,8 @@ export const MyMusicPage = () => {
               title: song.title && song.title.length > 20 ? `${song.title.substring(0, 20)}...` : song.title || song.path?.split('/').pop() || `Track ${index + 1}`,
               artist: song.artist && song.artist.length > 20 ? `${song.artist.substring(0, 20)}...` : song.artist || 'Unknown Artist', // Note: 'artist' is correct per library docs
               duration: formatDuration(song.duration || 0),
-              path: song.path, // Add path for playback
-              cover: song.cover || null // Add cover art if available
+              path: song.path,
+              cover: song.cover || Cover,
             };
             return musicItem;
           });
@@ -346,7 +347,7 @@ export const MyMusicPage = () => {
         url: `file://${song.path}`,
         title: song.title,
         artist: song.artist,
-        artwork: song.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
+        artwork: song.cover || Cover,
         isLocal: true
       }));
   
@@ -372,7 +373,7 @@ export const MyMusicPage = () => {
         url: `file://${track.path}`,
         title: track.title,
         artist: track.artist,
-        artwork: track.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
+        artwork: track.cover || Cover,
         isLocal: true
       }));
       
@@ -476,7 +477,22 @@ export const MyMusicPage = () => {
     }
   }, [localMusic]);
 
-  // Removed automatic track loading on component mount to give user more control
+  // Add a direct back button handler to ensure we go back to Library main page
+  useEffect(() => {
+    const handleBackPress = () => {
+      console.log('Back pressed in MyMusicPage, navigating to LibraryPage');
+      navigation.navigate('LibraryPage');
+      return true; // Prevents default back action
+    };
+
+    // Add back handler
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+
+    // Clean up on unmount
+    return () => {
+      backHandler.remove();
+    };
+  }, [navigation]);
 
   if (isOffline) {
     console.log('Device is offline, but still displaying local music');

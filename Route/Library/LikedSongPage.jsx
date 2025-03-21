@@ -4,14 +4,31 @@ import { LikedDetails } from "../../Component/Library/LikedDetails";
 import { useEffect, useState } from "react";
 import { GetLikedSongs } from "../../LocalStorage/StoreLikedSongs";
 import { EachSongCard } from "../../Component/Global/EachSongCard";
-import { Dimensions, View } from "react-native";
-import { useTheme } from "@react-navigation/native";
+import { Dimensions, View, BackHandler } from "react-native";
+import { useTheme, useNavigation } from "@react-navigation/native";
 
 export const LikedSongPage = () => {
   const AnimatedRef = useAnimatedRef()
   const [LikedSongs, setLikedSongs] = useState([]);
   const width = Dimensions.get("window").width
   const theme = useTheme()
+  const navigation = useNavigation();
+  
+  // Add a direct back button handler to ensure proper navigation
+  useEffect(() => {
+    const handleBackPress = () => {
+      console.log('Back pressed in LikedSongPage, navigating to LibraryPage');
+      navigation.navigate('LibraryPage');
+      return true; // Prevent default back action
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    
+    return () => {
+      backHandler.remove();
+    };
+  }, [navigation]);
+
   async function getAllLikedSongs(){
     const Songs = await GetLikedSongs()
     const Temp = []

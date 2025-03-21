@@ -1,8 +1,9 @@
 import React, { useRef, useState } from "react";
 import BottomSheet from "@gorhom/bottom-sheet";
-import { QueueRenderSongs } from "./QueueRenderSongs";
+import QueueRenderSongs from "./QueueRenderSongs";
 import { PlainText } from "../Global/PlainText";
 import { View } from "react-native";
+import Ionicons from "react-native-vector-icons/Ionicons";
 import Octicons from "react-native-vector-icons/Octicons";
 
 const QueueBottomSheet = () => {
@@ -39,7 +40,5 @@ const QueueBottomSheet = () => {
       </BottomSheet>
   );
 };
-
-
 
 export default QueueBottomSheet;

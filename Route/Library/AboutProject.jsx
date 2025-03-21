@@ -1,5 +1,5 @@
 import { MainWrapper } from "../../Layout/MainWrapper";
-import { Linking, Pressable, ScrollView, View,Image } from "react-native";
+import { Linking, Pressable, ScrollView, View, Image, BackHandler } from "react-native";
 import { PlainText } from "../../Component/Global/PlainText";
 import { Heading } from "../../Component/Global/Heading";
 import { SmallText } from "../../Component/Global/SmallText";
@@ -8,9 +8,28 @@ import { Spacer } from "../../Component/Global/Spacer";
 import EvilIcons from "react-native-vector-icons/EvilIcons";
 import FontAwesome from "react-native-vector-icons/FontAwesome";
 import Entypo from "react-native-vector-icons/Entypo";
+import { useNavigation } from "@react-navigation/native";
+import { useEffect } from "react";
 
 export const AboutProject = () => {
   const TopHeight = 120
+  const navigation = useNavigation();
+  
+  // Add a direct back button handler to ensure proper navigation
+  useEffect(() => {
+    const handleBackPress = () => {
+      console.log('Back pressed in AboutProject, navigating to LibraryPage');
+      navigation.navigate('LibraryPage');
+      return true; // Prevent default back action
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    
+    return () => {
+      backHandler.remove();
+    };
+  }, [navigation]);
+  
   return (
     <MainWrapper>
       <ScrollView>

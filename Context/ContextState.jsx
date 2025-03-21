@@ -23,6 +23,11 @@ const ContextState = (props)=>{
         visible:false,
     });
     const [previousScreen, setPreviousScreen] = useState(null);
+    // Dedicated state for music player navigation - won't be affected by general navigation
+    const [musicPreviousScreen, setMusicPreviousScreen] = useState("");
+    
+    // Add state to track the current playlist information
+    const [currentPlaylistData, setCurrentPlaylistData] = useState(null);
 
     const [Queue, setQueue] = useState([]);
     async function updateTrack (){
@@ -89,7 +94,24 @@ const ContextState = (props)=>{
     useEffect(() => {
         InitialSetup()
     }, []);
-    return <Context.Provider value={{currentPlaying,  Repeat, setRepeat, updateTrack, Index, setIndex, QueueIndex, setQueueIndex, setVisible, Queue, previousScreen, setPreviousScreen}}>
+    return <Context.Provider value={{
+        currentPlaying,  
+        Repeat, 
+        setRepeat, 
+        updateTrack, 
+        Index, 
+        setIndex, 
+        QueueIndex, 
+        setQueueIndex, 
+        setVisible, 
+        Queue, 
+        previousScreen, 
+        setPreviousScreen,
+        musicPreviousScreen,
+        setMusicPreviousScreen,
+        currentPlaylistData,
+        setCurrentPlaylistData
+    }}>
         {props.children}
          <EachSongMenuModal setVisible={setVisible} Visible={Visible}/>
     </Context.Provider>

@@ -14,28 +14,45 @@ import FormatArtist from "../../Utils/FormatArtists";
 import FormatTitleAndArtist from "../../Utils/FormatTitleAndArtist";
 
 
-export const PlaylistDetails = ({name,listener,notReleased,Data, Loading, id, image, follower}) => {
+export const PlaylistDetails = ({name = "", listener = "", notReleased = false, Data = {}, Loading = true, id = "", image = "", follower = ""}) => {
   const {updateTrack} = useContext(Context)
   async function AddToPlayer(){
+    if (!Data?.data?.songs || Data.data.songs.length === 0) {
+      console.log("No songs available to play");
+      return;
+    }
+    
     const quality = await getIndexQuality()
     const ForMusicPlayer = Data?.data?.songs?.map((e,i)=>{
+      if (!e) return null;
+      
       return {
-        url:e?.downloadUrl[quality].url,
-        title:FormatTitleAndArtist(e?.name),
-        artist:FormatTitleAndArtist(FormatArtist(e?.artists?.primary)),
-        artwork:e?.image[2]?.url,
-        image:e?.image[2]?.url,
-        duration:e?.duration,
-        id:e?.id,
-        language:e?.language,
-        artistID:e?.primary_artists_id,
+        url: e?.downloadUrl?.[quality]?.url || "",
+        title: FormatTitleAndArtist(e?.name || ""),
+        artist: FormatTitleAndArtist(FormatArtist(e?.artists?.primary || [])),
+        artwork: e?.image?.[2]?.url || "",
+        image: e?.image?.[2]?.url || "",
+        duration: e?.duration || 0,
+        id: e?.id || `unknown-${i}`,
+        language: e?.language || "",
+        artistID: e?.primary_artists_id || "",
       }
-    })
+    }).filter(item => item !== null);
+    
+    if (ForMusicPlayer.length === 0) {
+      console.log("No valid tracks to play");
+      return;
+    }
+    
     await AddPlaylist(ForMusicPlayer)
     updateTrack()
   }
+  
   const theme = useTheme()
   const width = Dimensions.get('window').width
+  
+  const displayName = (name || "").length > 20 ? (name || "").substring(0, 20) + '...' : (name || "");
+  
   return (
     <LinearGradient start={{x: 0, y: 0}} end={{x: 0, y: 1}} colors={['rgba(44,44,44,0)', 'rgb(18,18,18)', theme.colors.background]} style={{
       padding:10,
@@ -48,15 +65,15 @@ export const PlaylistDetails = ({name,listener,notReleased,Data, Loading, id, im
           paddingLeft:5,
           maxWidth:width * 0.8,
         }}>
-          <Heading text={name.length > 20 ? name.substring(0, 20) + '...' : name }/>
+          <Heading text={displayName}/>
           <View style={{flexDirection:"row",gap:5}}>
             <Ionicons name={"musical-note"} size={16}/>
-            <SmallText text={listener}/>
+            <SmallText text={listener || ""}/>
           </View>
           <Spacer/>
           {/* <LikedPlaylist id={id} image={image} name={name} follower={follower}/> */}
         </View>
-        <LikedPlaylist id={id} image={image} name={name} follower={follower}/>
+        <LikedPlaylist id={id} image={image} name={name || ""} follower={follower}/>
         <PlayButton Loading={Loading} onPress={()=>{
           if (!Loading){
             AddToPlayer()

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Modal, TextInput, Pressable, Text, FlatList, StyleSheet, Animated, Easing, ToastAndroid } from "react-native";
+import { View, Modal, TextInput, Pressable, Text, FlatList, StyleSheet, Animated, Easing, ToastAndroid, BackHandler } from "react-native";
 import { GetCustomPlaylists, CreateCustomPlaylist } from "../../LocalStorage/CustomPlaylists";
 import { useTheme } from "@react-navigation/native";
 import { Heading } from "../../Component/Global/Heading";
@@ -42,6 +42,21 @@ export const CustomPlaylist = () => {
       useNativeDriver: true,
     }).start();
   }, []);
+
+  // Add a direct back button handler to ensure proper navigation
+  useEffect(() => {
+    const handleBackPress = () => {
+      console.log('Back pressed in CustomPlaylist, navigating to LibraryPage');
+      navigation.navigate('LibraryPage');
+      return true; // Prevent default back action
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    
+    return () => {
+      backHandler.remove();
+    };
+  }, [navigation]);
 
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedPlaylist, setSelectedPlaylist] = useState('');

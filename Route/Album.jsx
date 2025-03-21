@@ -17,14 +17,21 @@ export const Album = ({route}) => {
   const AnimatedRef = useAnimatedRef()
   const [Loading, setLoading] = useState(true)
   const [Data, setData] = useState({});
-  const {id} = route.params
+  const id = route?.params?.id;
+
   async function fetchAlbumData(){
     try {
       setLoading(true)
+      if (!id) {
+        console.error('Album ID is missing from route params');
+        setData({});
+        return;
+      }
       const data = await getAlbumData(id)
       setData(data)
     } catch (e) {
-      console.log(e);
+      console.log('Error fetching album data:', e);
+      setData({});
     } finally {
       setLoading(false)
     }
@@ -37,8 +44,13 @@ export const Album = ({route}) => {
     <MainWrapper>
       {Loading &&
         <LoadingComponent loading={Loading}/>}
-      {!Loading &&  <>
-        {Data?.data?.songs?.length > 0 && <Animated.ScrollView scrollEventThrottle={16} ref={AnimatedRef} contentContainerStyle={{
+      {!Loading && !Data?.data?.songs?.length && (
+        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+          <PlainText text="Album not found or no songs available" />
+          <SmallText text="Please check your connection and try again" />
+        </View>
+      )}
+      {!Loading && Data?.data?.songs?.length > 0 && <Animated.ScrollView scrollEventThrottle={16} ref={AnimatedRef} contentContainerStyle={{
           paddingBottom:80,
           backgroundColor:"#101010",
         }}>
@@ -54,15 +66,6 @@ export const Album = ({route}) => {
             }}/>)}
           </View>}
         </Animated.ScrollView>}
-      </>}
-      {Data?.songs?.length <= 0 && <View style={{
-        flex: 1,
-        alignItems:"center",
-        justifyContent:"center",
-      }}>
-        <PlainText text={"Playlist not available"}/>
-        <SmallText text={"not available"}/>
-      </View>}
     </MainWrapper>
   );
 };

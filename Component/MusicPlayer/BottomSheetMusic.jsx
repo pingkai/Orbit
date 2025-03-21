@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, useEffect, useRef } from "react";
-import { BackHandler, StyleSheet } from "react-native";
+import { BackHandler, StyleSheet, Text } from "react-native";
 import BottomSheet, {BottomSheetView} from '@gorhom/bottom-sheet';
 import { MinimizedMusic } from "./MinimizedMusic";
 import { FullScreenMusic } from "./FullScreenMusic";
@@ -8,38 +8,228 @@ import { useNavigation } from "@react-navigation/native";
 
 const BottomSheetMusic = ({color}) => {
   const bottomSheetRef = useRef(null)
-  const {Index, setIndex, previousScreen} = useContext(Context)
+  const {Index, setIndex, previousScreen, musicPreviousScreen} = useContext(Context)
   const navigation = useNavigation();
+
+  // Function to specifically navigate to MyMusicPage
+  const navigateToMyMusicPage = useCallback(() => {
+    try {
+      console.log('Directly navigating to Library/MyMusicPage');
+      navigation.navigate('Library', { screen: 'MyMusicPage' });
+    } catch (error) {
+      console.error('Error navigating to MyMusicPage:', error);
+    }
+  }, [navigation]);
+
+  // Function to navigate to a specific screen based on the navigation path
+  const navigateToScreen = useCallback((tabName, screenName, nestedScreenName) => {
+    console.log('Navigating to:', tabName, screenName, nestedScreenName);
+    
+    try {
+      if (tabName === 'Library') {
+        if (screenName === 'MyMusicPage' || screenName === 'MyMusic') {
+          // Direct navigation to MyMusicPage
+          navigateToMyMusicPage();
+        } else if (screenName === 'LikedSongs') {
+          // Direct navigation to LikedSongs
+          navigation.reset({
+            index: 0,
+            routes: [
+              { 
+                name: 'Library',
+                state: {
+                  routes: [{ name: 'LikedSongs' }],
+                  index: 0
+                }
+              }
+            ]
+          });
+        } else if (screenName === 'CustomPlaylist') {
+          // Direct navigation to CustomPlaylist
+          navigation.reset({
+            index: 0,
+            routes: [
+              { 
+                name: 'Library',
+                state: {
+                  routes: [{ name: 'CustomPlaylist' }],
+                  index: 0
+                }
+              }
+            ]
+          });
+        } else if (screenName === 'LikedPlaylists') {
+          // Direct navigation to LikedPlaylists
+          navigation.reset({
+            index: 0,
+            routes: [
+              { 
+                name: 'Library',
+                state: {
+                  routes: [{ name: 'LikedPlaylists' }],
+                  index: 0
+                }
+              }
+            ]
+          });
+        } else if (screenName === 'AboutProject') {
+          // Direct navigation to AboutProject
+          navigation.reset({
+            index: 0,
+            routes: [
+              { 
+                name: 'Library',
+                state: {
+                  routes: [{ name: 'AboutProject' }],
+                  index: 0
+                }
+              }
+            ]
+          });
+        } else if (screenName) {
+          // Navigate to specific screen in Library
+          navigation.navigate('Library', { 
+            screen: screenName,
+            params: nestedScreenName ? { screen: nestedScreenName } : undefined 
+          });
+        } else {
+          // Default to main Library page
+          navigation.navigate('Library');
+        }
+      } else if (tabName === 'Discover') {
+        if (screenName) {
+          // Navigate to specific screen in Discover
+          navigation.navigate('Discover', { 
+            screen: screenName,
+            params: nestedScreenName ? { screen: nestedScreenName } : undefined
+          });
+        } else {
+          navigation.navigate('Discover');
+        }
+      } else if (tabName === 'Home') {
+        if (screenName) {
+          // Navigate to specific screen in Home
+          navigation.navigate('Home', { 
+            screen: screenName,
+            params: nestedScreenName ? { screen: nestedScreenName } : undefined
+          });
+        } else {
+          navigation.navigate('Home');
+        }
+      } else {
+        // Default navigation
+        navigation.navigate(tabName || 'Home');
+      }
+    } catch (error) {
+      console.error('Navigation error:', error);
+    }
+  }, [navigation, navigateToMyMusicPage]);
 
   useEffect(() => {
     const backAction = () => {
       // When user presses back button and music player is in fullscreen mode
       if (Index === 1) {
+        // First minimize the player
         setIndex(0);
-        // If there was a previous screen recorded, navigate back to it
-        if (previousScreen && navigation) {
-          try {
-            // Split the stored path into tab and screen
-            const [tabName, screenName] = previousScreen.split('/');
+        
+        // IMPROVED APPROACH: Navigate back to the screen user was on before opening player
+        try {
+          if (musicPreviousScreen) {
+            console.log('FIXED NAVIGATION: Returning to music screen:', musicPreviousScreen);
             
-            // First navigate to the tab
-            if (tabName) {
-              navigation.navigate(tabName);
+            // Delay slightly to ensure UI update happens first
+            setTimeout(() => {
+              // Parse the stored navigation path
+              const parts = musicPreviousScreen.split('/');
+              const tabName = parts[0]; // e.g., "Library"
+              const screenName = parts[1]; // e.g., "MyMusicPage"
               
-              // If there's a nested screen, navigate to it with a slight delay
-              if (screenName) {
-                setTimeout(() => {
-                  navigation.navigate(tabName, { screen: screenName });
-                }, 50);
+              if (tabName === 'Library' && screenName === 'MyMusicPage') {
+                // FOR MYMUSICPAGE: Use reset for cleaner navigation state
+                navigation.reset({
+                  index: 0,
+                  routes: [
+                    { 
+                      name: 'Library',
+                      state: {
+                        routes: [{ name: 'MyMusicPage' }],
+                        index: 0
+                      }
+                    }
+                  ]
+                });
+              } else if (tabName && screenName) {
+                // For other screens, normal navigation
+              navigation.navigate(tabName, { screen: screenName });
+              } else {
+                // Fallback to the main tab if needed
+                navigation.navigate(tabName || 'Home');
               }
-            }
-          } catch (error) {
-            console.log("Navigation error:", error);
+            }, 150);
           }
+        } catch (error) {
+          console.error('Navigation error:', error);
         }
-        return true;
+        
+        return true; // Prevent default back behavior
       }
-      return false;
+      
+      // ALSO HANDLE BACK PRESS WHEN MINIMIZED PLAYER IS SHOWING
+      // This fixes the issue when pressing back after closing fullscreen player
+      if (Index === 0 && musicPreviousScreen) {
+        // Get the current navigation state
+        const currentState = navigation.getState();
+        const currentScreenName = currentState?.routes?.[currentState.index]?.name;
+        
+        // Check if we're in a nested Library screen
+        if (currentScreenName === 'Library') {
+          const libraryState = currentState?.routes?.[currentState.index]?.state;
+          
+          if (libraryState) {
+            const currentLibraryScreenName = libraryState.routes[libraryState.index].name;
+            
+            // If we're on MyMusicPage or any other nested screen in Library, explicitly navigate to LibraryPage
+            if (currentLibraryScreenName !== 'LibraryPage') {
+              console.log(`In ${currentLibraryScreenName}, explicitly navigating to LibraryPage`);
+              
+              // Use reset for consistent navigation behavior
+              navigation.reset({
+                index: 0,
+                routes: [
+                  { 
+                    name: 'Library',
+                    state: {
+                      routes: [{ name: 'LibraryPage' }],
+                      index: 0
+                    }
+                  }
+                ]
+              });
+              return true;
+            }
+          }
+        } 
+        // If we're in Home or Discover but should be in Library based on music context
+        else if ((currentScreenName === 'Home' || currentScreenName === 'Discover') &&
+                 musicPreviousScreen.startsWith('Library')) {
+          console.log('In wrong tab, navigating to Library main page');
+          navigation.reset({
+            index: 0,
+            routes: [
+              { 
+                name: 'Library',
+                state: {
+                  routes: [{ name: 'LibraryPage' }],
+                  index: 0
+                }
+              }
+            ]
+          });
+          return true;
+        }
+      }
+      
+      return false; // Allow default back behavior
     };
     
     const backHandler = BackHandler.addEventListener(
@@ -54,7 +244,7 @@ const BottomSheetMusic = ({color}) => {
     return () => { 
       backHandler.remove()
     };
-  }, [Index, navigation, previousScreen, setIndex]);
+  }, [Index, navigation, setIndex, musicPreviousScreen]);
 
   const handleSheetChanges = useCallback(index => {
     if (index < 0){

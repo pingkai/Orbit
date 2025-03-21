@@ -1,6 +1,6 @@
 import { Dimensions, ImageBackground, View, Pressable, BackHandler, Text, FlatList, TouchableOpacity, Image } from "react-native";
 import FastImage from "react-native-fast-image";
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useContext, memo } from "react";
 import LinearGradient from "react-native-linear-gradient";
 import { Heading } from "../Global/Heading";
 import { SmallText } from "../Global/SmallText";
@@ -17,7 +17,7 @@ import QueueBottomSheet from "./QueueBottomSheet";
 import { getLyricsSongData } from "../../Api/Songs";
 import { ShowLyrics } from "./ShowLyrics";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import { useActiveTrack } from "react-native-track-player";
+import { useActiveTrack, usePlaybackState, State, useProgress } from "react-native-track-player";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { PlayNextSong, PlayPreviousSong } from "../../MusicPlayerFunctions";
 import ReactNativeBlobUtil from "react-native-blob-util";
@@ -30,6 +30,8 @@ import NetInfo from "@react-native-community/netinfo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTrackPlayerEvents } from "react-native-track-player";
 import { Event } from "react-native-track-player";
+import Context from "../../Context/Context";
+import { useNavigation, CommonActions } from "@react-navigation/native";
 
 // Import SleepTimerButton from its dedicated component file
 import { SleepTimerButton } from './SleepTimer';
@@ -46,6 +48,8 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
   const [cachedTracks, setCachedTracks] = useState([]);
   const [localTracks, setLocalTracks] = useState([]);
   const [showLocalTracks, setShowLocalTracks] = useState(false);
+  const { currentPlaylistData, musicPreviousScreen } = useContext(Context);
+  const navigation = useNavigation();
 
   const volumeAdjustmentActive = useSharedValue(0);
   const startY = useSharedValue(0);
@@ -54,8 +58,108 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
   const currentY = useSharedValue(0); // Track current Y position during gesture
   const initialDistance = useSharedValue(0); // Track initial distance for reference
   const touchEndTime = useSharedValue(0); // Track when touch ended
-  const isVolumeAdjustmentActive = useSharedValue(false); // Explicit flag for volume adjustment state
+  const isVolumeAdjustmentActive = useSharedValue(false); // Explicit flag for volume adjustment
   const volumeChangeRef = useRef(null); // Add missing ref for volume change timeout
+
+  // Add state to track the current GIF
+  const [currentGif, setCurrentGif] = useState('a');
+  
+  // Create an array of GIF letters (excluding 'm' which is causing issues)
+  const availableGifs = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'];
+  
+  // Track the current song ID to detect song changes
+  const [currentSongId, setCurrentSongId] = useState(null);
+  
+  // Get a deterministic GIF letter based on song ID 
+  const getGifForSong = useCallback((songId) => {
+    if (!songId) return 'a';
+    
+    // Create a simple hash from the song ID to get a consistent GIF for the same song
+    let numValue = 0;
+    for (let i = 0; i < songId.length; i++) {
+      numValue += songId.charCodeAt(i);
+    }
+    
+    // Get a GIF letter based on the hash
+    const index = numValue % availableGifs.length;
+    return availableGifs[index];
+  }, [availableGifs]);
+  
+  // Listen for track changes to assign a new GIF only when the song changes
+  useTrackPlayerEvents([Event.PlaybackTrackChanged], async (event) => {
+    try {
+      if (event.type === Event.PlaybackTrackChanged) {
+        const currentTrack = await TrackPlayer.getActiveTrack();
+        if (currentTrack && currentTrack.id !== currentSongId) {
+          // Only change GIF when the song changes (different ID)
+          console.log(`New song detected: ${currentTrack.title}, assigning a GIF`);
+          setCurrentSongId(currentTrack.id);
+          
+          // Assign a consistent GIF based on song ID
+          const gifLetter = getGifForSong(currentTrack.id);
+          setCurrentGif(gifLetter);
+          console.log(`Assigned GIF ${gifLetter} for song: ${currentTrack.title}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error in track change event handler:', error);
+    }
+  });
+  
+  // Initialize GIF when a local track starts playing for the first time
+  useEffect(() => {
+    if (currentPlaying && currentPlaying.isLocal && (!currentSongId || currentPlaying.id !== currentSongId)) {
+      setCurrentSongId(currentPlaying.id);
+      
+      // Assign a consistent GIF based on song ID
+      const gifLetter = getGifForSong(currentPlaying.id);
+      setCurrentGif(gifLetter);
+      console.log(`Assigned GIF ${gifLetter} for song: ${currentPlaying.title || 'Unknown'}`);
+    }
+  }, [currentPlaying?.isLocal, currentPlaying?.id, currentSongId, getGifForSong]);
+
+  // Create a more efficient mapping function for GIFs
+  const getGifModule = useCallback((letter) => {
+    // Define a map of letter to require statement
+    switch(letter) {
+      case 'a': return require('../../Images/a.gif');
+      case 'b': return require('../../Images/b.gif');
+      case 'c': return require('../../Images/c.gif');
+      case 'd': return require('../../Images/d.gif');
+      case 'e': return require('../../Images/e.gif');
+      case 'f': return require('../../Images/f.gif');
+      case 'g': return require('../../Images/g.gif');
+      case 'h': return require('../../Images/h.gif');
+      case 'i': return require('../../Images/i.gif');
+      case 'j': return require('../../Images/j.gif');
+      case 'k': return require('../../Images/k.gif');
+      case 'l': return require('../../Images/l.gif');
+      case 'n': return require('../../Images/n.gif');
+      case 'o': return require('../../Images/o.gif');
+      case 'p': return require('../../Images/p.gif');
+      case 'q': return require('../../Images/q.gif');
+      case 'r': return require('../../Images/r.gif');
+      case 's': return require('../../Images/s.gif');
+      case 't': return require('../../Images/t.gif');
+      case 'u': return require('../../Images/u.gif');
+      case 'v': return require('../../Images/v.gif');
+      case 'w': return require('../../Images/w.gif');
+      case 'x': return require('../../Images/x.gif');
+      case 'y': return require('../../Images/y.gif');
+      case 'z': return require('../../Images/z.gif');
+      default: return require('../../Images/a.gif'); // Default fallback
+    }
+  }, []);
+
+  // Safe function to get the appropriate GIF based on current state
+  const getGifSource = useCallback(() => {
+    try {
+      return getGifModule(currentGif);
+    } catch (error) {
+      console.error('Error loading GIF:', error);
+      return getGifModule('a'); // Fallback to first GIF
+    }
+  }, [currentGif, getGifModule]);
 
   // Add error handling for track loading
   useEffect(() => {
@@ -424,21 +528,143 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     'worklet';
     // Only process if we're not in the middle of a volume adjustment
     if (!isDragging.value && volumeAdjustmentActive.value === 0) {
-      runOnJS(setIndex)(0);
+      // Can't directly navigate from a worklet, so we need to use runOnJS
+      runOnJS(handlePlayerClose)();
     }
   });
   
-  // Combine gestures with the pan taking priority
-  const combinedGestures = Gesture.Exclusive(pan, tap);
+  // Function to handle the player close button - memoize with useCallback
+  const handlePlayerClose = useCallback(() => {
+    try {
+      console.log('Closing fullscreen player, previous screen:', musicPreviousScreen);
+      
+      // Always minimize the player first
+      setIndex(0);
+
+      // IMPORTANT: Don't use reset() as it destroys the navigation history
+      // Instead use direct navigation that preserves the back stack
+      if (musicPreviousScreen) {
+        console.log('Using direct navigation with preserved back stack');
+        
+        // Clean up the musicPreviousScreen path if needed
+        let cleanPath = musicPreviousScreen;
+        if (cleanPath.startsWith('MainRoute/')) {
+          cleanPath = cleanPath.replace('MainRoute/', '');
+        }
+        
+        // Split into parts
+        const parts = cleanPath.split('/');
+        console.log('Navigation path parts:', parts);
+        
+        if (parts.length >= 2) {
+          const tabName = parts[0];
+          const screenName = parts[1];
+          
+          // CRITICAL: Handle navigation within Library tab
+          if (tabName === 'Library') {
+            console.log(`Navigating within Library tab to ${screenName}`);
+            
+            // Using a robust navigation approach for nested screens
+            if (screenName === 'MyMusicPage' || 
+                screenName === 'CustomPlaylistView' || 
+                screenName === 'CustomPlaylist' || 
+                screenName === 'LikedPlaylists' ||
+                screenName === 'AlbumDetails') {
+              
+              // First make sure we're in the Library tab
+              navigation.navigate('Library');
+              
+              // Then after a small delay to ensure tab switch completes,
+              // navigate to the specific screen
+              setTimeout(() => {
+                try {
+                  // First approach - standard nested navigation
+                  navigation.navigate('Library', {
+                    screen: screenName,
+                    initial: false
+                  });
+                  
+                  console.log(`Navigation attempt 1: Library -> ${screenName}`);
+                  
+                  // Set a fallback in case the first approach fails
+                  setTimeout(() => {
+                    try {
+                      // Check if we're already at the right screen
+                      const currentState = navigation.getState();
+                      const currentTab = currentState?.routes?.[currentState?.index];
+                      
+                      if (currentTab?.name === 'Library' && 
+                          currentTab?.state?.routes?.[currentTab?.state?.index]?.name !== screenName) {
+                        
+                        console.log(`Fallback navigation: direct to ${screenName}`);
+                        // Direct navigation to the screen
+                        navigation.navigate(screenName);
+                      }
+                    } catch (e) {
+                      console.error('Error in navigation fallback:', e);
+                    }
+                  }, 100);
+                } catch (e) {
+                  console.error('Error in second navigation step:', e);
+                  // Direct fallback
+                  navigation.navigate(screenName);
+                }
+              }, 50);
+            }
+            // For just the Library tab without a specific screen
+            else {
+              console.log('Navigating to main Library tab');
+              navigation.navigate('Library');
+            }
+          }
+          // For other tabs (Home, Discover)
+          else {
+            console.log(`Navigating to tab: ${tabName}`);
+            navigation.navigate(tabName);
+          }
+        }
+        // If just a tab name
+        else if (parts.length === 1) {
+          console.log(`Navigating to tab: ${parts[0]}`);
+          navigation.navigate(parts[0]);
+        }
+      } else {
+        // Default fallback
+        console.log('No previous screen info, defaulting to Library tab');
+        navigation.navigate('Library');
+      }
+    } catch (error) {
+      console.error('Error in handlePlayerClose:', error);
+      // Fallback to just Library on error
+      navigation.navigate('Library');
+    }
+  }, [navigation, musicPreviousScreen, setIndex]);
 
   useEffect(() => {
+    // Handle back button press
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      setIndex(0);
-      return true;
+      try {
+        console.log('Back pressed in fullscreen player');
+        
+        // Only handle back press if we're in the fullscreen view
+        if (Index === 1) {
+          // Use the same handler for consistent behavior
+          handlePlayerClose();
+          return true;
+        }
+        
+        return false;
+      } catch (error) {
+        console.error('Error handling back button press:', error);
+        return false;
+      }
     });
-
+    
     return () => backHandler.remove();
-  }, [setIndex]);
+  }, [Index, handlePlayerClose]);
+
+  // Combine gestures with the pan taking priority
+  const combinedGestures = Gesture.Exclusive(pan, tap);
 
   async function GetLyrics() {
     setShowDailog(true);
@@ -534,25 +760,27 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     }
   };
 
-  // Offline mode UI
+  // Offline mode UI - Compact version between down arrow and lyrics button
   const renderOfflineBanner = () => {
     if (isOffline) {
       return (
         <View style={{ 
-          backgroundColor: '#FF5252', 
-          padding: 8, 
+          backgroundColor: 'rgba(255, 82, 82, 0.85)', 
+          padding: 4, 
           position: 'absolute', 
-          top: 0, 
-          left: 0, 
-          right: 0, 
-          zIndex: 100,
+          top: 20, 
+          left: 60, 
+          right: 60, 
+          zIndex: 10,
           alignItems: 'center',
           justifyContent: 'center',
-          flexDirection: 'row'
+          flexDirection: 'row',
+          borderRadius: 12,
+          height: 24
         }}>
-          <Ionicons name="cloud-offline-outline" size={18} color="white" />
-          <Text style={{ color: 'white', marginLeft: 5, fontWeight: 'bold' }}>
-            OFFLINE MODE - Playing local music
+          <Ionicons name="cloud-offline-outline" size={12} color="white" />
+          <Text style={{ color: 'white', marginLeft: 3, fontWeight: 'bold', fontSize: 10 }}>
+            OFFLINE MODE
           </Text>
         </View>
       );
@@ -634,10 +862,11 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     <Animated.View entering={FadeInDown.delay(200)} style={{ backgroundColor: "rgb(0,0,0)", flex: 1 }}>
       {/* Show GIF when offline or playing local music */}
       {(isOffline || (currentPlaying && currentPlaying.isLocal)) && (
-        <Image
-          source={require('../../Images/b.gif')} // Ensure the path is correct
+        <FastImage
+          source={getGifSource()}
           style={{ width: width, height: height, position: 'absolute', top: 0, left: 0 }}
-          resizeMode="cover"
+          resizeMode={FastImage.resizeMode.cover}
+          key={`background-gif-${currentGif}`}
         />
       )}
       <ShowLyrics Loading={Loading} Lyric={Lyric} setShowDailog={setShowDailog} ShowDailog={ShowDailog} />
@@ -652,15 +881,23 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
         }} 
         style={{ flex: 1 }}
       >
-        {renderOfflineBanner()}
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.44)" }}>
+        {renderOfflineBanner()}
           <LinearGradient start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} colors={['rgba(4,4,4,0.23)', 'rgba(9,9,9,0.47)', 'rgba(0,0,0,0.65)', 'rgba(0,0,0,0.89)', 'rgba(0,0,0,0.9)', "rgba(0,0,0,1)"]} style={{ flex: 1, alignItems: "center" }}>
             <Pressable
-              onPress={() => setIndex(0)}
+              onPress={() => {
+                try {
+                  console.log('Down arrow pressed in fullscreen player');
+                  setIndex(0); // Just minimize the player
+                } catch (error) {
+                  console.error('Error in down arrow press handler:', error);
+                }
+              }}
               style={{ position: 'absolute', top: 20, left: 20, zIndex: 10 }}
             >
               <Ionicons name="chevron-down" size={30} color="white" />
             </Pressable>
+            
             <View style={{ width: "90%", marginTop: 5, height: 60, alignItems: "center", justifyContent: "flex-end", flexDirection: "row" }}>
               <GetLyricsButton onPress={GetLyrics} />
             </View>
@@ -669,9 +906,10 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
               <View>
                 {(isOffline || (currentPlaying && currentPlaying.isLocal)) ? (
                   <FastImage
-                    source={require('../../Images/i.gif')}
+                    source={getGifSource()}
                     style={{ height: width * 0.9, width: width * 0.9, borderRadius: 10 }}
                     resizeMode={FastImage.resizeMode.contain}
+                    key={`gif-${currentGif}`}
                   />
                 ) : (
                   <FastImage
@@ -715,7 +953,8 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
                 </Animated.View>
               </View>
             </GestureDetector>
-            <Spacer />
+            <Spacer height={20} />
+            
             <Heading
               text={currentPlaying?.title?.length > 18 ? currentPlaying.title.substring(0, 18) + "..." : currentPlaying?.title || (isOffline ? "Offline Mode" : "No music :(")}
               style={{ textAlign: "center", paddingHorizontal: 2, marginBottom: 5, marginTop: 3, fontSize: 30 }}
@@ -766,7 +1005,6 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
         </View>
       </ImageBackground>
       <QueueBottomSheet Index={1} />
-      
     </Animated.View>
   );
 };

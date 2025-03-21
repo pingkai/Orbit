@@ -6,18 +6,22 @@ import { PlainText } from '../Global/PlainText';
 import { SmallText } from '../Global/SmallText';
 import Context from '../../Context/Context';
 import { useActiveTrack, usePlaybackState } from 'react-native-track-player';
-import { useTheme } from '@react-navigation/native';
+import { useTheme, useNavigation } from '@react-navigation/native';
 import * as RNFS from 'react-native-fs';
 import { PlayOneSong } from '../../MusicPlayerFunctions';
 import TrackPlayer from 'react-native-track-player';
 
+// Default music image
+const DEFAULT_MUSIC_IMAGE = require('../../Images/Music.jpeg');
+
 export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
-  const { updateTrack, setVisible, setIndex } = useContext(Context);
+  const { updateTrack, setVisible, setIndex, setPreviousScreen, setMusicPreviousScreen } = useContext(Context);
   const currentPlaying = useActiveTrack();
   const playerState = usePlaybackState();
   const menuButtonRef = useRef(null);
   const theme = useTheme();
   const [albumArt, setAlbumArt] = useState(null);
+  const navigation = useNavigation();
 
   useEffect(() => {
     const fetchAlbumArt = async () => {
@@ -27,24 +31,21 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
           const stats = await RNFS.stat(song.path);
           if (stats.size > 0) {
             // Try to use the provided cover art if available
-            if (song.cover) {
+            if (song.cover && typeof song.cover === 'string' && song.cover.trim() !== '') {
+              // Make sure cover is a valid string URI
               setAlbumArt(song.cover);
               return;
             }
             
-            // Generate a unique color-based artwork using the song title
-            const colorHash = Math.abs(song.title.split('').reduce((acc, char) => {
-              return char.charCodeAt(0) + ((acc << 5) - acc);
-            }, 0));
-            const hue = colorHash % 360;
-            const artwork = `https://dummyimage.com/200x200/${colorHash.toString(16).slice(0,6)}/ffffff&text=${encodeURIComponent(song.title.charAt(0))}`;
-            setAlbumArt(artwork);
+            // If we reach here, no valid cover image found
+            // We'll use the default image instead (handled in render)
+            setAlbumArt(null);
           }
         }
       } catch (error) {
         console.warn('Error handling album art:', error);
-        // Use a default artwork on error
-        setAlbumArt('https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png');
+        // Use null to indicate we should use the default image
+        setAlbumArt(null);
       }
     };
     
@@ -68,44 +69,92 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
 
   const handlePress = async () => {
     try {
-      // Format all tracks for the queue
-      const formattedTracks = allSongs.map(track => ({
-        id: track.id,
-        url: track.url || `file://${track.path}`,
-        title: track.title,
-        artist: track.artist,
-        artwork: track.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
-        isLocal: true
-      }));
-      
-      // Reset player and add all tracks
-      await TrackPlayer.reset();
-      
-      // Add all tracks to queue, starting with the selected one
-      const tracksToAdd = [
-        ...formattedTracks.slice(index),
-        ...formattedTracks.slice(0, index)
-      ];
-      
-      await TrackPlayer.add(tracksToAdd);
-      
-      // Start playback
-      await TrackPlayer.play();
-      
-      // Open the fullscreen player
-      setIndex(1);
+      // Save current navigation state before opening fullscreen player
+      const currentState = navigation.getState();
+      if (currentState && currentState.routes && currentState.routes.length > 0) {
+        const currentTabRoute = currentState.routes[currentState.index];
+        let fullNavPath = currentTabRoute.name;
+
+        // Try to get current route name (safer method)
+        let currentRouteName = null;
+        try {
+          // Check if we're in the MyMusicPage by inspecting the navigation state
+          if (currentTabRoute.name === 'Library' && currentTabRoute.state) {
+            const libraryRoute = currentTabRoute.state.routes[currentTabRoute.state.index];
+            currentRouteName = libraryRoute.name;
+            
+            // If we found MyMusicPage, set it explicitly
+            if (currentRouteName === 'MyMusicPage') {
+              console.log('Detected MyMusicPage through navigation state inspection');
+              fullNavPath = 'Library/MyMusicPage';
+              setPreviousScreen(fullNavPath);
+              setMusicPreviousScreen(fullNavPath);
+              console.log('Explicitly set music previous screen to:', fullNavPath);
+            }
+          }
+        } catch (routeError) {
+          console.log('Error trying to get current route name:', routeError);
+        }
+        
+        // If we already identified MyMusicPage, skip the rest of route detection
+        if (fullNavPath === 'Library/MyMusicPage') {
+          // Format tracks and start playback
+          await prepareAndPlayTracks();
+          return;
+        }
+        
+        // If there's a nested navigation state, get the current active route
+        const nestedState = currentTabRoute.state;
+        if (nestedState && nestedState.routes && nestedState.routes.length > 0) {
+          const activeNestedRoute = nestedState.routes[nestedState.index];
+          
+          // Check for deeper nesting (for screens like MyMusicPage in Library)
+          if (activeNestedRoute.state && activeNestedRoute.state.routes && activeNestedRoute.state.routes.length > 0) {
+            const deepNestedRoute = activeNestedRoute.state.routes[activeNestedRoute.state.index];
+            // Store the full navigation path with tab, screen and nested screen
+            fullNavPath = `${currentTabRoute.name}/${activeNestedRoute.name}/${deepNestedRoute.name}`;
+            console.log('LocalMusicCard detected deep nesting:', fullNavPath);
+          } else {
+            // Store the full navigation path (tab/screen)
+            fullNavPath = `${currentTabRoute.name}/${activeNestedRoute.name}`;
+          }
+        }
+        
+        // Save the current screen before opening player to both state variables
+        console.log('Setting music previous screen before player opens:', fullNavPath);
+        // Make sure we're using a consistent path format - remove MainRoute prefix if present
+        if (fullNavPath.startsWith('MainRoute/')) {
+          fullNavPath = fullNavPath.replace('MainRoute/', '');
+          console.log('Cleaned MainRoute prefix from path:', fullNavPath);
+        }
+        setPreviousScreen(fullNavPath);
+        setMusicPreviousScreen(fullNavPath);
+      }
+
+      // If we get here, proceed with normal playback
+      await prepareAndPlayTracks();
     } catch (error) {
       console.error('Error playing track:', error);
       
       // Fallback method if the normal approach fails
       try {
         const song = allSongs[index];
+        
+        // Ensure we have a valid artwork that won't cause type issues
+        let artwork;
+        if (song.cover && typeof song.cover === 'string' && song.cover.trim() !== '') {
+          artwork = { uri: song.cover };
+        } else {
+          // Use default local image
+          artwork = DEFAULT_MUSIC_IMAGE;
+        }
+        
         const singleTrack = {
           id: song.id,
           url: song.url || `file://${song.path}`,
           title: song.title,
           artist: song.artist,
-          artwork: song.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
+          artwork: artwork,
           isLocal: true
         };
         
@@ -119,18 +168,71 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
     }
   };
 
+  // Helper function to prepare and play tracks
+  const prepareAndPlayTracks = async () => {
+    // Format all tracks for the queue
+    const formattedTracks = allSongs.map(track => {
+      // Ensure we have a valid artwork that won't cause type issues
+      let artwork;
+      if (track.cover && typeof track.cover === 'string' && track.cover.trim() !== '') {
+        artwork = { uri: track.cover };
+      } else {
+        // Use default local image
+        artwork = DEFAULT_MUSIC_IMAGE;
+      }
+      
+      return {
+        id: track.id,
+        url: track.url || `file://${track.path}`,
+        title: track.title,
+        artist: track.artist,
+        artwork: artwork,
+        isLocal: true
+      };
+    });
+    
+    // Reset player and add all tracks
+    await TrackPlayer.reset();
+    
+    // Add all tracks to queue, starting with the selected one
+    const tracksToAdd = [
+      ...formattedTracks.slice(index),
+      ...formattedTracks.slice(0, index)
+    ];
+    
+    await TrackPlayer.add(tracksToAdd);
+    
+    // Start playback
+    await TrackPlayer.play();
+    
+    // Open the fullscreen player
+    setIndex(1);
+  };
+
   const isCurrentlyPlaying = currentPlaying?.id === song.id && playerState.state === 'playing';
   const isPaused = currentPlaying?.id === song.id && playerState.state !== 'playing';
+
+  // Determine what image source to use
+  const getImageSource = () => {
+    if (isCurrentlyPlaying) {
+      return require("../../Images/playing.gif");
+    } else if (isPaused) {
+      return require("../../Images/songPaused.gif");
+    } else if (song.cover && typeof song.cover === 'string' && song.cover.trim() !== '') {
+      return { uri: song.cover };
+    } else {
+      return DEFAULT_MUSIC_IMAGE;
+    }
+  };
 
   return (
     <View style={styles.container}>
       <Pressable onPress={handlePress} style={styles.songInfo}>
         <View style={styles.imageContainer}>
           <FastImage 
-            source={isCurrentlyPlaying ? require("../../Images/playing.gif") : 
-                   isPaused ? require("../../Images/songPaused.gif") : 
-                   { uri: song.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png' }}
+            source={getImageSource()}
             style={styles.image}
+            resizeMode={FastImage.resizeMode.cover}
           />
         </View>
         <View style={styles.textContainer}>

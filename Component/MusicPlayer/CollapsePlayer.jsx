@@ -4,15 +4,22 @@ import FastImage from 'react-native-fast-image';
 import { useActiveTrack } from 'react-native-track-player';
 import { PlayPauseButton } from './PlayPauseButton';
 import { NextSongButton } from './NextSongButton';
+import { useNavigation, useRoute } from '@react-navigation/native';
 // Add other imports as needed
 
 export const CollapsePlayer = ({ setIndex }) => {
+  const navigation = useNavigation();
+  const route = useRoute();
+  
+  // Get the current screen name from the route
+  const currentScreenName = route.name;
+  
   const currentPlaying = useActiveTrack();
   const isLocal = currentPlaying?.isLocal;
   
   // Handler for clicking on the player
   const handlePress = () => {
-    setIndex(1);
+    setIndex(1, currentScreenName);
   };
 
   // If no song is playing, don't show the player

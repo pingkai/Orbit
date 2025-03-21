@@ -14,12 +14,15 @@ import Context from "../../Context/Context";
 import TrackPlayer from "react-native-track-player";
 import { Pressable } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
+import { useNavigation } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const MinimizedMusic = memo(({setIndex, color}) => {
   const { position, duration } = useProgress()
-  const { setPreviousScreen } = useContext(Context);
+  const { setPreviousScreen, setMusicPreviousScreen, setCurrentPlaylistData } = useContext(Context);
   const [isOffline, setIsOffline] = useState(false);
   const [localTracks, setLocalTracks] = useState([]);
+  const navigation = useNavigation();
   
   // Check network status
   useEffect(() => {
@@ -35,6 +38,165 @@ export const MinimizedMusic = memo(({setIndex, color}) => {
     
     return () => unsubscribe();
   }, []);
+  
+  // Function to extract and save playlist ID from navigation state
+  const extractPlaylistInfo = useCallback((navState) => {
+    try {
+      if (!navState || !navState.routes || navState.routes.length === 0) {
+        console.log('Navigation state is invalid or empty');
+        return null;
+      }
+      
+      // Check if we're in the Playlist screen
+      const currentTabRoute = navState.routes[navState.index];
+      if (!currentTabRoute) {
+        console.log('Current tab route is undefined');
+        return null;
+      }
+      
+      // 1. Check if current screen is directly the Playlist
+      if (currentTabRoute.name === 'Playlist' && currentTabRoute.params) {
+        // Validate that we have the required id parameter
+        if (!currentTabRoute.params.id) {
+          console.log('Playlist params found but missing id');
+          return null;
+        }
+        
+        return {
+          id: currentTabRoute.params.id,
+          name: currentTabRoute.params.name || 'Playlist',
+          image: currentTabRoute.params.image || '',
+          follower: currentTabRoute.params.follower || ''
+        };
+      }
+      
+      // 2. Check if there's a nested navigation state with Playlist
+      const nestedState = currentTabRoute.state;
+      if (nestedState && nestedState.routes && nestedState.routes.length > 0) {
+        if (nestedState.index >= nestedState.routes.length) {
+          console.log('Nested state index out of bounds');
+          return null;
+        }
+        
+        const activeNestedRoute = nestedState.routes[nestedState.index];
+        if (!activeNestedRoute) {
+          console.log('Active nested route is undefined');
+          return null;
+        }
+        
+        // Check if the active nested route is a Playlist
+        if (activeNestedRoute.name === 'Playlist' && activeNestedRoute.params) {
+          // Validate that we have the required id parameter
+          if (!activeNestedRoute.params.id) {
+            console.log('Nested playlist params found but missing id');
+            return null;
+          }
+          
+          return {
+            id: activeNestedRoute.params.id,
+            name: activeNestedRoute.params.name || 'Playlist',
+            image: activeNestedRoute.params.image || '',
+            follower: activeNestedRoute.params.follower || ''
+          };
+        }
+        
+        // 3. Check if there's even deeper nesting
+        if (activeNestedRoute.state && activeNestedRoute.state.routes && activeNestedRoute.state.routes.length > 0) {
+          if (activeNestedRoute.state.index >= activeNestedRoute.state.routes.length) {
+            console.log('Deep nested state index out of bounds');
+            return null;
+          }
+          
+          const deepNestedRoute = activeNestedRoute.state.routes[activeNestedRoute.state.index];
+          if (!deepNestedRoute) {
+            console.log('Deep nested route is undefined');
+            return null;
+          }
+          
+          if (deepNestedRoute.name === 'Playlist' && deepNestedRoute.params) {
+            // Validate that we have the required id parameter
+            if (!deepNestedRoute.params.id) {
+              console.log('Deep nested playlist params found but missing id');
+              return null;
+            }
+            
+            return {
+              id: deepNestedRoute.params.id,
+              name: deepNestedRoute.params.name || 'Playlist',
+              image: deepNestedRoute.params.image || '',
+              follower: deepNestedRoute.params.follower || ''
+            };
+          }
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error extracting playlist info:', error);
+      return null;
+    }
+  }, []);
+  
+  // Function to save current screen and open player
+  const saveCurrentScreenAndOpenPlayer = () => {
+    try {
+      // Get current route navigation state to determine where we are
+      const state = navigation.getState();
+      console.log('NAVIGATION STATE:', JSON.stringify(state, null, 2));
+      
+      // Extract the real path from the navigation state
+      let screenPath = '';
+      
+      // Use a more reliable approach to find the current screen
+      if (state && state.routes && state.routes.length > 0) {
+        // Find the MainRoute container
+        const mainRoute = state.routes.find(route => route.name === 'MainRoute');
+        if (mainRoute && mainRoute.state && mainRoute.state.routes) {
+          // Find the active tab in the bottom tab navigator
+          const tabState = mainRoute.state;
+          const activeTabIndex = tabState.index;
+          
+          if (activeTabIndex !== undefined && tabState.routes && tabState.routes.length > activeTabIndex) {
+            const activeTab = tabState.routes[activeTabIndex];
+            console.log(`Active tab: ${activeTab.name}`);
+            
+            // Start building the path with the tab name
+            screenPath = activeTab.name;
+            
+            // Check if there's a nested stack within this tab
+            if (activeTab.state && activeTab.state.routes) {
+              const nestedState = activeTab.state;
+              const activeNestedIndex = nestedState.index;
+              
+              if (activeNestedIndex !== undefined && nestedState.routes && nestedState.routes.length > activeNestedIndex) {
+                const activeScreen = nestedState.routes[activeNestedIndex];
+                console.log(`Active screen: ${activeScreen.name} in ${activeTab.name}`);
+                
+                // Add the active screen to the path
+                screenPath = `${screenPath}/${activeScreen.name}`;
+              }
+            }
+          }
+        }
+      }
+      
+      // Log the extracted path
+      console.log(`EXTRACTED PATH: ${screenPath}`);
+      
+      // Store the screen path for later use
+      setMusicPreviousScreen(screenPath);
+      
+      // Set playlist data for display
+      setCurrentPlaylistData(screenPath);
+      
+      // Open the fullscreen player
+      setIndex(1);
+    } catch (error) {
+      console.error('Error in saveCurrentScreenAndOpenPlayer:', error);
+      // Fallback: just open the player without saving the path
+      setIndex(1);
+    }
+  };
   
   // Function to play next offline song
   const playNextOfflineSong = useCallback(async () => {
@@ -98,9 +260,9 @@ export const MinimizedMusic = memo(({setIndex, color}) => {
       isOffline ? playNextOfflineSong() : PlayNextSong();
     } else {
       // Save the current screen before opening fullscreen player
-      setIndex(1)
+      saveCurrentScreenAndOpenPlayer();
     }
-  })
+  });
   
   function TotalCompletedInpercent(){
     return (position / duration) * 100

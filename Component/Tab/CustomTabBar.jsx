@@ -1,4 +1,4 @@
-import React, { useContext, useEffect } from "react";
+import React, { useContext, useEffect, useRef } from "react";
 import { View, StyleSheet, Pressable } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons"
@@ -8,11 +8,51 @@ import Context from "../../Context/Context";
 const bottomColor = "#151515"
 
 export default function CustomTabBar({ state, descriptors, navigation }) {
-  const {setIndex, Index} = useContext(Context)
+  const {setIndex, Index, musicPreviousScreen} = useContext(Context);
+  const previousFullscreenState = useRef(false);
+  const previousTabIndex = useRef(state.index);
   
+  // Track tab changes for better back navigation
   useEffect(() => {
-    setIndex(0)
-  }, []);
+    // Remember previous tab for back navigation
+    if (state.index !== previousTabIndex.current) {
+      console.log(`Tab changed from ${previousTabIndex.current} to ${state.index}`);
+      previousTabIndex.current = state.index;
+    }
+  }, [state.index]);
+
+  // No longer force navigation to Library when exiting fullscreen
+  useEffect(() => {
+    // Special handling for transitions from fullscreen to normal view
+    if (previousFullscreenState.current && Index === 0) {
+      console.log('DETECTED FULLSCREEN EXIT in CustomTabBar');
+      
+      // If we've just exited fullscreen, ensure tab navigation is properly updated
+      // This helps with the first-time navigation issue
+      setTimeout(() => {
+        if (musicPreviousScreen) {
+          const parts = musicPreviousScreen.split('/');
+          const tabName = parts[0];
+          
+          // Verify we're in the correct tab after closing fullscreen
+          const currentState = navigation.getState();
+          const isInCorrectTab = currentState?.routes?.[currentState.index]?.state?.index !== undefined &&
+                                currentState.routes[currentState.index].state.routes.some(
+                                  route => route.name === tabName && route.state
+                                );
+          
+          if (!isInCorrectTab && tabName === 'Library') {
+            console.log('TAB SYNC: Ensuring we are in Library tab after fullscreen exit');
+            // Only update if we're not already in the correct nested state
+            navigation.navigate('Library');
+          }
+        }
+      }, 200); // Delay to ensure other navigation has completed
+    }
+    
+    // Update our tracking ref
+    previousFullscreenState.current = (Index === 1);
+  }, [Index, navigation, musicPreviousScreen]);
 
   // Move animation styles outside the map
   const getAnimatedStyle = (isFocused) => {
