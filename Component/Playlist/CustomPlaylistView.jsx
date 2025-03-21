@@ -1,6 +1,6 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { View, ScrollView, Pressable, ToastAndroid, TextInput } from 'react-native';
+import { View, ScrollView, Pressable, ToastAndroid, TextInput, Text, StatusBar, Image } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import { PlainText } from '../Global/PlainText';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -10,16 +10,87 @@ import Context from '../../Context/Context';
 import Modal from "react-native-modal";
 import { GetCustomPlaylists, AddSongToCustomPlaylist, CreateCustomPlaylist } from '../../LocalStorage/CustomPlaylists';
 import { StyleSheet } from 'react-native';
+import { Heading } from "../Global/Heading";
+import { useNavigation } from "@react-navigation/native";
 
-export const CustomPlaylistView = ({ route, navigation }) => {
-  const { playlistName, songs } = route.params;
-  const { updateTrack } = useContext(Context);
+export const CustomPlaylistView = (props) => {
+  const [Songs, setSongs] = useState([]);
+  const [playlistName, setPlaylistName] = useState("");
+  const navigation = useNavigation();
+  const { Queue, setQueue, setCurrentPlaying, currentPlaying } = useContext(Context);
   const [menuVisible, setMenuVisible] = useState(false);
   const [selectedSong, setSelectedSong] = useState(null);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [availablePlaylists, setAvailablePlaylists] = useState({});
   const [newPlaylistName, setNewPlaylistName] = useState('');
+
+  useEffect(() => {
+    // Safely extract params with error handling
+    try {
+      // Check if route and params exist
+      if (props.route && props.route.params) {
+        // Get songs data
+        const songs = props.route.params.songs || [];
+        setSongs(songs);
+        
+        // Get playlist name
+        const name = props.route.params.playlistName || "Custom Playlist";
+        setPlaylistName(name);
+        
+        console.log(`CustomPlaylistView loaded with ${songs.length} songs and name: ${name}`);
+      } else {
+        console.log('No route params available, using default values');
+        setSongs([]);
+        setPlaylistName("Custom Playlist");
+        
+        // Try to recover from AsyncStorage as fallback
+        recoverPlaylistDataFromStorage();
+      }
+    } catch (error) {
+      console.error('Error initializing CustomPlaylistView:', error);
+      // Set defaults on error
+      setSongs([]);
+      setPlaylistName("Custom Playlist");
+    }
+  }, [props.route]);
+  
+  // Function to try recovering playlist data from storage
+  const recoverPlaylistDataFromStorage = async () => {
+    try {
+      // Try to get the last viewed playlist
+      const storedPlaylist = await AsyncStorage.getItem('last_viewed_custom_playlist');
+      if (storedPlaylist) {
+        const playlistData = JSON.parse(storedPlaylist);
+        setPlaylistName(playlistData.name || "Custom Playlist");
+        setSongs(playlistData.songs || []);
+        console.log('Recovered playlist data from storage');
+      }
+    } catch (error) {
+      console.error('Error recovering playlist data:', error);
+    }
+  };
+  
+  // Save the current playlist data to storage for recovery
+  useEffect(() => {
+    try {
+      if (props.route && props.route.params && props.route.params.playlistName) {
+        // Store the current playlist data for recovery
+        const playlistData = {
+          name: props.route.params.playlistName,
+          songs: props.route.params.songs || []
+        };
+        
+        AsyncStorage.setItem('last_viewed_custom_playlist', JSON.stringify(playlistData))
+          .catch(err => console.error('Failed to save playlist data:', err));
+      }
+    } catch (error) {
+      console.error('Error saving playlist data:', error);
+    }
+  }, [props.route]);
+
+  const { updateTrack } = useContext(Context);
+
   const handleCreatePlaylist = async () => {
     if (newPlaylistName.trim()) {
       await CreateCustomPlaylist(newPlaylistName);
@@ -40,13 +111,13 @@ export const CustomPlaylistView = ({ route, navigation }) => {
   };
   const handlePlayPlaylist = async () => {
     await TrackPlayer.reset();
-    await AddPlaylist(songs);
+    await AddPlaylist(Songs);
     await TrackPlayer.play();
     updateTrack();
   };
   const handlePlaySong = async (index) => {
     await TrackPlayer.reset();
-    await AddPlaylist(songs.slice(index));
+    await AddPlaylist(Songs.slice(index));
     await TrackPlayer.play();
     updateTrack();
   };
@@ -54,7 +125,7 @@ export const CustomPlaylistView = ({ route, navigation }) => {
     return text.length > limit ? text.substring(0, limit) + '...' : text;
   };
   const handleShufflePlay = async () => {
-    const shuffledSongs = [...songs].sort(() => Math.random() - 0.5);
+    const shuffledSongs = [...Songs].sort(() => Math.random() - 0.5);
     await TrackPlayer.reset();
     await AddPlaylist(shuffledSongs);
     await TrackPlayer.play();
@@ -117,193 +188,278 @@ export const CustomPlaylistView = ({ route, navigation }) => {
     ToastAndroid.show(`Added to ${targetPlaylist}`, ToastAndroid.SHORT);
     setShowPlaylistModal(false);
   };
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <FastImage
-          source={songs?.length > 0 
-            ? { uri: songs[songs.length - 1].image }
-            : require('../../Images/wav.png')}
-          style={styles.playlistCover}
-        />
-        <View style={styles.playlistInfo}>
-          <PlainText text={playlistName} style={styles.playlistName} />
-          <PlainText text={`${songs?.length || 0} Songs`} style={styles.songCount} />
-          <View style={styles.controls}>
-            <Pressable style={styles.shuffleButton} onPress={handleShufflePlay}>
-              <MaterialCommunityIcons name="shuffle" size={24} color="white" />
-              <PlainText text="Shuffle" style={styles.controlText} />
+
+  // Function to add all songs to the queue
+  const AddAllSongsToQueue = async () => {
+    try {
+      if (!Songs || Songs.length === 0) {
+        console.log('No songs to play');
+        return;
+      }
+      
+      // Reset queue
+      await TrackPlayer.reset();
+      
+      // Add all songs to queue
+      await TrackPlayer.add(Songs);
+      
+      // Start playback
+      await TrackPlayer.play();
+      
+      // Update context if needed
+      if (updateTrack) {
+        updateTrack();
+      }
+      
+      ToastAndroid.show('Playing all songs', ToastAndroid.SHORT);
+    } catch (error) {
+      console.error('Error playing songs:', error);
+      ToastAndroid.show('Failed to play songs', ToastAndroid.SHORT);
+    }
+  };
+  
+  // Add helper function for adding playlist
+  const AddPlaylist = async (tracks) => {
+    try {
+      if (!tracks || tracks.length === 0) return;
+      
+      await TrackPlayer.add(tracks);
+      if (setQueue) {
+        setQueue(tracks);
+      }
+    } catch (error) {
+      console.error('Error adding playlist:', error);
+    }
+  };
+
+  // Add a custom SongCard component to replace AlbumSongCard
+  const SongCard = ({ e, allSongs, index, screenName }) => {
+    const { updateTrack } = useContext(Context);
+    const navigation = useNavigation();
+    
+    // Play this song
+    const playSong = async () => {
+      try {
+        await TrackPlayer.reset();
+        await TrackPlayer.add(allSongs.slice(index));
+        await TrackPlayer.play();
+        if (updateTrack) updateTrack();
+      } catch (error) {
+        console.error('Error playing song:', error);
+      }
+    };
+    
+    // Handle options menu
+    const [menuVisible, setMenuVisible] = useState(false);
+    
+    const handleMoreOptions = () => {
+      setMenuVisible(true);
+    };
+    
+    const handlePlayNext = async () => {
+      try {
+        const queue = await TrackPlayer.getQueue();
+        const currentIndex = await TrackPlayer.getCurrentTrack();
+        await TrackPlayer.add([e], currentIndex + 1);
+        ToastAndroid.show('Added to play next', ToastAndroid.SHORT);
+        setMenuVisible(false);
+      } catch (error) {
+        console.error('Play next error:', error);
+      }
+    };
+    
+    return (
+      <>
+        <Pressable
+          onPress={playSong}
+          style={{
+            flexDirection: 'row',
+            padding: 10,
+            alignItems: 'center',
+            marginVertical: 6,
+            backgroundColor: 'rgba(255,255,255,0.05)',
+            borderRadius: 8,
+          }}
+        >
+          {/* Song image */}
+          <FastImage
+            source={{ uri: e.image }}
+            style={{
+              width: 50,
+              height: 50,
+              borderRadius: 4,
+            }}
+          />
+          
+          {/* Song details */}
+          <View style={{ marginLeft: 12, flex: 1 }}>
+            <Text style={{ color: 'white', fontSize: 16, fontWeight: '500' }} numberOfLines={1}>
+              {e.title}
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }} numberOfLines={1}>
+              {e.artist}
+            </Text>
+          </View>
+          
+          {/* Options button */}
+          <Pressable
+            style={{ padding: 8 }}
+            onPress={handleMoreOptions}
+          >
+            <MaterialCommunityIcons name="dots-vertical" size={24} color="white" />
+          </Pressable>
+        </Pressable>
+        
+        {/* Options Modal */}
+        <Modal
+          isVisible={menuVisible}
+          onBackdropPress={() => setMenuVisible(false)}
+          onBackButtonPress={() => setMenuVisible(false)}
+          backdropOpacity={0.3}
+          animationIn="fadeIn"
+          animationOut="fadeOut"
+          style={{ margin: 0, justifyContent: 'flex-end' }}
+        >
+          <View style={{
+            backgroundColor: '#282828',
+            borderTopLeftRadius: 12,
+            borderTopRightRadius: 12,
+            paddingBottom: 20
+          }}>
+            <View style={{ 
+              padding: 16, 
+              borderBottomWidth: 1, 
+              borderBottomColor: 'rgba(255,255,255,0.1)',
+              flexDirection: 'row',
+              alignItems: 'center'
+            }}>
+              <FastImage 
+                source={{ uri: e.image }} 
+                style={{ width: 40, height: 40, borderRadius: 4 }} 
+              />
+              <View style={{ marginLeft: 12 }}>
+                <Text style={{ color: 'white', fontWeight: '600' }} numberOfLines={1}>{e.title}</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }} numberOfLines={1}>{e.artist}</Text>
+              </View>
+            </View>
+            
+            <Pressable
+              style={{ 
+                flexDirection: 'row', 
+                alignItems: 'center', 
+                padding: 16,
+                paddingVertical: 12
+              }}
+              onPress={handlePlayNext}
+            >
+              <MaterialCommunityIcons name="play-box-multiple" size={24} color="white" />
+              <Text style={{ color: 'white', marginLeft: 16 }}>Play Next</Text>
             </Pressable>
-            <Pressable style={styles.playButton} onPress={handlePlayPlaylist}>
-              <MaterialCommunityIcons name="play" size={24} color="white" />
+            
+            <Pressable
+              style={{ 
+                flexDirection: 'row', 
+                alignItems: 'center', 
+                padding: 16,
+                paddingVertical: 12
+              }}
+              onPress={() => {
+                ToastAndroid.show('Song information', ToastAndroid.SHORT);
+                setMenuVisible(false);
+              }}
+            >
+              <MaterialCommunityIcons name="information-outline" size={24} color="white" />
+              <Text style={{ color: 'white', marginLeft: 16 }}>Song Info</Text>
             </Pressable>
           </View>
-        </View>
+        </Modal>
+      </>
+    );
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#121212' }}>
+      <StatusBar barStyle="light-content" />
+      
+      {/* Add back button */}
+      <View style={{ 
+        flexDirection: 'row', 
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingTop: 10,
+        paddingBottom: 10
+      }}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={{
+            padding: 8,
+          }}
+        >
+          <MaterialCommunityIcons name="arrow-left" size={28} color="white" />
+        </Pressable>
+        <Text style={{ 
+          color: 'white', 
+          fontSize: 18, 
+          fontWeight: 'bold',
+          marginLeft: 10
+        }}>
+          {playlistName || "Custom Playlist"}
+        </Text>
       </View>
-
-      <ScrollView style={styles.songList}>
-        {songs?.map((song, index) => (
-          <Pressable
-            key={song.id}
-            style={styles.songItem}
-            onPress={() => handlePlaySong(index)}
-          >
-            <FastImage source={{ uri: song.image }} style={styles.songImage} />
-            <View style={styles.songInfo}>
-              <PlainText 
-                text={truncateText(song.title)} 
-                style={styles.songTitle} 
-              />
-              <PlainText 
-                text={truncateText(song.artist)} 
-                style={styles.artistName} 
-              />
-            </View>
-            <Pressable
-              onPress={(event) => {
-                const { pageY } = event.nativeEvent;
-                setMenuPosition({ y: pageY - 100 }); // Adjusted position
-                setSelectedSong(song);
-                setMenuVisible(true);
-              }}
-              style={styles.menuButton}
-            >
-              <MaterialCommunityIcons name="dots-vertical" size={24} color="white" />
-            </Pressable>
-          </Pressable>
-        ))}
-      </ScrollView>
-
-      <Modal
-        isVisible={menuVisible}
-        onBackdropPress={() => setMenuVisible(false)}
-        onBackButtonPress={() => setMenuVisible(false)}
-        backdropOpacity={0.3}
-        animationIn="fadeIn"
-        animationOut="fadeOut"
-        style={[styles.menuModal, { top: menuPosition.y }]}
-      >
-        <View style={styles.menuContainer}>
-          <MenuButton
-            icon={<MaterialCommunityIcons name="playlist-plus" size={22} color="white"/>}
-            text="Add to Playlist"
-            onPress={handleAddToPlaylist}
-          />
-          <MenuButton
-            icon={<MaterialCommunityIcons name="playlist-remove" size={22} color="white"/>}
-            text="Delete from Playlist"
-            onPress={() => handleDeleteFromPlaylist(selectedSong)}
-          />
-          <MenuButton
-            icon={<MaterialCommunityIcons name="play-box-multiple" size={22} color="white"/>}
-            text="Play Next"
-            onPress={() => handlePlayNext(selectedSong)}
-          />
-        </View>
-      </Modal>
-
-      {/* Playlist Selection Modal */}
-      <Modal
-        isVisible={showPlaylistModal}
-        onBackdropPress={() => setShowPlaylistModal(false)}
-        onBackButtonPress={() => setShowPlaylistModal(false)}
+      
+      <ScrollView
         style={{
-          margin: 0,
-          justifyContent: 'center',
-          alignItems: 'center',
+          flex: 1,
+        }}
+        contentContainerStyle={{
+          paddingHorizontal: 12,
+          paddingVertical: 10,
+          paddingTop: 50,
         }}
       >
-        <View style={{
-          backgroundColor: "#121212",
-          borderRadius: 10,
-          padding: 20,
-          width: '80%',
-          maxHeight: '70%',
-        }}>
-          <TextInput
-            placeholder="Create new playlist..."
-            placeholderTextColor="rgba(255,255,255,0.5)"
-            value={newPlaylistName}
-            onChangeText={setNewPlaylistName}
-            style={{
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.2)',
-              borderRadius: 5,
-              padding: 12,
-              color: 'white',
-              marginBottom: 10,
-            }}
-          />
-          
+        <Heading text={playlistName || "Custom Playlist"} style={{ marginBottom: 5 }} />
+        <Text style={{ color: "white", opacity: 0.5 }}>
+          {Songs.length} songs
+        </Text>
+
+        {/* Play All Button */}
+        {Songs.length > 0 && (
           <Pressable
-            onPress={handleCreatePlaylist}
+            onPress={() => AddAllSongsToQueue()}
             style={{
-              backgroundColor: '#1DB954',
-              padding: 12,
+              marginVertical: 15,
+              backgroundColor: "#fff",
+              paddingVertical: 10,
               borderRadius: 5,
-              alignItems: 'center',
-              marginBottom: 15,
             }}
           >
-            <PlainText text="Create New Playlist" style={{ color: 'white' }} />
+            <Text
+              style={{
+                color: "#000",
+                textAlign: "center",
+                fontWeight: "600",
+              }}
+            >
+              Play All
+            </Text>
           </Pressable>
-          
-          <ScrollView style={{ maxHeight: 300 }}>
-            {Object.keys(availablePlaylists).length === 0 ? (
-              <View style={{ padding: 10, alignItems: 'center' }}>
-                <PlainText 
-                  text="No playlists available" 
-                  style={{ color: 'white', textAlign: 'center' }}
-                />
-              </View>
-            ) : (
-              Object.keys(availablePlaylists).map((name) => (
-                <Pressable
-                  key={name}
-                  onPress={() => addSongToSelectedPlaylist(name)}
-                  android_ripple={{color: 'rgba(255,255,255,0.1)'}}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    padding: 12,
-                    backgroundColor: '#282828',
-                    borderRadius: 5,
-                    marginBottom: 8,
-                  }}
-                >
-                  <FastImage
-                    source={getPlaylistImage(availablePlaylists[name])}
-                    style={{
-                      width: 50,
-                      height: 50,
-                      borderRadius: 4,
-                    }}
-                  />
-                  <View style={{ marginLeft: 12, flex: 1 }}>
-                    <PlainText 
-                      text={name} 
-                      style={{
-                        color: 'white',
-                        fontSize: 16,
-                      }}
-                    />
-                    <PlainText 
-                      text={`${availablePlaylists[name].length} songs`} 
-                      style={{
-                        color: 'gray',
-                        fontSize: 12,
-                      }}
-                    />
-                  </View>
-                </Pressable>
-              ))
-            )}
-          </ScrollView>
-        </View>
-      </Modal>
+        )}
+
+        {/* Song List */}
+        {Songs.map((e, i) => (
+          <SongCard
+            key={i}
+            e={e}
+            allSongs={Songs}
+            index={i}
+            screenName={playlistName || "Custom Playlist"}
+          />
+        ))}
+      </ScrollView>
     </View>
   );
 };
+
 const MenuButton = ({icon, text, onPress}) => (
   <Pressable 
     onPress={onPress}
@@ -314,6 +470,7 @@ const MenuButton = ({icon, text, onPress}) => (
     <PlainText text={text} style={styles.menuText} />
   </Pressable>
 );
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,

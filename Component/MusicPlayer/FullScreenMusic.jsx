@@ -541,12 +541,12 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
       // Always minimize the player first
       setIndex(0);
 
-      // IMPORTANT: Don't use reset() as it destroys the navigation history
-      // Instead use direct navigation that preserves the back stack
+      // Get the navigation state to make informed decisions
+      const navigationState = navigation.getState();
+      console.log('Current navigation state:', JSON.stringify(navigationState, null, 2));
+
       if (musicPreviousScreen) {
-        console.log('Using direct navigation with preserved back stack');
-        
-        // Clean up the musicPreviousScreen path if needed
+        // Clean up the path
         let cleanPath = musicPreviousScreen;
         if (cleanPath.startsWith('MainRoute/')) {
           cleanPath = cleanPath.replace('MainRoute/', '');
@@ -560,83 +560,70 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
           const tabName = parts[0];
           const screenName = parts[1];
           
-          // CRITICAL: Handle navigation within Library tab
+          // CRITICAL FIX: Don't navigate directly - use the parent navigator
           if (tabName === 'Library') {
-            console.log(`Navigating within Library tab to ${screenName}`);
+            console.log(`Navigation attempt: MainRoute -> ${tabName} -> ${screenName}`);
             
-            // Using a robust navigation approach for nested screens
-            if (screenName === 'MyMusicPage' || 
-                screenName === 'CustomPlaylistView' || 
-                screenName === 'CustomPlaylist' || 
-                screenName === 'LikedPlaylists' ||
-                screenName === 'AlbumDetails') {
-              
-              // First make sure we're in the Library tab
-              navigation.navigate('Library');
-              
-              // Then after a small delay to ensure tab switch completes,
-              // navigate to the specific screen
-              setTimeout(() => {
-                try {
-                  // First approach - standard nested navigation
-                  navigation.navigate('Library', {
-                    screen: screenName,
-                    initial: false
-                  });
-                  
-                  console.log(`Navigation attempt 1: Library -> ${screenName}`);
-                  
-                  // Set a fallback in case the first approach fails
-                  setTimeout(() => {
-                    try {
-                      // Check if we're already at the right screen
-                      const currentState = navigation.getState();
-                      const currentTab = currentState?.routes?.[currentState?.index];
-                      
-                      if (currentTab?.name === 'Library' && 
-                          currentTab?.state?.routes?.[currentTab?.state?.index]?.name !== screenName) {
-                        
-                        console.log(`Fallback navigation: direct to ${screenName}`);
-                        // Direct navigation to the screen
-                        navigation.navigate(screenName);
-                      }
-                    } catch (e) {
-                      console.error('Error in navigation fallback:', e);
+            // Find existing route params if available to preserve them
+            let existingParams = null;
+            
+            // Check if we have the route params in the navigation state
+            if (navigationState && navigationState.routes) {
+              // Loop through routes to find matching tab
+              for (const route of navigationState.routes) {
+                if (route.name === 'MainRoute' && route.state) {
+                  // Find the Library tab in the tab navigator
+                  const libraryTab = route.state.routes.find(r => r.name === 'Library');
+                  if (libraryTab && libraryTab.state && libraryTab.state.routes) {
+                    // Find the target screen in the Library stack
+                    const targetScreen = libraryTab.state.routes.find(r => r.name === screenName);
+                    if (targetScreen && targetScreen.params) {
+                      console.log(`Found existing params for ${screenName}:`, targetScreen.params);
+                      existingParams = targetScreen.params;
                     }
-                  }, 100);
-                } catch (e) {
-                  console.error('Error in second navigation step:', e);
-                  // Direct fallback
-                  navigation.navigate(screenName);
+                  }
                 }
-              }, 50);
+              }
             }
-            // For just the Library tab without a specific screen
-            else {
-              console.log('Navigating to main Library tab');
-              navigation.navigate('Library');
-            }
+            
+            // Navigate to the main route first (the parent navigator)
+            navigation.navigate('MainRoute', {
+              screen: tabName,
+              params: {
+                screen: screenName,
+                params: existingParams // Pass the preserved params
+              }
+            });
+          } else {
+            // For other tabs, just navigate to the tab
+            console.log(`Simple navigation to tab: ${tabName}`);
+            navigation.navigate('MainRoute', {
+              screen: tabName
+            });
           }
-          // For other tabs (Home, Discover)
-          else {
-            console.log(`Navigating to tab: ${tabName}`);
-            navigation.navigate(tabName);
-          }
-        }
-        // If just a tab name
+        } 
+        // Just a tab name
         else if (parts.length === 1) {
-          console.log(`Navigating to tab: ${parts[0]}`);
-          navigation.navigate(parts[0]);
+          console.log(`Navigation to main tab: ${parts[0]}`);
+          navigation.navigate('MainRoute', {
+            screen: parts[0]
+          });
         }
       } else {
         // Default fallback
         console.log('No previous screen info, defaulting to Library tab');
-        navigation.navigate('Library');
+        navigation.navigate('MainRoute', {
+          screen: 'Library'
+        });
       }
     } catch (error) {
       console.error('Error in handlePlayerClose:', error);
-      // Fallback to just Library on error
-      navigation.navigate('Library');
+      // Fallback - try the most basic navigation to avoid being stuck
+      try {
+        navigation.navigate('MainRoute');
+      } catch (e) {
+        console.error('Even basic navigation failed:', e);
+      }
     }
   }, [navigation, musicPreviousScreen, setIndex]);
 
