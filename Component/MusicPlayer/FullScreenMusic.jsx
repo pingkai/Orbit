@@ -560,10 +560,43 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
           const tabName = parts[0];
           const screenName = parts[1];
           
-          // CRITICAL FIX: Don't navigate directly - use the parent navigator
-          if (tabName === 'Library') {
-            console.log(`Navigation attempt: MainRoute -> ${tabName} -> ${screenName}`);
-            
+          // Special handling for CustomPlaylistView to ensure params are preserved
+          if (screenName === 'CustomPlaylistView') {
+            // Check if we have playlist data in AsyncStorage as fallback
+            AsyncStorage.getItem('last_viewed_custom_playlist')
+              .then(storedPlaylist => {
+                if (storedPlaylist) {
+                  // Parse the stored playlist data
+                  const playlistData = JSON.parse(storedPlaylist);
+                  
+                  // Navigate with the recovered params
+                  navigation.navigate('MainRoute', {
+                    screen: tabName,
+                    params: {
+                      screen: screenName,
+                      params: playlistData
+                    }
+                  });
+                  
+                  console.log('Restored CustomPlaylistView with recovered data');
+                } else {
+                  // No stored data, just navigate to the screen
+                  navigation.navigate('MainRoute', {
+                    screen: tabName,
+                    params: {
+                      screen: screenName
+                    }
+                  });
+                }
+              })
+              .catch(error => {
+                console.error('Error retrieving playlist data:', error);
+                // Still navigate even on error
+                navigation.navigate('MainRoute', { screen: tabName });
+              });
+          } 
+          // For all other screens
+          else {
             // Find existing route params if available to preserve them
             let existingParams = null;
             
@@ -572,11 +605,11 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
               // Loop through routes to find matching tab
               for (const route of navigationState.routes) {
                 if (route.name === 'MainRoute' && route.state) {
-                  // Find the Library tab in the tab navigator
-                  const libraryTab = route.state.routes.find(r => r.name === 'Library');
-                  if (libraryTab && libraryTab.state && libraryTab.state.routes) {
-                    // Find the target screen in the Library stack
-                    const targetScreen = libraryTab.state.routes.find(r => r.name === screenName);
+                  // Find the target tab in the tab navigator
+                  const targetTab = route.state.routes.find(r => r.name === tabName);
+                  if (targetTab && targetTab.state && targetTab.state.routes) {
+                    // Find the target screen in the tab stack
+                    const targetScreen = targetTab.state.routes.find(r => r.name === screenName);
                     if (targetScreen && targetScreen.params) {
                       console.log(`Found existing params for ${screenName}:`, targetScreen.params);
                       existingParams = targetScreen.params;
@@ -586,24 +619,17 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
               }
             }
             
-            // Navigate to the main route first (the parent navigator)
+            // Navigate to the main route with the parent navigator
             navigation.navigate('MainRoute', {
               screen: tabName,
-              params: {
+              params: screenName !== tabName ? {
                 screen: screenName,
                 params: existingParams // Pass the preserved params
-              }
-            });
-          } else {
-            // For other tabs, just navigate to the tab
-            console.log(`Simple navigation to tab: ${tabName}`);
-            navigation.navigate('MainRoute', {
-              screen: tabName
+              } : undefined
             });
           }
-        } 
-        // Just a tab name
-        else if (parts.length === 1) {
+        } else if (parts.length === 1) {
+          // Just a tab name
           console.log(`Navigation to main tab: ${parts[0]}`);
           navigation.navigate('MainRoute', {
             screen: parts[0]

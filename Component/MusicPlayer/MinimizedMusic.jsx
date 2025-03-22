@@ -146,6 +146,7 @@ export const MinimizedMusic = memo(({setIndex, color}) => {
       
       // Extract the real path from the navigation state
       let screenPath = '';
+      let customPlaylistParams = null;
       
       // Use a more reliable approach to find the current screen
       if (state && state.routes && state.routes.length > 0) {
@@ -174,6 +175,22 @@ export const MinimizedMusic = memo(({setIndex, color}) => {
                 
                 // Add the active screen to the path
                 screenPath = `${screenPath}/${activeScreen.name}`;
+                
+                // If we're in CustomPlaylistView, save its params
+                if (activeScreen.name === 'CustomPlaylistView' && activeScreen.params) {
+                  customPlaylistParams = activeScreen.params;
+                  console.log('Captured CustomPlaylistView params:', customPlaylistParams);
+                  
+                  // Also store in AsyncStorage for recovery
+                  if (customPlaylistParams.playlistName && customPlaylistParams.songs) {
+                    AsyncStorage.setItem('last_viewed_custom_playlist', 
+                      JSON.stringify({
+                        name: customPlaylistParams.playlistName,
+                        songs: customPlaylistParams.songs
+                      })
+                    ).catch(err => console.error('Failed to store playlist params:', err));
+                  }
+                }
               }
             }
           }
