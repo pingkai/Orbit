@@ -1,6 +1,6 @@
 import { EachSongCard } from "./EachSongCard";
 import { Dimensions, ScrollView, View } from "react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { getPlaylistData } from "../../Api/Playlist";
 import { LoadingComponent } from "./Loading";
 import { Heading } from "./Heading";
@@ -11,21 +11,51 @@ export const HorizontalScrollSongs = ({id}) => {
   const width = Dimensions.get("window").width
   const [Loading, setLoading] = useState(true)
   const [Data, setData] = useState({});
+  const [randomOffset, setRandomOffset] = useState(0);
+
+  // Get a random starting point for songs
+  useEffect(() => {
+    // Only randomize if we have songs
+    if (Data?.data?.songs?.length > 8) {
+      // Generate a random offset, but ensure there are at least 8 songs after the offset
+      const maxOffset = Data.data.songs.length - 8;
+      const offset = Math.floor(Math.random() * maxOffset);
+      setRandomOffset(offset);
+      console.log(`Set random offset for playlist ${id}: ${offset}`);
+    }
+  }, [Data?.data?.songs, id]);
+
+  // Function to get songs with random offset
+  const getRandomizedSongs = useMemo(() => {
+    if (!Data?.data?.songs) return { firstGroup: [], secondGroup: [] };
+    
+    const songsWithOffset = [...Data.data.songs.slice(randomOffset)];
+    return {
+      firstGroup: songsWithOffset.slice(0, 4),
+      secondGroup: songsWithOffset.slice(4, 8)
+    };
+  }, [Data?.data?.songs, randomOffset]);
 
   async function fetchPlaylistData(){
     try {
       setLoading(true)
+      if (!id) {
+        setLoading(false);
+        return;
+      }
       const data = await getPlaylistData(id)
       setData(data)
     } catch (e) {
-      console.log(e);
+      console.log(`Error fetching playlist ${id}:`, e);
     } finally {
       setLoading(false)
     }
   }
   useEffect(() => {
-    fetchPlaylistData()
-  }, []);
+    if (id) {
+      fetchPlaylistData()
+    }
+  }, [id]);
   return ( <>
       {id && <>
         <Spacer/>
@@ -34,7 +64,7 @@ export const HorizontalScrollSongs = ({id}) => {
         <Spacer/>
         {!Loading && <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
           <View>
-            {Data?.data?.songs?.slice(0,4)?.map((e,i)=><View style={{marginBottom:7}}>
+            {getRandomizedSongs.firstGroup.map((e,i)=><View key={`first-${e.id}-${i}`} style={{marginBottom:7}}>
               <EachSongCard 
                 index={i} 
                 isFromPlaylist={true} 
@@ -43,7 +73,6 @@ export const HorizontalScrollSongs = ({id}) => {
                 language={e?.language} 
                 playlist={true} 
                 artistID={e?.primary_artists_id} 
-                key={i} 
                 duration={e?.duration} 
                 image={e?.image[2]?.url} 
                 id={e?.id} 
@@ -55,7 +84,7 @@ export const HorizontalScrollSongs = ({id}) => {
             </View>)}
           </View>
           <View>
-            {Data?.data?.songs?.slice(4,8)?.map((e,i)=><View style={{marginBottom:7}}>
+            {getRandomizedSongs.secondGroup.map((e,i)=><View key={`second-${e.id}-${i}`} style={{marginBottom:7}}>
               <EachSongCard 
                 index={i + 4} 
                 Data={Data} 
@@ -64,7 +93,6 @@ export const HorizontalScrollSongs = ({id}) => {
                 language={e?.language} 
                 playlist={true} 
                 artistID={e?.primary_artists_id} 
-                key={i} 
                 duration={e?.duration} 
                 image={e?.image[2]?.url} 
                 id={e?.id} 

@@ -663,7 +663,7 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
         if (Index === 1) {
           // Use the same handler for consistent behavior
           handlePlayerClose();
-          return true;
+      return true;
         }
         
         return false;
@@ -672,7 +672,7 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
         return false;
       }
     });
-    
+
     return () => backHandler.remove();
   }, [Index, handlePlayerClose]);
 

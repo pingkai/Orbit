@@ -105,7 +105,7 @@ const QueueRenderSongs = memo(() => {
           setUpcomingQueue(filtered);
           
           // Get current index
-          const index = await TrackPlayer.getCurrentTrack();
+      const index = await TrackPlayer.getCurrentTrack();
           setCurrentIndex(index || 0);
         } else {
           console.log('No active track, empty queue');
@@ -152,7 +152,7 @@ const QueueRenderSongs = memo(() => {
       data={upcomingQueue}
       keyExtractor={(item) => item.id}
       renderItem={({ item, index }) => (
-        <EachSongQueue
+        <EachSongQueue 
           title={item.title}
           artist={item.artist}
           id={item.id}

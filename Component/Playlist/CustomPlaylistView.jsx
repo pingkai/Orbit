@@ -224,38 +224,38 @@ export const CustomPlaylistView = (props) => {
         const currentIndex = await TrackPlayer.getCurrentTrack();
         await TrackPlayer.add([e], currentIndex + 1);
         ToastAndroid.show('Added to play next', ToastAndroid.SHORT);
-        setMenuVisible(false);
+    setMenuVisible(false);
       } catch (error) {
         console.error('Play next error:', error);
       }
-    };
+  };
     
     const handleDeleteFromPlaylist = async () => {
-      try {
-        // Get the latest playlists data
-        const playlists = await GetCustomPlaylists();
-        
-        // Filter out the song to be deleted
+    try {
+      // Get the latest playlists data
+      const playlists = await GetCustomPlaylists();
+      
+      // Filter out the song to be deleted
         const updatedSongs = playlists[playlistName].filter(s => s.id !== e.id);
-        
-        // Update the playlist with filtered songs
-        playlists[playlistName] = updatedSongs;
-        
+      
+      // Update the playlist with filtered songs
+      playlists[playlistName] = updatedSongs;
+      
         // Save to AsyncStorage
-        await AsyncStorage.setItem('CustomPlaylists', JSON.stringify(playlists));
-        
+      await AsyncStorage.setItem('CustomPlaylists', JSON.stringify(playlists));
+      
         // Update local state
         setSongs(updatedSongs);
-        
-        ToastAndroid.show('Song removed from playlist', ToastAndroid.SHORT);
-        setMenuVisible(false);
-      } catch (error) {
-        console.log('Delete error:', error);
-        ToastAndroid.show('Failed to remove song', ToastAndroid.SHORT);
-      }
-    };
+      
+      ToastAndroid.show('Song removed from playlist', ToastAndroid.SHORT);
+      setMenuVisible(false);
+    } catch (error) {
+      console.log('Delete error:', error);
+      ToastAndroid.show('Failed to remove song', ToastAndroid.SHORT);
+    }
+  };
     
-    return (
+  return (
       <>
         <Pressable
           onPress={playSong}
@@ -263,7 +263,7 @@ export const CustomPlaylistView = (props) => {
           android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
         >
           {/* Song image */}
-          <FastImage
+        <FastImage
             source={{ uri: e.image || e.artwork }}
             style={styles.songImage}
           />
@@ -276,8 +276,8 @@ export const CustomPlaylistView = (props) => {
             <Text style={styles.artistName} numberOfLines={1}>
               {e.artist}
             </Text>
-          </View>
-          
+      </View>
+
           {/* Options button */}
           <Pressable
             style={styles.optionsButton}
@@ -327,8 +327,8 @@ export const CustomPlaylistView = (props) => {
               <MaterialCommunityIcons name="playlist-remove" size={22} color="white" />
               <Text style={styles.modalOptionText}>Remove from Playlist</Text>
             </Pressable>
-          </View>
-        </Modal>
+        </View>
+      </Modal>
       </>
     );
   };

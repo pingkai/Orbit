@@ -139,8 +139,8 @@ export const RootRoute = () => {
             fullNavPath = `${currentTabRoute.name}/${activeNestedRoute.name}/${deepNestedRoute.name}`;
             console.log('Deep nested navigation detected:', fullNavPath);
           } else {
-            // Store the full navigation path (tab/screen)
-            fullNavPath = `${currentTabRoute.name}/${activeNestedRoute.name}`;
+          // Store the full navigation path (tab/screen)
+          fullNavPath = `${currentTabRoute.name}/${activeNestedRoute.name}`;
           }
         }
         
@@ -171,7 +171,7 @@ export const RootRoute = () => {
         // Don't update if Index is 1 (fullscreen player active) - extra safety check
         if (!isFullscreenActive.current) {
           console.log('Setting previous screen to:', fullNavPath);
-          setPreviousScreen(fullNavPath);
+        setPreviousScreen(fullNavPath);
           
           // Only update musicPreviousScreen if we're in a music-related screen
           // This preserves the music context even when navigating to non-music screens
