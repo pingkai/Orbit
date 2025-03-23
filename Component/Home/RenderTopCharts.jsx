@@ -1,6 +1,12 @@
 import { EachPlaylistCard } from "../Global/EachPlaylistCard";
 import { View } from "react-native";
 
+// Add a utility function to truncate text
+const truncateText = (text, limit = 30) => {
+  if (!text) return '';
+  return text.length > limit ? text.substring(0, limit) + '...' : text;
+};
+
 export const RenderTopCharts = ({playlist}) => {
   const data = []
   for (let i = 0; i < playlist.length; i = i + 2){
@@ -18,8 +24,8 @@ export const RenderTopCharts = ({playlist}) => {
           {item.map((e, i) => (
             <EachPlaylistCard 
               image={e.image[2].link} 
-              name={e.title.length > 18? e.title.substring(0, 18) + '...' : e.title} 
-              follower={e.subtitle > 18? e.subtitle.substring(0, 18) + '...' : e.subtitle} 
+              name={truncateText(e.title, 30)} 
+              follower={truncateText(e.subtitle, 30)} 
               key={e.id} 
               id={e.id}
             />

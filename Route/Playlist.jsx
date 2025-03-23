@@ -19,8 +19,9 @@ const CURRENT_PLAYLIST_ID_KEY = "orbit_current_playlist_id";
 const CURRENT_PLAYLIST_DATA_KEY = "orbit_current_playlist_data";
 
 // Add this truncate function
-const truncateText = (text, limit = 20) => {
-  return text?.length > limit ? text.substring(0, limit) + '...' : text;
+const truncateText = (text, limit = 30) => {
+  if (!text) return '';
+  return text.length > limit ? text.substring(0, limit) + '...' : text;
 };
 
 // Helper to ensure URL is a string

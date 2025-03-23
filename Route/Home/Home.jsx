@@ -16,6 +16,12 @@ import { DisplayTopGenres } from "../../Component/Home/DisplayTopGenres";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 
+// Add a utility function to truncate text
+const truncateText = (text, limit = 30) => {
+  if (!text) return '';
+  return text.length > limit ? text.substring(0, limit) + '...' : text;
+};
+
 // Helper function to shuffle array
 const shuffleArray = (array) => {
   if (!array || !Array.isArray(array)) return [];
@@ -158,8 +164,8 @@ export const Home = () => {
               keyExtractor={(item, index) => `playlist-${item.id}-${index}`}
               renderItem={({ item, index }) => (
                 <EachPlaylistCard
-                  name={item.title.length > 20 ? item.title.substring(0, 20) + '...' : item.title}
-                  follower={item.subtitle.length > 20 ? item.subtitle.substring(0, 20) + '...' : item.subtitle}
+                  name={truncateText(item.title, 30)}
+                  follower={truncateText(item.subtitle, 30)}
                   key={index}
                   image={item.image[2].link}
                   id={item.id}
@@ -180,9 +186,9 @@ export const Home = () => {
               renderItem={({ item, index }) => (
                 <EachAlbumCard
                   image={item.image[2].link}
-                  artists={item.artists}
+                  artists={truncateText(item.artists, 30)}
                   key={index}
-                  name={item.name.length > 20 ? item.name.substring(0, 20) + '...' : item.name}
+                  name={truncateText(item.name, 30)}
                   id={item.id}
                 />
               )}

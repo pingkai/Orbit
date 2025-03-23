@@ -13,6 +13,11 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import FormatArtist from "../../Utils/FormatArtists";
 import FormatTitleAndArtist from "../../Utils/FormatTitleAndArtist";
 
+// Add a utility function to truncate text
+const truncateText = (text, limit = 30) => {
+  if (!text) return '';
+  return text.length > limit ? text.substring(0, limit) + '...' : text;
+};
 
 export const PlaylistDetails = ({name = "", listener = "", notReleased = false, Data = {}, Loading = true, id = "", image = "", follower = ""}) => {
   const {updateTrack} = useContext(Context)
@@ -51,7 +56,7 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
   const theme = useTheme()
   const width = Dimensions.get('window').width
   
-  const displayName = (name || "").length > 20 ? (name || "").substring(0, 20) + '...' : (name || "");
+  const displayName = truncateText(name, 30);
   
   return (
     <LinearGradient start={{x: 0, y: 0}} end={{x: 0, y: 1}} colors={['rgba(44,44,44,0)', 'rgb(18,18,18)', theme.colors.background]} style={{

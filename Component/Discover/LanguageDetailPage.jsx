@@ -14,6 +14,12 @@ import { Spacer } from "../Global/Spacer";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { PlainText } from "../Global/PlainText";
 
+// Add a utility function to truncate text
+const truncateText = (text, limit = 30) => {
+  if (!text) return '';
+  return text.length > limit ? text.substring(0, limit) + '...' : text;
+};
+
 export const LanguageDetailPage = ({route}) => {
   const [Loading, setLoading] = useState(true);
   const [Data, setData] = useState({});
@@ -59,11 +65,6 @@ export const LanguageDetailPage = ({route}) => {
       backHandler.remove();
     };
   }, [navigation]);
-  
-  // Add truncate function
-  const truncateText = (text, limit = 20) => {
-    return text?.length > limit ? text.substring(0, limit) + '...' : text;
-  };
   
   function capitalizeFirstLetter(string) {
     if (!string) return '';
@@ -147,8 +148,8 @@ export const LanguageDetailPage = ({route}) => {
                 gap:10,
               }} data={Data.data.playlists} renderItem={(item,i)=>(
                 <EachPlaylistCard 
-                  name={item.item.title} 
-                  follower={item.item.subtitle} 
+                  name={truncateText(item.item.title, 30)} 
+                  follower={truncateText(item.item.subtitle, 30)} 
                   key={item.index} 
                   image={item.item.image[2].link} 
                   id={item.item.id}
@@ -173,9 +174,9 @@ export const LanguageDetailPage = ({route}) => {
                 paddingLeft:13,
               }} data={Data.data.trending.albums} renderItem={(item)=><EachAlbumCard 
                 image={item.item.image[2].link} 
-                artists={truncateText(item.item.artists)} 
+                artists={truncateText(item.item.artists, 30)} 
                 key={item.index} 
-                name={truncateText(item.item.name)} 
+                name={truncateText(item.item.name, 30)} 
                 id={item.item.id}
               />}/>
             ) : (

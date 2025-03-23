@@ -7,6 +7,12 @@ import { Heading } from "./Heading";
 import FormatArtist from "../../Utils/FormatArtists";
 import { Spacer } from "./Spacer";
 
+// Add utility function to truncate text
+const truncateText = (text, limit = 30) => {
+  if (!text) return '';
+  return text.length > limit ? text.substring(0, limit) + '...' : text;
+};
+
 export const HorizontalScrollSongs = ({id}) => {
   const width = Dimensions.get("window").width
   const [Loading, setLoading] = useState(true)
@@ -60,7 +66,7 @@ export const HorizontalScrollSongs = ({id}) => {
       {id && <>
         <Spacer/>
         <Spacer/>
-        <Heading text={Loading ? "Please Wait..." : Data?.data?.name} nospace={true}/>
+        <Heading text={Loading ? "Please Wait..." : truncateText(Data?.data?.name, 30)} nospace={true}/>
         <Spacer/>
         {!Loading && <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
           <View>
@@ -69,7 +75,7 @@ export const HorizontalScrollSongs = ({id}) => {
                 index={randomOffset + i} 
                 isFromPlaylist={true} 
                 Data={Data} 
-                artist={FormatArtist(e?.artists?.primary).length > 20 ? FormatArtist(e?.artists?.primary).substring(0, 20) + '...' : FormatArtist(e?.artists?.primary)}
+                artist={truncateText(FormatArtist(e?.artists?.primary), 30)}
                 language={e?.language} 
                 playlist={true} 
                 artistID={e?.primary_artists_id} 
@@ -77,7 +83,7 @@ export const HorizontalScrollSongs = ({id}) => {
                 image={e?.image[2]?.url} 
                 id={e?.id} 
                 width={width * 0.80} 
-                title={e?.name?.length > 20 ? e?.name?.substring(0, 20) + '...' : e?.name}  
+                title={truncateText(e?.name, 30)}  
                 url={e?.downloadUrl}
                 titleandartistwidth={width * 0.5}
               />
@@ -89,7 +95,7 @@ export const HorizontalScrollSongs = ({id}) => {
                 index={randomOffset + i + 4} 
                 Data={Data} 
                 isFromPlaylist={true}  
-                artist={FormatArtist(e?.artists?.primary).length > 20 ? FormatArtist(e?.artists?.primary).substring(0, 20) + '...' : FormatArtist(e?.artists?.primary)}
+                artist={truncateText(FormatArtist(e?.artists?.primary), 30)}
                 language={e?.language} 
                 playlist={true} 
                 artistID={e?.primary_artists_id} 
@@ -97,7 +103,7 @@ export const HorizontalScrollSongs = ({id}) => {
                 image={e?.image[2]?.url} 
                 id={e?.id} 
                 width={width * 0.80} 
-                title={e?.name}  
+                title={truncateText(e?.name, 30)}  
                 url={e?.downloadUrl} 
                 titleandartistwidth={width * 0.5}
               />

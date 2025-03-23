@@ -10,6 +10,12 @@ import { Heading } from "../Global/Heading";
 import { PaddingConatiner } from "../../Layout/PaddingConatiner";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 
+// Add a utility function to truncate text
+const truncateText = (text, limit = 30) => {
+  if (!text) return '';
+  return text.length > limit ? text.substring(0, limit) + '...' : text;
+};
+
 export default function ShowPlaylistofType({route}) {
   const {Searchtext = 'most searched'} = route?.params || {}; // Provide default value
   const navigation = useNavigation();
@@ -143,8 +149,8 @@ export default function ShowPlaylistofType({route}) {
               data={Data?.data?.results}
               renderItem={(item) => (
                 <EachPlaylistCard
-                  name={item.item.name}
-                  follower={"Total " + item.item.songCount + " Songs"}
+                  name={truncateText(item.item.name, 30)}
+                  follower={truncateText("Total " + item.item.songCount + " Songs", 30)}
                   key={item.index}
                   image={item.item.image[2].link}
                   id={item.item.id}

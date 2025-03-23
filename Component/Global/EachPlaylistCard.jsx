@@ -7,6 +7,12 @@ import FastImage from "react-native-fast-image";
 import { memo } from "react";
 import { useNavigation, useTheme } from "@react-navigation/native";
 
+// Add a utility function to truncate text
+const truncateText = (text, limit = 30) => {
+  if (!text) return '';
+  return text.length > limit ? text.substring(0, limit) + '...' : text;
+};
+
 export const EachPlaylistCard = memo(function EachPlaylistCard ({
   image, 
   name, 
@@ -63,8 +69,8 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
         <View style={{
           width:"85%",
         }}>
-          <PlainText text={name.length > 18? name.substring(0, 18) + '...' : name}/>
-          <SmallText text={follower.length > 20 ? follower.substring(0,20) + "...." : follower}/>
+          <PlainText text={truncateText(name, 30)}/>
+          <SmallText text={truncateText(follower, 30)}/>
         </View>
         <FontAwesome5 name={"play"} size={15} color={theme.colors.text}/>
       </SpaceBetween>
