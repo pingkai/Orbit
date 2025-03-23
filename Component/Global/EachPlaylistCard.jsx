@@ -32,7 +32,8 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
       id,
       image,
       name,
-      follower
+      follower,
+      timestamp: Date.now() // Add timestamp to ensure fresh navigation and prevent caching issues
     };
     
     if (source) {

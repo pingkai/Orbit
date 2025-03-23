@@ -17,6 +17,11 @@ import { NavigationContainer, CommonActions } from '@react-navigation/native';
 import Icons from 'react-native-vector-icons/Ionicons';
 import Context from '../Context/Context';
 import { FullScreenMusic } from '../Component/MusicPlayer/FullScreenMusic';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MusicMain } from './MusicIndex';
+import { MainRoute } from './MainRoute';
+import { LogBox } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 
 const Tab = createBottomTabNavigator();
 export const RootRoute = () => {
@@ -25,6 +30,10 @@ export const RootRoute = () => {
   const navigation = useNavigation();
   const isFullscreenActive = useRef(false);
   const previousTabName = useRef(null);
+  
+  // Track fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const prevFullscreenState = useRef(false);
   
   // Global back button handler to ensure proper navigation hierarchy
   useEffect(() => {
@@ -87,87 +96,107 @@ export const RootRoute = () => {
 
   // Effect to track fullscreen state only (no navigation)
   useEffect(() => {
-    // Just track fullscreen state
-    const wasFullscreen = isFullscreenActive.current;
-    isFullscreenActive.current = Index === 1;
-    
-    // Log state changes but don't navigate
-    if (Index === 1) {
-      console.log('Fullscreen player opened. Music previous screen:', musicPreviousScreen);
-    } else if (wasFullscreen && Index === 0) {
-      // Fullscreen player just closed - ensure proper navigation after playback
-      console.log('Fullscreen player closed, ensuring proper navigation state');
-      
-      // Check if we need to reset the Discover tab
-      const currentState = navigation.getState();
-      if (currentState && currentState.routes) {
-        const currentTabRoute = currentState.routes[currentState.index];
-        if (currentTabRoute.name === 'Discover') {
-          // Get the screen we should be showing
-          const nestedState = currentTabRoute.state;
-          if (nestedState && nestedState.routes) {
-            const currentScreen = nestedState.routes[nestedState.index].name;
+    // Track changes in fullscreen state
+    if (Index === 0) {
+      // Not in fullscreen
+      if (prevFullscreenState.current) {
+        console.log('Exited fullscreen player');
+        
+        // Check for screens that need to be refreshed when returning from fullscreen player
+        const state = navigation.getState();
+        const routes = state?.routes || [];
+        const currentRoute = routes.find(r => r.name === 'MainRoute');
+        
+        if (currentRoute && currentRoute.state) {
+          const tabRoutes = currentRoute.state.routes;
+          const currentTab = tabRoutes[currentRoute.state.index];
+          
+          if (currentTab && currentTab.name === 'Discover') {
+            console.log('Current tab is Discover');
+            
+            // Get the current screen in Discover tab
+            const currentScreen = currentTab.state?.routes[currentTab.state.index]?.name;
             console.log('Current screen in Discover tab:', currentScreen);
             
-            // Force reset navigation to current screen after a short delay
+            // Force refresh problematic screens
+            if (currentScreen === 'ShowPlaylistofType' || currentScreen === 'LanguageDetail') {
+              console.log('Force refreshing Discover screen:', currentScreen);
+              // Small timeout to ensure navigation is complete
+              setTimeout(() => {
+                const params = navigation.getState().routes.find(r => 
+                  r.name === 'MainRoute')?.state?.routes?.find(r => 
+                  r.name === 'Discover')?.state?.routes?.find(r => 
+                  r.name === currentScreen)?.params;
+                  
+                // Navigate to the same screen to force refresh
+                navigation.navigate('Discover', {
+                  screen: currentScreen,
+                  params
+                });
+              }, 100);
+            }
+          } else if (currentTab && currentTab.state?.routes?.some(r => r.name === 'Album')) {
+            console.log('Current screen is Album, checking for refresh need');
+            
+            // Small timeout to ensure navigation is complete
             setTimeout(() => {
-              // Handle different screens that need refreshing
-              if (currentScreen === 'ShowPlaylistofType') {
-                console.log('Forcing refresh of ShowPlaylistofType');
-                const currentParams = nestedState.routes[nestedState.index].params || {};
-                // Ensure we always have a valid search term
-                const searchText = currentParams.Searchtext || 'most searched';
-                
-                navigation.dispatch(
-                  CommonActions.reset({
-                    index: 1,
-                    routes: [
-                      { name: 'DiscoverPage' },
-                      { 
-                        name: 'ShowPlaylistofType', 
-                        params: { Searchtext: searchText }
-                      }
-                    ],
-                  })
-                );
-              } 
-              else if (currentScreen === 'LanguageDetail') {
-                console.log('Forcing refresh of LanguageDetail');
-                const currentParams = nestedState.routes[nestedState.index].params || {};
-                // Ensure we always have a valid language
-                const language = currentParams.language || 'hindi';
-                
-                navigation.dispatch(
-                  CommonActions.reset({
-                    index: 1,
-                    routes: [
-                      { name: 'DiscoverPage' },
-                      { 
-                        name: 'LanguageDetail', 
-                        params: { language }
-                      }
-                    ],
-                  })
-                );
-              }
-              else if (currentScreen === 'Playlist') {
-                console.log('Navigating from Playlist to DiscoverPage');
-                // If we're in a Playlist, go back to main Discover screen
-                navigation.dispatch(
-                  CommonActions.reset({
-                    index: 0,
-                    routes: [{ name: 'DiscoverPage' }],
-                  })
-                );
-              }
-            }, 300);
+              // Get the album ID from AsyncStorage and refresh if needed
+              const refreshAlbum = async () => {
+                try {
+                  const albumId = await AsyncStorage.getItem('orbit_current_album_id');
+                  const albumDataStr = await AsyncStorage.getItem('orbit_current_album_data');
+                  
+                  if (albumId && albumDataStr) {
+                    const albumData = JSON.parse(albumDataStr);
+                    console.log('Refreshing Album with ID:', albumId);
+                    
+                    // Navigate to Album with recovered params
+                    if (currentTab.name === 'Home') {
+                      // If we're in the Home tab, navigate to Album through Home
+                      navigation.navigate('Home', {
+                        screen: 'Album',
+                        params: {
+                          id: albumId,
+                          source: albumData.source || 'Home',
+                          language: albumData.language,
+                          searchText: albumData.searchText
+                        }
+                      });
+                    } else {
+                      // Otherwise use the standard navigation
+                      navigation.navigate('Album', {
+                        id: albumId,
+                        source: albumData.source,
+                        language: albumData.language,
+                        searchText: albumData.searchText
+                      });
+                    }
+                  } else {
+                    // If no album data is found, navigate back to Home
+                    navigation.navigate('Home', {
+                      screen: 'HomePage'
+                    });
+                  }
+                } catch (error) {
+                  console.error('Error refreshing album:', error);
+                  // On error, navigate to Home
+                  navigation.navigate('Home', {
+                    screen: 'HomePage'
+                  });
+                }
+              };
+              
+              refreshAlbum();
+            }, 100);
           }
         }
       }
-      
-      console.log('Fullscreen player closed or minimized');
+      prevFullscreenState.current = false;
+    } else {
+      // In fullscreen
+      prevFullscreenState.current = true;
     }
-  }, [Index, musicPreviousScreen, navigation]);
+  }, [Index, navigation]);
 
   // Track screen changes continuously to better remember which screen the user was on
   // This helps with navigation after closing the fullscreen player

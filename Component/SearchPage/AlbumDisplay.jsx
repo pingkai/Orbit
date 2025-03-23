@@ -58,7 +58,16 @@ export default function AlbumsDisplay({data, limit, Searchtext}) {
         if(item.item.LoadingComponent  === true){
             return <LoadingComponent loading={Loading} height={100}/>
         }else{
-            return <EachAlbumCard Search={true} mainContainerStyle={{width:width * 0.45}} image={item?.item?.image[2]?.url ?? ""} artists={FormatArtist(item.item?.artists?.primary)} name={item?.item?.name ?? ""} id={item?.item?.id ?? ""}/>
+            return <EachAlbumCard 
+              Search={true} 
+              mainContainerStyle={{width:width * 0.45}} 
+              image={item?.item?.image[2]?.url ?? ""} 
+              artists={FormatArtist(item.item?.artists?.primary)} 
+              name={item?.item?.name ?? ""} 
+              id={item?.item?.id ?? ""}
+              source="Search"
+              searchText={Searchtext}
+            />
         }
       }}/>}
       {Data?.data?.results?.length === 0 && <View style={{

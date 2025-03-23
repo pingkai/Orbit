@@ -190,6 +190,7 @@ export const Home = () => {
                   key={index}
                   name={truncateText(item.name, 30)}
                   id={item.id}
+                  source="Home"
                 />
               )}
             />

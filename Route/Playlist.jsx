@@ -71,10 +71,35 @@ export const Playlist = ({route}) => {
   useEffect(() => {
     const recoverPlaylistData = async () => {
       try {
-        if (!routeId) {
+        if (routeId) {
+          // If we have an ID from route params, clear previous data and use the new ones
+          console.log(`New playlist selected: ${routeId}, clearing previous playlist data cache`);
+          
+          setId(routeId);
+          setImage(routeImage || '');
+          setName(routeName || 'Playlist');
+          setFollower(routeFollower || '');
+          setSource(route?.params?.source || null);
+          
+          // Store the new playlist data
+          const playlistData = {
+            id: routeId,
+            image: routeImage || '',
+            name: routeName || 'Playlist',
+            follower: routeFollower || '',
+            source: route?.params?.source || null,
+            searchText: route?.params?.searchText || null,
+            language: route?.params?.language || null
+          };
+          
+          await AsyncStorage.setItem(CURRENT_PLAYLIST_ID_KEY, routeId);
+          await AsyncStorage.setItem(CURRENT_PLAYLIST_DATA_KEY, JSON.stringify(playlistData));
+          console.log(`Stored new playlist data for: ${routeId}`);
+          
+        } else {
           console.log('No playlist ID in route params, attempting to recover from storage');
           
-          // Try to get stored playlist ID
+          // Try to get stored playlist ID as fallback
           const storedId = await AsyncStorage.getItem(CURRENT_PLAYLIST_ID_KEY);
           
           if (storedId) {
@@ -96,23 +121,10 @@ export const Playlist = ({route}) => {
               }
             }
           } else {
-            console.log('No stored playlist ID found');
+            console.log('No stored playlist ID found, navigating back to safe screen');
+            // Navigate to a safe screen if we can't recover data
+            navigation.navigate('Home', { screen: 'HomePage' });
           }
-        } else {
-          // If we have an ID from route params, store it for future recovery
-          await AsyncStorage.setItem(CURRENT_PLAYLIST_ID_KEY, routeId);
-          
-          // Store the full playlist data
-          const playlistData = {
-            id: routeId,
-            image: routeImage || '',
-            name: routeName || 'Playlist',
-            follower: routeFollower || '',
-            source: route?.params?.source || null
-          };
-          
-          await AsyncStorage.setItem(CURRENT_PLAYLIST_DATA_KEY, JSON.stringify(playlistData));
-          console.log(`Stored playlist ID and data for: ${routeId}, source: ${route?.params?.source || 'none'}`);
         }
       } catch (error) {
         console.error('Error recovering playlist data:', error);
@@ -120,7 +132,7 @@ export const Playlist = ({route}) => {
     };
     
     recoverPlaylistData();
-  }, [routeId, routeImage, routeName, routeFollower, route?.params?.source]);
+  }, [routeId, routeImage, routeName, routeFollower, route?.params?.source, route?.params?.searchText, route?.params?.language, navigation]);
   
   // Add logging to check route params
   useEffect(() => {

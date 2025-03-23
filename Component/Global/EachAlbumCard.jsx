@@ -6,55 +6,81 @@ import { useNavigation } from "@react-navigation/native";
 import LinearGradient from "react-native-linear-gradient";
 
 
-export const EachAlbumCard = memo(function EachAlbumCard({image,name,artists,id,mainContainerStyle,Search}) {
+export const EachAlbumCard = memo(function EachAlbumCard({image, name, artists, id, mainContainerStyle, Search, source, searchText, language}) {
   const navigation = useNavigation()
   let artistsNames = ""
   
   // Improved truncation function that works for any text
-  function truncateText(text, limit = 15) {
+  function truncateText(text, limit = 30) {
     if (!text) return "";
     return text.length > limit ? text.slice(0, limit) + "..." : text;
   }
   
   if (!Search){
-    if (artists.length > 3){
-      for (let i = 0; i < 3; i++){
-        if ( i === 2){
-          artistsNames += artists[i].name
-        } else {
-          const additionName = artists[i].name + ", "
-          artistsNames += additionName
+    if (Array.isArray(artists) && artists.length > 0) {
+      if (artists.length > 3){
+        for (let i = 0; i < 3; i++){
+          if ( i === 2){
+            artistsNames += artists[i].name
+          } else {
+            const additionName = artists[i].name + ", "
+            artistsNames += additionName
+          }
         }
+        artistsNames += " ..."
+      } else {
+        artists.map((e,i)=>{
+          if (i === artists.length - 1){
+            artistsNames += e.name
+          } else {
+            const additionName = e.name + ", "
+            artistsNames += additionName
+          }
+        })
       }
-      artistsNames += " ..."
-    } else {
-      artists.map((e,i)=>{
-        if (i === artists.length - 1){
-          artistsNames += e.name
-        } else {
-          const additionName = e.name + ", "
-          artistsNames += additionName
-        }
-      })
+    } else if (typeof artists === 'string') {
+      // Handle when artists is a string instead of an array
+      artistsNames = artists;
     }
     
     // Truncate the combined artists string if it's too long
     artistsNames = truncateText(artistsNames);
   }
   
-  // We'll keep the original function for backward compatibility
-  function formattedText (text){
-    if (text.length >= 15){
-      return text.slice(0,15) + "..."
-    }
-    else {
-      return text
-    }
-  }
-  
   return (
     <Pressable onPress={()=>{
-      navigation.navigate("Album" , {id})
+      // Create params object with source tracking
+      const params = { 
+        id,
+        timestamp: Date.now() // Add timestamp to ensure fresh navigation and prevent caching issues
+      };
+      
+      // Add source tracking if available
+      if (source) {
+        params.source = source;
+        
+        if (source === 'ShowPlaylistofType' && searchText) {
+          params.searchText = searchText;
+        } else if (source === 'LanguageDetail' && language) {
+          params.language = language;
+        }
+        
+        console.log(`Navigating to Album with params:`, JSON.stringify(params));
+        
+        // Choose the appropriate navigation method based on source
+        if (source === 'Home') {
+          navigation.navigate("Home", {
+            screen: "Album",
+            params: params
+          });
+        } else {
+          navigation.navigate("Album", params);
+        }
+      } else {
+        // Default navigation if no source is provided
+        console.log(`Navigating to Album with id:`, id);
+        navigation.navigate("Album", { id, timestamp: Date.now() });
+      }
     }} style={{
       borderRadius:10,
       height:230,
@@ -80,8 +106,8 @@ export const EachAlbumCard = memo(function EachAlbumCard({image,name,artists,id,
           <LinearGradient start={{x: 0, y: 0}} end={{x: 0, y: 1}} colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.56)', 'rgb(0,0,0)']} style={{
             padding:10,
           }}>
-            <PlainText text={formattedText(name)}/>
-            <SmallText text={!Search ? artistsNames : truncateText(artists)}/>
+            <PlainText text={truncateText(name, 30)}/>
+            <SmallText text={!Search ? artistsNames : truncateText(artists, 30)}/>
           </LinearGradient>
         </View>
       </ImageBackground>

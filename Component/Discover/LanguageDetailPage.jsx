@@ -178,6 +178,8 @@ export const LanguageDetailPage = ({route}) => {
                 key={item.index} 
                 name={truncateText(item.item.name, 30)} 
                 id={item.item.id}
+                source="LanguageDetail"
+                language={language}
               />}/>
             ) : (
               <View style={{height: 150, justifyContent: 'center', alignItems: 'center'}}>

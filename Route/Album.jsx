@@ -1,45 +1,200 @@
 import { MainWrapper } from "../Layout/MainWrapper";
 import Animated, { useAnimatedRef} from "react-native-reanimated";
 import { PlaylistTopHeader } from "../Component/Playlist/PlaylistTopHeader";
-import { View } from "react-native";
+import { View, BackHandler } from "react-native";
 import { EachSongCard } from "../Component/Global/EachSongCard";
 import { useEffect, useState } from "react";
 import { LoadingComponent } from "../Component/Global/Loading";
-import { useTheme } from "@react-navigation/native";
+import { useTheme, useNavigation } from "@react-navigation/native";
 import { PlainText } from "../Component/Global/PlainText";
 import { SmallText } from "../Component/Global/SmallText";
 import { getAlbumData } from "../Api/Album";
 import { AlbumDetails } from "../Component/Album/AlbumDetails";
 import FormatArtist from "../Utils/FormatArtists";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// AsyncStorage keys
+const CURRENT_ALBUM_ID_KEY = "orbit_current_album_id";
+const CURRENT_ALBUM_DATA_KEY = "orbit_current_album_data";
+
+// Utility function to truncate text
+const truncateText = (text, limit = 30) => {
+  if (!text) return '';
+  return text.length > limit ? text.substring(0, limit) + '...' : text;
+};
 
 export const Album = ({route}) => {
   const theme = useTheme();
-  const AnimatedRef = useAnimatedRef()
-  const [Loading, setLoading] = useState(true)
+  const AnimatedRef = useAnimatedRef();
+  const [Loading, setLoading] = useState(true);
   const [Data, setData] = useState({});
-  const id = route?.params?.id;
-
-  async function fetchAlbumData(){
-    try {
-      setLoading(true)
-      if (!id) {
-        console.error('Album ID is missing from route params');
-        setData({});
-        return;
-      }
-      const data = await getAlbumData(id)
-      setData(data)
-    } catch (e) {
-      console.log('Error fetching album data:', e);
-      setData({});
-    } finally {
-      setLoading(false)
-    }
-  }
+  const navigation = useNavigation();
+  
+  // Safely destructure route.params with default values
+  const routeId = route?.params?.id;
+  
+  // State to hold the actual ID we'll use (either from route or storage)
+  const [id, setId] = useState(routeId);
+  const [source, setSource] = useState(route?.params?.source || null);
+  
+  // When component mounts, check if we have a route ID - if not, try to recover from AsyncStorage
   useEffect(() => {
-    fetchAlbumData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const recoverAlbumData = async () => {
+      try {
+        if (routeId) {
+          // Clear any previous album data if we have a new album ID
+          console.log(`New album selected: ${routeId}, clearing previous album data cache`);
+          setId(routeId);
+          setSource(route?.params?.source || null);
+          
+          // Store the new album ID and data
+          await AsyncStorage.setItem(CURRENT_ALBUM_ID_KEY, routeId);
+          const albumData = {
+            id: routeId,
+            source: route?.params?.source || null,
+            language: route?.params?.language || null,
+            searchText: route?.params?.searchText || null
+          };
+          await AsyncStorage.setItem(CURRENT_ALBUM_DATA_KEY, JSON.stringify(albumData));
+          console.log(`Stored new album ID and data for: ${routeId}`);
+          
+        } else {
+          console.log('No album ID in route params, attempting to recover from storage');
+          
+          // Try to get stored album ID as fallback
+          const storedId = await AsyncStorage.getItem(CURRENT_ALBUM_ID_KEY);
+          
+          if (storedId) {
+            console.log(`Recovered album ID from storage: ${storedId}`);
+            setId(storedId);
+            
+            // Try to get the full album data
+            const storedDataStr = await AsyncStorage.getItem(CURRENT_ALBUM_DATA_KEY);
+            if (storedDataStr) {
+              try {
+                const storedData = JSON.parse(storedDataStr);
+                setSource(storedData.source || null);
+                console.log('Successfully recovered album data from storage');
+              } catch (parseError) {
+                console.error('Error parsing stored album data:', parseError);
+              }
+            }
+          } else {
+            console.log('No stored album ID found, navigating back to safe screen');
+            // Navigate to a safe screen if we can't recover data
+            navigation.navigate('Home', { screen: 'HomePage' });
+          }
+        }
+      } catch (error) {
+        console.error('Error recovering album data:', error);
+      }
+    };
+    
+    recoverAlbumData();
+  }, [routeId, route?.params?.source, route?.params?.language, route?.params?.searchText, navigation]);
+  
+  // Handle back button press
+  useEffect(() => {
+    const handleBackPress = () => {
+      handleBackNavigation();
+      return true;
+    };
+
+    BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    return () => {
+      BackHandler.removeEventListener('hardwareBackPress', handleBackPress);
+    };
+  }, [source]);
+
+  // Handle navigation based on source
+  const handleBackNavigation = () => {
+    console.log('Handling back navigation from Album with source:', source);
+    
+    if (source === 'LanguageDetail' && route?.params?.language) {
+      // Navigate back to LanguageDetailPage with the language parameter
+      navigation.navigate('DiscoverPage', {
+        screen: 'LanguageDetail',
+        params: { language: route.params.language }
+      });
+      return true;
+    } else if (source === 'ShowPlaylistofType' && route?.params?.searchText) {
+      // Navigate back to ShowPlaylistofType with the search text
+      navigation.navigate('DiscoverPage', {
+        screen: 'ShowPlaylistofType',
+        params: { text: route.params.searchText }
+      });
+      return true;
+    } else if (source === 'Search') {
+      // Navigate back to Search tab with the search text if available
+      navigation.navigate('SearchPage', {
+        searchText: route?.params?.searchText || ''
+      });
+      return true;
+    } else if (source === 'Home') {
+      // Navigate back to Home tab's HomePage
+      console.log('Navigating back to HomePage from Album');
+      navigation.navigate('Home', { 
+        screen: 'HomePage' 
+      });
+      return true;
+    } else {
+      // Check if we can go back in the navigation stack
+      if (navigation.canGoBack()) {
+        console.log('Using standard navigation.goBack()');
+        navigation.goBack();
+      } else {
+        // Fallback to HomePage if we can't go back
+        console.log('Cannot go back, navigating to HomePage as fallback');
+        navigation.navigate('Home', { 
+          screen: 'HomePage' 
+        });
+      }
+      return true;
+    }
+  };
+
+  const fetchAlbumData = async (albumId) => {
+    if (!albumId) {
+      console.error("Album ID is missing from route params");
+      // Navigate back to prevent errors
+      navigation.goBack();
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      const response = await getAlbumData(albumId);
+      setData(response);
+      
+      // Store the album data and ID for recovery
+      try {
+        const albumDataToStore = {
+          id: albumId,
+          source: route?.params?.source || null,
+          language: route?.params?.language || null,
+          searchText: route?.params?.searchText || null
+        };
+        await AsyncStorage.setItem(CURRENT_ALBUM_ID_KEY, albumId);
+        await AsyncStorage.setItem(CURRENT_ALBUM_DATA_KEY, JSON.stringify(albumDataToStore));
+        console.log("Album data saved to AsyncStorage");
+      } catch (storageError) {
+        console.error("Failed to save album data to storage:", storageError);
+      }
+      
+    } catch (error) {
+      console.error("Error fetching album data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Effect to fetch data when the component mounts or id changes
+  useEffect(() => {
+    if (id) {
+      fetchAlbumData(id);
+    }
+  }, [id]);
+  
   return (
     <MainWrapper>
       {Loading &&
