@@ -63,6 +63,8 @@ export const Playlist = ({route}) => {
   const [image, setImage] = useState(routeImage);
   const [name, setName] = useState(routeName);
   const [follower, setFollower] = useState(routeFollower);
+  // Add source tracking
+  const [source, setSource] = useState(route?.params?.source || null);
   
   // When component mounts, check if we have a route ID - if not, try to recover from AsyncStorage
   useEffect(() => {
@@ -86,6 +88,7 @@ export const Playlist = ({route}) => {
                 setImage(storedData.image || '');
                 setName(storedData.name || 'Playlist');
                 setFollower(storedData.follower || '');
+                setSource(storedData.source || null);
                 console.log('Successfully recovered playlist data from storage');
               } catch (parseError) {
                 console.error('Error parsing stored playlist data:', parseError);
@@ -103,11 +106,12 @@ export const Playlist = ({route}) => {
             id: routeId,
             image: routeImage || '',
             name: routeName || 'Playlist',
-            follower: routeFollower || ''
+            follower: routeFollower || '',
+            source: route?.params?.source || null
           };
           
           await AsyncStorage.setItem(CURRENT_PLAYLIST_DATA_KEY, JSON.stringify(playlistData));
-          console.log(`Stored playlist ID and data for: ${routeId}`);
+          console.log(`Stored playlist ID and data for: ${routeId}, source: ${route?.params?.source || 'none'}`);
         }
       } catch (error) {
         console.error('Error recovering playlist data:', error);
@@ -115,25 +119,110 @@ export const Playlist = ({route}) => {
     };
     
     recoverPlaylistData();
-  }, [routeId, routeImage, routeName, routeFollower]);
+  }, [routeId, routeImage, routeName, routeFollower, route?.params?.source]);
   
   // Add logging to check route params
   useEffect(() => {
     console.log('Playlist component mounted with route params:', JSON.stringify({
-      routeId, routeImage, routeName, routeFollower
+      routeId, routeImage, routeName, routeFollower, source: route?.params?.source
     }));
     
     console.log('Using actual playlist data:', JSON.stringify({
-      id, image, name, follower
+      id, image, name, follower, source
     }));
-  }, [routeId, routeImage, routeName, routeFollower, id, image, name, follower]);
+  }, [routeId, routeImage, routeName, routeFollower, id, image, name, follower, source, route?.params?.source]);
   
   // Add a back handler to handle navigation
   useEffect(() => {
     const handleBackPress = () => {
-      console.log('Back pressed in Playlist, navigating back');
-      navigation.goBack();
-      return true; // Prevent default back action
+      console.log('Back pressed in Playlist, attempting to navigate back');
+      
+      // Check if we know where we came from
+      if (source) {
+        console.log(`Navigating back to source: ${source}, params:`, JSON.stringify({
+          searchText: route?.params?.searchText || '',
+          language: route?.params?.language || ''
+        }));
+        
+        // Handle different source screens
+        if (source === 'ShowPlaylistofType') {
+          // Get searchText from either route params or stored state
+          const searchText = route?.params?.searchText || '';
+          
+          // Navigate to Discover tab first to ensure we're in the right tab
+          navigation.navigate('Discover', { 
+            screen: 'ShowPlaylistofType',
+            params: { Searchtext: searchText || 'most searched' }
+          });
+          return true;
+        } else if (source === 'LanguageDetail') {
+          // Get language from either route params or stored state
+          const language = route?.params?.language || '';
+          
+          // Navigate to Discover tab first to ensure we're in the right tab
+          navigation.navigate('Discover', { 
+            screen: 'LanguageDetail',
+            params: { language: language || 'hindi' }
+          });
+          return true;
+        }
+      }
+      
+      // Find which tab we're in by checking the navigation state
+      const state = navigation.getState();
+      const routes = state?.routes || [];
+      let currentTab = '';
+      
+      for (const route of routes) {
+        if (route.state && route.state.routes) {
+          for (const nestedRoute of route.state.routes) {
+            if (nestedRoute.state && nestedRoute.state.routes) {
+              for (const deepRoute of nestedRoute.state.routes) {
+                if (deepRoute.name === 'Playlist') {
+                  currentTab = nestedRoute.name;
+                  console.log('Found Playlist in tab:', currentTab);
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      // If we detect we're in the Discover tab, go back to DiscoverPage
+      if (currentTab === 'Discover') {
+        navigation.navigate('Discover', { screen: 'DiscoverPage' });
+        return true;
+      }
+      
+      // Standard back navigation logic as fallback
+      const canGoBack = navigation.canGoBack();
+      
+      if (canGoBack) {
+        // Normal back navigation when possible
+        navigation.goBack();
+        return true;
+      } else {
+        // If we can't go back in the current stack, try to navigate to the appropriate tab
+        console.log('Cannot go back in current stack, navigating to tab');
+        
+        // Get the current route name to determine where to navigate
+        const routes = navigation.getState()?.routes || [];
+        const currentRoute = routes[routes.length - 1];
+        const parentRoute = currentRoute?.name?.split('/')[0];
+        
+        if (parentRoute === 'Discover') {
+          // Navigate to the Discover tab
+          navigation.navigate('Discover', { screen: 'DiscoverPage' });
+        } else if (parentRoute === 'Library') {
+          // Navigate to the Library tab
+          navigation.navigate('Library', { screen: 'LibraryPage' });
+        } else {
+          // Default to Home tab
+          navigation.navigate('Home', { screen: 'HomePage' });
+        }
+        return true;
+      }
     };
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
@@ -141,7 +230,7 @@ export const Playlist = ({route}) => {
     return () => {
       backHandler.remove();
     };
-  }, [navigation]);
+  }, [navigation, source, route?.params, id]);
   
   async function fetchPlaylistData(){
     try {
@@ -167,11 +256,14 @@ export const Playlist = ({route}) => {
           id: id,
           image: image || data?.data?.image?.[2]?.url || '',
           name: data?.data?.name || name || 'Playlist',
-          follower: data?.data?.follower || follower || ''
+          follower: data?.data?.follower || follower || '',
+          source: source || null,
+          searchText: route?.params?.searchText || '',
+          language: route?.params?.language || ''
         };
         
         await AsyncStorage.setItem(CURRENT_PLAYLIST_DATA_KEY, JSON.stringify(updatedPlaylistData));
-        console.log('Updated stored playlist data with API response');
+        console.log('Updated stored playlist data with API response, source:', updatedPlaylistData.source);
       }
     } catch (e) {
       console.error(`Error fetching playlist with ID ${id}:`, e.message);

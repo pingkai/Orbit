@@ -7,11 +7,44 @@ import FastImage from "react-native-fast-image";
 import { memo } from "react";
 import { useNavigation, useTheme } from "@react-navigation/native";
 
-export const EachPlaylistCard = memo(function EachPlaylistCard ({image, name, follower, id, MainContainerStyle, ImageStyle}){
+export const EachPlaylistCard = memo(function EachPlaylistCard ({
+  image, 
+  name, 
+  follower, 
+  id, 
+  MainContainerStyle, 
+  ImageStyle,
+  source,
+  searchText,
+  language
+}){
   const theme = useTheme()
   const navigation = useNavigation()
+  
+  const handleNavigation = () => {
+    const params = {
+      id,
+      image,
+      name,
+      follower
+    };
+    
+    if (source) {
+      params.source = source;
+      
+      if (source === 'ShowPlaylistofType' && searchText) {
+        params.searchText = searchText;
+      } else if (source === 'LanguageDetail' && language) {
+        params.language = language;
+      }
+    }
+    
+    console.log(`Navigating to Playlist with params:`, JSON.stringify(params));
+    navigation.navigate("Playlist", params);
+  };
+  
   return (
-    <Pressable onPress={()=>{ navigation.navigate("Playlist" , {id,image,name,follower})}} style={{
+    <Pressable onPress={handleNavigation} style={{
       width:180,
       height:240,
       ...MainContainerStyle,

@@ -7,9 +7,40 @@ import { PaddingConatiner } from "../../Layout/PaddingConatiner";
 import { BundleEachLanguage } from "../../Component/Discover/BundleEachLanguage";
 import { BundleEachMomentanGenres } from "../../Component/Discover/BundleEachMomentanGenres";
 import { RouteHeading } from "../../Component/Home/RouteHeading";
+import { useEffect } from "react";
+import { useNavigation } from "@react-navigation/native";
 
 export const Discover = () => {
- const width = Dimensions.get("window").width
+ const width = Dimensions.get("window").width;
+ const navigation = useNavigation();
+ 
+ // Clear any nested navigation params when Discover screen is focused
+ useEffect(() => {
+   const unsubscribe = navigation.addListener('focus', () => {
+     console.log('Discover screen focused - ensuring clean navigation state');
+     
+     // Get the current navigation state
+     const state = navigation.getState();
+     
+     // Check if we're in a nested stack with params that might cause issues
+     if (state.routes && state.routes.length > 0) {
+       const currentRoute = state.routes[state.index];
+       
+       // If the current route has params that would redirect to Playlist, clear them
+       if (currentRoute.params && 
+           (currentRoute.params.screen === 'Playlist' || 
+            (currentRoute.params.params && currentRoute.params.params.screen === 'Playlist'))) {
+         console.log('Detected potentially problematic params - cleaning navigation state');
+         
+         // Reset the navigation state to just the Discover screen
+         navigation.setParams(null);
+       }
+     }
+   });
+   
+   return unsubscribe;
+ }, [navigation]);
+ 
   return (
    <MainWrapper>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom:100}}>

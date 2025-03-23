@@ -150,7 +150,7 @@ const QueueRenderSongs = memo(() => {
   return (
     <BottomSheetFlatList
       data={upcomingQueue}
-      keyExtractor={(item) => item.id}
+      keyExtractor={(item, index) => `${item.id || 'track'}-${index}`}
       renderItem={({ item, index }) => (
         <EachSongQueue 
           title={item.title}

@@ -122,7 +122,22 @@ export const CustomPlaylist = () => {
           <View style={styles.playlistContent}>
             <FastImage
               source={playlists[item]?.length > 0 
-                ? { uri: playlists[item][playlists[item].length - 1].image }
+                ? (() => {
+                    const lastSong = playlists[item][playlists[item].length - 1];
+                    // Handle local songs or songs with numeric/invalid artwork
+                    if (lastSong.isLocalMusic || lastSong.path || 
+                        (typeof lastSong.artwork === 'number') || 
+                        (typeof lastSong.image === 'number') || 
+                        (!lastSong.image && !lastSong.artwork) ||
+                        (lastSong.image && typeof lastSong.image === 'string' && 
+                         !lastSong.image.startsWith('http') && !lastSong.image.startsWith('file://')) ||
+                        (lastSong.artwork && typeof lastSong.artwork === 'string' && 
+                         !lastSong.artwork.startsWith('http') && !lastSong.artwork.startsWith('file://'))) {
+                      return require('../../Images/default.jpg');
+                    }
+                    // Normal songs with valid image
+                    return { uri: lastSong.image || lastSong.artwork };
+                  })()
                 : require('../../Images/wav.png')}
               style={styles.playlistImage}
             />

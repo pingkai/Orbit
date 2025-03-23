@@ -174,11 +174,61 @@ export const CustomPlaylistView = (props) => {
         return;
       }
       
+      // Default music image to use when artwork is missing
+      const DEFAULT_MUSIC_IMAGE = require('../../Images/default.jpg');
+      
+      // Format all tracks for playback
+      const formattedTracks = Songs.map(track => {
+        // Check if this is a local song
+        const isLocalFile = track.isLocalMusic || track.path || (track.url && track.url.startsWith('file://'));
+        
+        // Format local song
+        if (isLocalFile) {
+          const formattedTrack = {
+            id: track.id || `local-${Date.now()}`,
+            url: track.url && track.url.startsWith('file://') ? track.url : `file://${track.path || track.url}`,
+            title: track.title || 'Unknown',
+            artist: track.artist || 'Unknown Artist',
+            artwork: (typeof track.artwork === 'number' || !track.artwork) ? DEFAULT_MUSIC_IMAGE : { uri: track.artwork },
+            // Ensure duration is a number
+            duration: typeof track.duration === 'string' ? parseFloat(track.duration) || 0 : track.duration || 0,
+            isLocalMusic: true
+          };
+          console.log('Formatted local track for queue:', formattedTrack);
+          return formattedTrack;
+        } 
+        
+        // Format online song - handle both downloadUrl array and direct url string formats
+        let url = track.url;
+        if (track.downloadUrl) {
+          if (Array.isArray(track.downloadUrl) && track.downloadUrl.length > 0) {
+            // Find the best quality URL from downloadUrl array
+            const quality = track.downloadUrl.length - 1; // Default to highest quality
+            url = track.downloadUrl[quality]?.url || track.url;
+          } else if (typeof track.downloadUrl === 'string') {
+            url = track.downloadUrl;
+          }
+        }
+        
+        return {
+          id: track.id || `online-${Date.now()}`,
+          url: url,
+          title: track.title || 'Unknown',
+          artist: track.artist || 'Unknown Artist',
+          artwork: track.image || track.artwork || DEFAULT_MUSIC_IMAGE,
+          duration: typeof track.duration === 'string' ? parseFloat(track.duration) || 0 : track.duration || 0,
+          language: track.language,
+          artistID: track.artistID || track.primary_artists_id
+        };
+      });
+      
+      console.log('Playing all tracks, first track:', JSON.stringify(formattedTracks[0]));
+      
       // Reset queue
       await TrackPlayer.reset();
       
       // Add all songs to queue
-      await TrackPlayer.add(Songs);
+      await TrackPlayer.add(formattedTracks);
       
       // Start playback
       await TrackPlayer.play();
@@ -191,7 +241,7 @@ export const CustomPlaylistView = (props) => {
       ToastAndroid.show('Playing all songs', ToastAndroid.SHORT);
     } catch (error) {
       console.error('Error playing songs:', error);
-      ToastAndroid.show('Failed to play songs', ToastAndroid.SHORT);
+      ToastAndroid.show('Failed to play songs: ' + error.message, ToastAndroid.SHORT);
     }
   };
 
@@ -199,15 +249,130 @@ export const CustomPlaylistView = (props) => {
   const SongCard = ({ e, allSongs, index }) => {
     const { updateTrack } = useContext(Context);
     
+    // Default music image to use when artwork is missing
+    const DEFAULT_MUSIC_IMAGE = require('../../Images/default.jpg');
+    
+    // Function to get proper image source
+    const getImageSource = () => {
+      // For local songs that have numeric cover or missing artwork
+      if (e.isLocalMusic || e.path || (typeof e.artwork === 'number') || 
+          (typeof e.image === 'number') || !e.image && !e.artwork) {
+        return DEFAULT_MUSIC_IMAGE;
+      }
+      
+      // For invalid URI values
+      if (e.image && typeof e.image === 'string' && !e.image.startsWith('http') && !e.image.startsWith('file://')) {
+        return DEFAULT_MUSIC_IMAGE;
+      }
+      
+      if (e.artwork && typeof e.artwork === 'string' && !e.artwork.startsWith('http') && !e.artwork.startsWith('file://')) {
+        return DEFAULT_MUSIC_IMAGE;
+      }
+      
+      // For normal songs with artwork
+      return { uri: e.image || e.artwork };
+    };
+    
+    // Format track for playback
+    const formatTrack = (track) => {
+      // Check if this is a local song
+      const isLocalFile = track.isLocalMusic || track.path || (track.url && track.url.startsWith('file://'));
+      
+      // Format local song
+      if (isLocalFile) {
+        return {
+          id: track.id || `local-${Date.now()}`,
+          url: track.url && track.url.startsWith('file://') ? track.url : `file://${track.path || track.url}`,
+          title: track.title || 'Unknown',
+          artist: track.artist || 'Unknown Artist',
+          artwork: (typeof track.artwork === 'number' || !track.artwork) ? DEFAULT_MUSIC_IMAGE : { uri: track.artwork },
+          // Ensure duration is a number
+          duration: typeof track.duration === 'string' ? parseFloat(track.duration) || 0 : track.duration || 0,
+          isLocalMusic: true
+        };
+      } 
+      
+      // Format online song - handle both downloadUrl array and direct url string formats
+      let url = track.url;
+      if (track.downloadUrl) {
+        if (Array.isArray(track.downloadUrl) && track.downloadUrl.length > 0) {
+          // Find the best quality URL from downloadUrl array
+          const quality = track.downloadUrl.length - 1; // Default to highest quality
+          url = track.downloadUrl[quality]?.url || track.url;
+        } else if (typeof track.downloadUrl === 'string') {
+          url = track.downloadUrl;
+        }
+      }
+      
+      return {
+        id: track.id || `online-${Date.now()}`,
+        url: url,
+        title: track.title || 'Unknown',
+        artist: track.artist || 'Unknown Artist',
+        artwork: track.image || track.artwork || DEFAULT_MUSIC_IMAGE,
+        duration: typeof track.duration === 'string' ? parseFloat(track.duration) || 0 : track.duration || 0,
+        language: track.language,
+        artistID: track.artistID || track.primary_artists_id
+      };
+    };
+    
     // Play this song
     const playSong = async () => {
       try {
+        // Format all tracks starting from the current one
+        const tracksToPlay = allSongs.slice(index).map(track => {
+          // Check if this is a local song
+          const isLocalFile = track.isLocalMusic || track.path || (track.url && track.url.startsWith('file://'));
+          
+          // Format local song
+          if (isLocalFile) {
+            const formattedTrack = {
+              id: track.id || `local-${Date.now()}`,
+              url: track.url && track.url.startsWith('file://') ? track.url : `file://${track.path || track.url}`,
+              title: track.title || 'Unknown',
+              artist: track.artist || 'Unknown Artist',
+              artwork: (typeof track.artwork === 'number' || !track.artwork) ? DEFAULT_MUSIC_IMAGE : { uri: track.artwork },
+              // Ensure duration is a number
+              duration: typeof track.duration === 'string' ? parseFloat(track.duration) || 0 : track.duration || 0,
+              isLocalMusic: true
+            };
+            console.log('Formatted local track:', formattedTrack);
+            return formattedTrack;
+          } 
+          
+          // Format online song - handle both downloadUrl array and direct url string formats
+          let url = track.url;
+          if (track.downloadUrl) {
+            if (Array.isArray(track.downloadUrl) && track.downloadUrl.length > 0) {
+              // Find the best quality URL from downloadUrl array
+              const quality = track.downloadUrl.length - 1; // Default to highest quality
+              url = track.downloadUrl[quality]?.url || track.url;
+            } else if (typeof track.downloadUrl === 'string') {
+              url = track.downloadUrl;
+            }
+          }
+          
+          return {
+            id: track.id || `online-${Date.now()}`,
+            url: url,
+            title: track.title || 'Unknown',
+            artist: track.artist || 'Unknown Artist',
+            artwork: track.image || track.artwork || DEFAULT_MUSIC_IMAGE,
+            duration: typeof track.duration === 'string' ? parseFloat(track.duration) || 0 : track.duration || 0,
+            language: track.language,
+            artistID: track.artistID || track.primary_artists_id
+          };
+        });
+        
+        console.log('Playing track:', JSON.stringify(tracksToPlay[0]));
+        
         await TrackPlayer.reset();
-        await TrackPlayer.add(allSongs.slice(index));
+        await TrackPlayer.add(tracksToPlay);
         await TrackPlayer.play();
         if (updateTrack) updateTrack();
       } catch (error) {
         console.error('Error playing song:', error);
+        ToastAndroid.show('Failed to play song: ' + error.message, ToastAndroid.SHORT);
       }
     };
     
@@ -262,9 +427,9 @@ export const CustomPlaylistView = (props) => {
           style={styles.songCard}
           android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
         >
-          {/* Song image */}
-        <FastImage
-            source={{ uri: e.image || e.artwork }}
+          {/* Song image with default fallback */}
+          <FastImage
+            source={getImageSource()}
             style={styles.songImage}
           />
           
@@ -301,7 +466,7 @@ export const CustomPlaylistView = (props) => {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <FastImage 
-                source={{ uri: e.image || e.artwork }} 
+                source={getImageSource()} 
                 style={styles.modalImage} 
               />
               <View style={styles.modalHeaderText}>
@@ -367,7 +532,22 @@ export const CustomPlaylistView = (props) => {
         <View style={styles.playlistHeader}>
           <FastImage
             source={Songs.length > 0 ? 
-              { uri: Songs[0].image || Songs[0].artwork } : 
+              (() => {
+                const firstSong = Songs[0];
+                // Handle local songs or songs with numeric/invalid artwork
+                if (firstSong.isLocalMusic || firstSong.path || 
+                    (typeof firstSong.artwork === 'number') || 
+                    (typeof firstSong.image === 'number') || 
+                    (!firstSong.image && !firstSong.artwork) ||
+                    (firstSong.image && typeof firstSong.image === 'string' && 
+                     !firstSong.image.startsWith('http') && !firstSong.image.startsWith('file://')) ||
+                    (firstSong.artwork && typeof firstSong.artwork === 'string' && 
+                     !firstSong.artwork.startsWith('http') && !firstSong.artwork.startsWith('file://'))) {
+                  return require('../../Images/default.jpg');
+                }
+                // Normal songs with valid image
+                return { uri: firstSong.image || firstSong.artwork };
+              })() : 
               require('../../Images/wav.png')}
             style={styles.playlistCover}
           />
