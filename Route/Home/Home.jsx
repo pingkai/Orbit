@@ -1,5 +1,5 @@
 import { MainWrapper } from "../../Layout/MainWrapper";
-import { FlatList, ScrollView, View, Text, RefreshControl } from "react-native";
+import { FlatList, ScrollView, View, Text, RefreshControl, Dimensions } from "react-native";
 import { Heading } from "../../Component/Global/Heading";
 import { HorizontalScrollSongs } from "../../Component/Global/HorizontalScrollSongs";
 import { RouteHeading } from "../../Component/Home/RouteHeading";
@@ -34,11 +34,15 @@ const shuffleArray = (array) => {
 };
 
 export const Home = () => {
+  const [showHeader, setShowHeader] = useState(true);
+  const [Language, setLanguage] = useState('english');
   const [Loading, setLoading] = useState(true);
-  const [Data, setData] = useState({ data: { charts: [], playlists: [], trending: { albums: [] } } });
+  const [homeData, setHomeData] = useState({});
+  const [isConnected, setIsConnected] = useState(true);
+  const [offline, setOffline] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [showHeader, setShowHeader] = useState(false);
-  const [isOffline, setIsOffline] = useState(false);
+  const { width } = Dimensions.get('window');
+  const [Data, setData] = useState({ data: { charts: [], playlists: [], trending: { albums: [] } } });
   const [chartIndices, setChartIndices] = useState([0, 1, 2, 3]); // Dynamic chart indices
 
   // Get random chart indices
@@ -59,7 +63,8 @@ export const Home = () => {
       }
       
       const networkState = await NetInfo.fetch();
-      setIsOffline(!networkState.isConnected);
+      setIsConnected(!networkState.isConnected);
+      setOffline(!networkState.isConnected);
 
       // Try to load cached data first if not forcing refresh
       if (!forceRefresh) {
@@ -157,11 +162,22 @@ export const Home = () => {
               horizontal={true}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{
-                paddingLeft: 13,
+                paddingLeft: 15,
+                paddingRight: 10,
                 gap: 15,
               }}
               data={shuffledPlaylists}
               keyExtractor={(item, index) => `playlist-${item.id}-${index}`}
+              ListEmptyComponent={() => (
+                <View style={{ 
+                  width: width - 30, 
+                  height: 250, 
+                  justifyContent: 'center', 
+                  alignItems: 'center' 
+                }}>
+                  <Text style={{ color: 'white', fontSize: 16 }}>No playlists available</Text>
+                </View>
+              )}
               renderItem={({ item, index }) => (
                 <EachPlaylistCard
                   name={truncateText(item.title, 30)}
@@ -169,6 +185,7 @@ export const Home = () => {
                   key={index}
                   image={item.image[2].link}
                   id={item.id}
+                  source="Home"
                 />
               )}
             />
@@ -179,10 +196,22 @@ export const Home = () => {
               horizontal={true}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{
-                paddingLeft: 13,
+                paddingLeft: 15,
+                paddingRight: 10,
+                gap: 15,
               }}
               data={shuffledAlbums}
               keyExtractor={(item, index) => `album-${item.id}-${index}`}
+              ListEmptyComponent={() => (
+                <View style={{ 
+                  width: width - 30, 
+                  height: 220, 
+                  justifyContent: 'center', 
+                  alignItems: 'center' 
+                }}>
+                  <Text style={{ color: 'white', fontSize: 16 }}>No albums available</Text>
+                </View>
+              )}
               renderItem={({ item, index }) => (
                 <EachAlbumCard
                   image={item.image[2].link}
@@ -196,7 +225,7 @@ export const Home = () => {
             />
             <PaddingConatiner>
               <HorizontalScrollSongs id={getChartId(1)}/>
-            {isOffline && (
+            {offline && (
               <PaddingConatiner>
                 <Text style={{
                   color: '#666',

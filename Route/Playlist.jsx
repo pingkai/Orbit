@@ -2,7 +2,7 @@ import { MainWrapper } from "../Layout/MainWrapper";
 import Animated, { useAnimatedRef} from "react-native-reanimated";
 import { PlaylistTopHeader } from "../Component/Playlist/PlaylistTopHeader";
 import { PlaylistDetails } from "../Component/Playlist/PlaylistDetails";
-import { View, BackHandler, Pressable } from "react-native";
+import { View, BackHandler, Pressable, ActivityIndicator } from "react-native";
 import { EachSongCard } from "../Component/Global/EachSongCard";
 import { useEffect, useState } from "react";
 import { getPlaylistData } from "../Api/Playlist";
@@ -21,7 +21,7 @@ const CURRENT_ALBUM_ID_KEY = "orbit_current_album_id";
 const CURRENT_ALBUM_DATA_KEY = "orbit_current_album_data";
 
 // Add this truncate function
-const truncateText = (text, limit = 30) => {
+const truncateText = (text, limit = 22) => {
   if (!text) return '';
   return text.length > limit ? text.substring(0, limit) + '...' : text;
 };
@@ -59,6 +59,26 @@ const getValidImageUrl = (url) => {
     return 'https://example.com/default.jpg'; // Replace with a valid default image URL
   }
   return url;
+};
+
+// Helper to format artist data properly, avoiding [object Object] display
+const formatArtistData = (artistData) => {
+  // If it's already a string, return it
+  if (typeof artistData === 'string') return artistData;
+  
+  // If it's an array, use the FormatArtist function
+  if (Array.isArray(artistData)) return FormatArtist(artistData);
+  
+  // If it's an object with a primary property that's an array
+  if (artistData && artistData.primary && Array.isArray(artistData.primary)) {
+    return FormatArtist(artistData.primary);
+  }
+  
+  // If it's an object with a name property
+  if (artistData && artistData.name) return artistData.name;
+  
+  // Default fallback
+  return "Unknown Artist";
 };
 
 export const Playlist = ({route}) => {
@@ -293,6 +313,12 @@ export const Playlist = ({route}) => {
       console.log(`Playlist data fetched successfully for ID ${id}:`, 
                  data?.data?.name || 'Unknown playlist', 
                  `songs count: ${data?.data?.songs?.length || 0}`);
+      
+      // Log a sample song to debug structure
+      if (data?.data?.songs && data?.data?.songs.length > 0) {
+        console.log('Sample song structure:', JSON.stringify(data.data.songs[0], null, 2));
+      }
+      
       setData(data);
       
       // If we successfully got playlist data, update the stored information
@@ -354,57 +380,78 @@ export const Playlist = ({route}) => {
 
   return (
     <MainWrapper>
-       <Animated.ScrollView scrollEventThrottle={16} ref={AnimatedRef} contentContainerStyle={{
-        paddingBottom:80,
-         backgroundColor:"#101010",
-      }}>
-        <PlaylistTopHeader AnimatedRef={AnimatedRef} url={getValidImageUrl(image)} />
-        <PlaylistDetails id={id} image={getValidImageUrl(image)} name={truncateText(name || "")} follower={follower} listener={follower ?? ""} releasedDate={Data?.data?.releaseDate ?? ""} Data={Data}  Loading={Loading}/>
-         {Loading &&
-           <LoadingComponent loading={Loading} height={200}/>}
-        {!Loading && <View style={{
-          paddingHorizontal:10,
-          backgroundColor:"#101010",
-          gap:7,
+      {Loading && <LoadingComponent loading={Loading}/>}
+      {!Loading && (!Data?.data?.songs || Data?.data?.songs?.length === 0) && (
+        <View style={{
+          flex: 1, 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          paddingHorizontal: 20
         }}>
-          {Data?.data?.songs?.map((e,i)=>{
-            if (!e) return null;
-            
-            // Get valid download URL
-            const downloadUrl = getValidDownloadUrl(e?.downloadUrl);
-            
-            return (
-              <EachSongCard 
-            Data={Data} 
-            isFromPlaylist={true} 
-            index={i}  
-            artist={FormatArtist(e?.artists?.primary)} 
-            language={e?.language} 
-            playlist={true} 
-            artistID={e?.primary_artists_id} 
-            key={i} 
-            duration={e?.duration} 
-                image={ensureStringUrl(e?.image?.[2]?.url)} 
-            id={e?.id} 
-            width={"100%"} 
-            title={truncateText(e?.name)}  
-                url={downloadUrl} 
-            style={{
-              marginBottom:15,
-            }}
-              />
-            );
-          })}
-        </View>}
-      </Animated.ScrollView>
-      {Data?.data?.songs?.length <= 0 && !Loading && <View style={{
-        flex: 1,
-        alignItems:"center",
-        justifyContent:"center",
-      }}>
-        <PlainText text={"Playlist not available"}/>
-        <SmallText text={"No songs found in this playlist"}/>
-        </View>}
+          <PlainText text="Playlist is empty or not available" style={{textAlign: 'center'}}/>
+          <SmallText text="Please try another playlist or check your connection" style={{textAlign: 'center'}}/>
+        </View>
+      )}
+      {!Loading && Data?.data?.songs && Data?.data?.songs?.length > 0 && (
+        <Animated.ScrollView 
+          scrollEventThrottle={16} 
+          ref={AnimatedRef} 
+          contentContainerStyle={{
+            // paddingBottom: 5, // Extra padding to account for bottom player
+            backgroundColor: "#101010",
+          }}
+        >
+          <PlaylistTopHeader AnimatedRef={AnimatedRef} url={image || (Data?.data?.songs[0]?.images && Data?.data?.songs[0]?.images[2]?.url ? Data?.data?.songs[0]?.images[2]?.url : "")} />
+          <PlaylistDetails 
+            name={truncateText(name || Data?.data?.name || "Playlist")} 
+            follower={follower || Data?.data?.follower || ""} 
+            total={Data?.data?.songs?.length || 0} 
+            Data={Data}
+          />
+          <View style={{
+            paddingHorizontal: 15,
+            backgroundColor: "#101010",
+            gap: 8,
+            paddingBottom: 5, // Add extra padding at the bottom
+          }}>
+            {Data?.data?.songs?.map((e,i) => {
+              // Process artist data to avoid [object Object] display
+              const artistData = e?.artists || e?.primary_artists;
+              const formattedArtist = formatArtistData(artistData);
+              
+              // Get proper image URL
+              const imageUrl = getValidImageUrl(ensureStringUrl(e?.image?.[2]?.url || e?.images?.[2]?.url));
+              
+              return (
+                <EachSongCard 
+                  isFromPlaylist={true} 
+                  Data={Data} 
+                  index={i} 
+                  artist={formattedArtist} 
+                  language={e?.language} 
+                  artistID={e?.artist_id || e?.primary_artists_id} 
+                  key={i} 
+                  duration={e?.duration} 
+                  image={imageUrl} 
+                  id={e?.id} 
+                  url={e?.media_preview_url || getValidDownloadUrl(e?.download_url)}
+                  title={truncateText(e?.song || e?.name, 22)} // Update to 22 chars to match other truncations
+                  style={{
+                    marginBottom: 15,
+                    borderRadius: 8,
+                    elevation: 2,
+                  }}
+                />
+              );
+            })}
+            {/* Add view to hide the "No music" player at bottom */}
+            <View style={{
+              height: 100,
+              backgroundColor: "#101010",
+            }} />
+          </View>
+        </Animated.ScrollView>
+      )}
     </MainWrapper>
   );
 };

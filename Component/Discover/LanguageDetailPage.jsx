@@ -143,23 +143,35 @@ export const LanguageDetailPage = ({route}) => {
             
             {/* Safe render for playlists */}
             {Data?.data?.playlists && Data.data.playlists.length > 0 ? (
-              <FlatList horizontal={true} showsHorizontalScrollIndicator={false} contentContainerStyle={{
-                paddingLeft:13,
-                gap:10,
-              }} data={Data.data.playlists} renderItem={(item,i)=>(
-                <EachPlaylistCard 
-                  name={truncateText(item.item.title, 30)} 
-                  follower={truncateText(item.item.subtitle, 30)} 
-                  key={item.index} 
-                  image={item.item.image[2].link} 
-                  id={item.item.id}
-                  source="LanguageDetail"
-                  language={language}
-                />
-              )}/>
+              <FlatList 
+                horizontal={true} 
+                showsHorizontalScrollIndicator={false} 
+                contentContainerStyle={{
+                  paddingLeft: 15,
+                  paddingRight: 10,
+                  gap: 15,
+                }} 
+                data={Data.data.playlists} 
+                renderItem={(item,i) => (
+                  <EachPlaylistCard 
+                    name={truncateText(item.item.title, 30)} 
+                    follower={truncateText(item.item.subtitle, 30)} 
+                    key={item.index} 
+                    image={item.item.image[2].link} 
+                    id={item.item.id}
+                    source="LanguageDetail"
+                    language={language}
+                  />
+                )}
+              />
             ) : (
-              <View style={{height: 150, justifyContent: 'center', alignItems: 'center'}}>
-                <PlainText text="No playlists available" />
+              <View style={{
+                height: 220, 
+                justifyContent: 'center', 
+                alignItems: 'center',
+                paddingHorizontal: 20,
+              }}>
+                <PlainText text="No playlists available" style={{textAlign: 'center'}} />
               </View>
             )}
             
@@ -170,20 +182,35 @@ export const LanguageDetailPage = ({route}) => {
             
             {/* Safe render for albums */}
             {Data?.data?.trending?.albums && Data.data.trending.albums.length > 0 ? (
-              <FlatList horizontal={true} showsHorizontalScrollIndicator={false} contentContainerStyle={{
-                paddingLeft:13,
-              }} data={Data.data.trending.albums} renderItem={(item)=><EachAlbumCard 
-                image={item.item.image[2].link} 
-                artists={truncateText(item.item.artists, 30)} 
-                key={item.index} 
-                name={truncateText(item.item.name, 30)} 
-                id={item.item.id}
-                source="LanguageDetail"
-                language={language}
-              />}/>
+              <FlatList 
+                horizontal={true} 
+                showsHorizontalScrollIndicator={false} 
+                contentContainerStyle={{
+                  paddingLeft: 15,
+                  paddingRight: 10,
+                  gap: 15,
+                }} 
+                data={Data.data.trending.albums} 
+                renderItem={(item) => (
+                  <EachAlbumCard 
+                    image={item.item.image[2].link} 
+                    artists={truncateText(item.item.artists, 30)} 
+                    key={item.index} 
+                    name={truncateText(item.item.name, 30)} 
+                    id={item.item.id}
+                    source="LanguageDetail"
+                    language={language}
+                  />
+                )}
+              />
             ) : (
-              <View style={{height: 150, justifyContent: 'center', alignItems: 'center'}}>
-                <PlainText text="No trending albums available" />
+              <View style={{
+                height: 220, 
+                justifyContent: 'center', 
+                alignItems: 'center',
+                paddingHorizontal: 20,
+              }}>
+                <PlainText text="No trending albums available" style={{textAlign: 'center'}} />
               </View>
             )}
             

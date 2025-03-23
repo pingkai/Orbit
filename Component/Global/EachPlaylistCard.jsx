@@ -1,10 +1,10 @@
-import { Pressable, View } from "react-native";
+import { Pressable, View, Dimensions } from "react-native";
 import { PlainText } from "./PlainText";
 import { SmallText } from "./SmallText";
 import { SpaceBetween } from "../../Layout/SpaceBetween";
 import FontAwesome5 from "react-native-vector-icons/FontAwesome5";
 import FastImage from "react-native-fast-image";
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { useNavigation, useTheme } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -33,6 +33,31 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
 }){
   const theme = useTheme()
   const navigation = useNavigation()
+  const { width, height } = Dimensions.get('window');
+  
+  // Calculate responsive dimensions based on screen size
+  const responsiveStyles = useMemo(() => {
+    // Base width is ~30% of screen width with some minimum size
+    const cardWidth = Math.max(150, width * 0.3);
+    // Height maintains aspect ratio plus text area
+    const cardHeight = cardWidth * 1.35;
+    // Image height is square
+    const imageHeight = cardWidth;
+    
+    return {
+      container: {
+        width: cardWidth,
+        height: cardHeight,
+      },
+      image: {
+        height: imageHeight,
+        width: "100%",
+      },
+      textContainer: {
+        height: cardHeight - imageHeight,
+      }
+    };
+  }, [width]);
   
   const handleNavigation = async () => {
     try {
@@ -74,20 +99,18 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
   
   return (
     <Pressable onPress={handleNavigation} style={{
-      width:180,
-      height:240,
+      ...responsiveStyles.container,
       ...MainContainerStyle,
     }}>
       <FastImage source={{
         uri:image,
       }} style={{
-        height:180,
-        width:"100%",
+        ...responsiveStyles.image,
         borderRadius:10,
         ...ImageStyle,
       }}/>
       <SpaceBetween style={{
-        height:55,
+        ...responsiveStyles.textContainer,
       }}>
         <View style={{
           width:"85%",

@@ -1,7 +1,7 @@
-import { ImageBackground, Pressable, View } from "react-native";
+import { ImageBackground, Pressable, View, Dimensions } from "react-native";
 import { PlainText } from "./PlainText";
 import { SmallText } from "./SmallText";
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { useNavigation } from "@react-navigation/native";
 import LinearGradient from "react-native-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -10,6 +10,28 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 export const EachAlbumCard = memo(function EachAlbumCard({image, name, artists, id, mainContainerStyle, Search, source, searchText, language}) {
   const navigation = useNavigation()
   let artistsNames = ""
+  const { width, height } = Dimensions.get('window');
+  
+  // Calculate responsive dimensions based on screen size
+  const responsiveStyles = useMemo(() => {
+    // Base width is ~40% of screen width with some minimum size
+    const cardWidth = Math.max(170, width * 0.4);
+    // Height maintains aspect ratio (roughly square)
+    const cardHeight = cardWidth;
+    
+    return {
+      container: {
+        width: cardWidth,
+        height: cardHeight,
+        borderRadius: 10,
+        marginRight: 10,
+      },
+      image: {
+        height: "100%",
+        width: "100%",
+      }
+    };
+  }, [width]);
   
   // Improved truncation function that works for any text
   function truncateText(text, limit = 30) {
@@ -108,21 +130,15 @@ export const EachAlbumCard = memo(function EachAlbumCard({image, name, artists, 
         navigation.navigate("Home", { screen: "HomePage" });
       }
     }} style={{
-      borderRadius:10,
-      height:230,
-      width:230,
+      ...responsiveStyles.container,
       backgroundColor:"rgba(55,55,79,0)",
-      marginRight:10,
       flexDirection:"row",
       overflow:"hidden",
       ...mainContainerStyle,
     }}>
       <ImageBackground source={{
         uri:image,
-      }} style={{
-        height:"100%",
-        width:'100%',
-      }}>
+      }} style={responsiveStyles.image}>
         <View style={{
           width:"100%",
           height:"100%",

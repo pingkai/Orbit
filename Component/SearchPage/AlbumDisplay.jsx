@@ -12,24 +12,26 @@ export default function AlbumsDisplay({data, limit, Searchtext}) {
   const totalPages = Math.ceil(Data?.data?.total ?? 1 / limit)
   const [Page, setPage] = useState(1)
   const [Loading, setLoading] = useState(false)
+  
   async function fetchSearchData(text,page){
-   if (Page <= totalPages){
-   if(Searchtext !== ""){
-    try {
-        setLoading(true)
-        const fetchdata = await getSearchAlbumData(text,page,limit)
-        const temp = Data
-        const finalData = [...temp.data.results,...fetchdata.data.results]
-        temp.data.results = finalData
-        setData(temp)
-      } catch (e) {
-        console.log(e);
-      } finally {
-        setLoading(false)
+    if (Page <= totalPages){
+      if(Searchtext !== ""){
+        try {
+          setLoading(true)
+          const fetchdata = await getSearchAlbumData(text,page,limit)
+          const temp = Data
+          const finalData = [...temp.data.results,...fetchdata.data.results]
+          temp.data.results = finalData
+          setData(temp)
+        } catch (e) {
+          console.log(e);
+        } finally {
+          setLoading(false)
+        }
       }
-   }
-   }
+    }
   }
+  
   function FormatArtist(data){
     let artist = ""
     data?.map((e,i)=>{
@@ -41,43 +43,69 @@ export default function AlbumsDisplay({data, limit, Searchtext}) {
     })
     return artist
   }
-  const width = Dimensions.get("window").width
+  
+  const { width } = Dimensions.get("window")
+  
   return (
-     <>
-     {Data?.data?.results?.length !== 0 && <FlatList showsVerticalScrollIndicator={false} numColumns={2} keyExtractor={(item, index) => String(index)} onEndReached={()=>{
-       setTimeout(()=>{
-         setPage(Page + 1)
-         fetchSearchData(Searchtext, Page)
-       },200)
-      }} contentContainerStyle={{
-        paddingBottom:220,
-        width:width,
-        alignItems:"flex-start",
-        gap:15,
-      }} data={[...Data?.data?.results ?? [], {LoadingComponent:true}]} renderItem={(item)=>{
-        if(item.item.LoadingComponent  === true){
-            return <LoadingComponent loading={Loading} height={100}/>
-        }else{
-            return <EachAlbumCard 
-              Search={true} 
-              mainContainerStyle={{width:width * 0.45}} 
-              image={item?.item?.image[2]?.url ?? ""} 
-              artists={FormatArtist(item.item?.artists?.primary)} 
-              name={item?.item?.name ?? ""} 
-              id={item?.item?.id ?? ""}
-              source="Search"
-              searchText={Searchtext}
-            />
-        }
-      }}/>}
-      {Data?.data?.results?.length === 0 && <View style={{
-        height:400,
-        alignItems:"center",
-        justifyContent:"center",
-      }}>
-        <PlainText text={"No Album found!"}/>
-        <SmallText text={"Opps!  T_T"}/>
-        </View> }
-     </>
+    <>
+      {Data?.data?.results?.length !== 0 && 
+        <FlatList 
+          showsVerticalScrollIndicator={false} 
+          numColumns={2} 
+          keyExtractor={(item, index) => String(index)}
+          onEndReached={() => {
+            setTimeout(() => {
+              setPage(Page + 1)
+              fetchSearchData(Searchtext, Page)
+            }, 200)
+          }}
+          contentContainerStyle={{
+            paddingHorizontal: 10,
+            paddingBottom: 120, // Extra padding for bottom player
+            alignItems: "center",
+          }}
+          columnWrapperStyle={{
+            justifyContent: 'space-between',
+            marginBottom: 15,
+            width: '100%',
+          }}
+          data={[...Data?.data?.results ?? [], {LoadingComponent: true}]}
+          renderItem={(item) => {
+            if(item.item.LoadingComponent === true){
+              return <LoadingComponent loading={Loading} height={100}/>
+            } else {
+              return (
+                <EachAlbumCard 
+                  Search={true} 
+                  mainContainerStyle={{
+                    width: width * 0.46,
+                    height: width * 0.66,
+                    margin: 0,
+                  }} 
+                  image={item?.item?.image[2]?.url ?? ""} 
+                  artists={FormatArtist(item.item?.artists?.primary)} 
+                  name={item?.item?.name ?? ""} 
+                  id={item?.item?.id ?? ""}
+                  source="Search"
+                  searchText={Searchtext}
+                />
+              )
+            }
+          }}
+        />
+      }
+      {Data?.data?.results?.length === 0 && 
+        <View style={{
+          flex: 1,
+          height: 400,
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: 20,
+        }}>
+          <PlainText text={"No Album found!"} style={{textAlign: 'center'}}/>
+          <SmallText text={"Opps!  T_T"} style={{textAlign: 'center'}}/>
+        </View>
+      }
+    </>
   )
 }

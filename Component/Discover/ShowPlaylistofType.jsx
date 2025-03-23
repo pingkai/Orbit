@@ -143,8 +143,14 @@ export default function ShowPlaylistofType({route}) {
               numColumns={2}
               keyExtractor={(item, index) => String(index)}
               contentContainerStyle={{
-                paddingBottom: 100,
-                alignItems: "flex-start",
+                paddingHorizontal: 10,
+                paddingBottom: 120, // Extra padding for player
+                alignItems: "center",
+              }}
+              columnWrapperStyle={{
+                justifyContent: 'space-between',
+                marginBottom: 15,
+                width: '100%',
               }}
               data={Data?.data?.results}
               renderItem={(item) => (
@@ -157,23 +163,26 @@ export default function ShowPlaylistofType({route}) {
                   source="ShowPlaylistofType"
                   searchText={Searchtext}
                   MainContainerStyle={{
-                    width: width * 0.45,
-                    marginHorizontal: 10,
+                    width: width * 0.46,
+                    margin: 0,
                   }}
                   ImageStyle={{
-                    height: "70%",
+                    height: width * 0.46, // Make image square
+                    borderRadius: 8,
                   }}
                 />
               )}
             />
           ) : (
             <View style={{
+              flex: 1,
               height: 400,
               alignItems: "center",
               justifyContent: "center",
+              paddingHorizontal: 20,
             }}>
-              <PlainText text={"No Playlists Found"}/>
-              <SmallText text={"Try searching for something else"}/>
+              <PlainText text={"No Playlists Found"} style={{textAlign: 'center'}}/>
+              <SmallText text={"Try searching for something else"} style={{textAlign: 'center'}}/>
             </View>
           )}
         </>

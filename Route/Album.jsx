@@ -184,7 +184,7 @@ export const Album = ({route}) => {
       console.error("Album ID is missing from route params");
       // Navigate back to prevent errors
       navigation.goBack();
-      return;
+        return;
     }
     
     try {
@@ -226,27 +226,58 @@ export const Album = ({route}) => {
       {Loading &&
         <LoadingComponent loading={Loading}/>}
       {!Loading && !Data?.data?.songs?.length && (
-        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-          <PlainText text="Album not found or no songs available" />
-          <SmallText text="Please check your connection and try again" />
+        <View style={{
+          flex: 1, 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          paddingHorizontal: 20
+        }}>
+          <PlainText text="Album not found or no songs available" style={{textAlign: 'center'}}/>
+          <SmallText text="Please check your connection and try again" style={{textAlign: 'center'}}/>
         </View>
       )}
-      {!Loading && Data?.data?.songs?.length > 0 && <Animated.ScrollView scrollEventThrottle={16} ref={AnimatedRef} contentContainerStyle={{
-          paddingBottom:80,
-          backgroundColor:"#101010",
-        }}>
+      {!Loading && Data?.data?.songs?.length > 0 && 
+        <Animated.ScrollView 
+          scrollEventThrottle={16} 
+          ref={AnimatedRef} 
+          contentContainerStyle={{
+            paddingBottom: 120, // Extra padding to account for bottom player
+            backgroundColor: "#101010",
+          }}
+        >
           <PlaylistTopHeader AnimatedRef={AnimatedRef} url={getValidImageUrl(Data?.data?.image[2]?.url ?? "")} />
           <AlbumDetails name={Data?.data?.name ?? ""} liked={false} releaseData={Data?.data?.year ?? ""}  Data={Data}/>
           {<View style={{
-            paddingHorizontal:10,
-            backgroundColor:"#101010",
-            gap:7,
+            paddingHorizontal: 15,
+            backgroundColor: "#101010",
+            gap: 7,
           }}>
-            {Data?.data?.songs?.map((e,i)=><EachSongCard isFromPlaylist={true} Data={Data} index={i} artist={FormatArtist(e?.artists?.primary)} language={e?.language} playlist={true} artistID={e?.primary_artists_id} key={i} duration={e?.duration} image={getValidImageUrl(e?.image[2]?.url)} id={e?.id} width={"100%"} title={e?.name}  url={e?.downloadUrl} style={{
-              marginBottom:15,
-            }}/>)}
+            {Data?.data?.songs?.map((e,i)=>
+              <EachSongCard 
+                isFromPlaylist={true} 
+                Data={Data} 
+                index={i} 
+                artist={FormatArtist(e?.artists?.primary)} 
+                language={e?.language} 
+                playlist={true} 
+                artistID={e?.primary_artists_id} 
+                key={i} 
+                duration={e?.duration} 
+                image={getValidImageUrl(e?.image[2]?.url)} 
+                id={e?.id} 
+                width={"100%"} 
+                title={e?.name}  
+                url={e?.downloadUrl} 
+                style={{
+                  marginBottom: 15,
+                  borderRadius: 8,
+                  elevation: 2,
+                }}
+              />
+            )}
           </View>}
-        </Animated.ScrollView>}
+        </Animated.ScrollView>
+      }
     </MainWrapper>
   );
 };

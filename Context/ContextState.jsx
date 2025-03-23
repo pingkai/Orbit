@@ -28,6 +28,9 @@ const ContextState = (props)=>{
     
     // Add state to track the current playlist information
     const [currentPlaylistData, setCurrentPlaylistData] = useState(null);
+    
+    // Add state to track liked playlists for UI updates
+    const [likedPlaylists, setLikedPlaylists] = useState([]);
 
     const [Queue, setQueue] = useState([]);
     async function updateTrack (){
@@ -40,6 +43,13 @@ const ContextState = (props)=>{
             setQueue(tracks)
         }
     }
+    
+    // Function to update liked playlists state and trigger UI updates
+    function updateLikedPlaylist() {
+        // This is just to trigger rerenders when playlists are liked/unliked
+        setLikedPlaylists(prev => [...prev]);
+    }
+    
     async function AddRecommendedSongs(index,id){
         const tracks = await TrackPlayer.getQueue();
         const totalTracks = tracks.length - 1
@@ -110,7 +120,9 @@ const ContextState = (props)=>{
         musicPreviousScreen,
         setMusicPreviousScreen,
         currentPlaylistData,
-        setCurrentPlaylistData
+        setCurrentPlaylistData,
+        updateLikedPlaylist,
+        likedPlaylists
     }}>
         {props.children}
          <EachSongMenuModal setVisible={setVisible} Visible={Visible}/>
