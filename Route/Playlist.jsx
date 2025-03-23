@@ -17,6 +17,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 // AsyncStorage keys
 const CURRENT_PLAYLIST_ID_KEY = "orbit_current_playlist_id";
 const CURRENT_PLAYLIST_DATA_KEY = "orbit_current_playlist_data";
+const CURRENT_ALBUM_ID_KEY = "orbit_current_album_id";
+const CURRENT_ALBUM_DATA_KEY = "orbit_current_album_data";
 
 // Add this truncate function
 const truncateText = (text, limit = 30) => {
@@ -48,6 +50,15 @@ const getValidDownloadUrl = (downloadUrl, index = 2) => {
     console.log('Error parsing download URL:', error);
     return '';
   }
+};
+
+// Helper to validate and ensure valid image URL
+const getValidImageUrl = (url) => {
+  if (!url || url === 'null' || url === 'undefined') {
+    // Return a default image if URL is null/undefined
+    return 'https://example.com/default.jpg'; // Replace with a valid default image URL
+  }
+  return url;
 };
 
 export const Playlist = ({route}) => {
@@ -147,8 +158,23 @@ export const Playlist = ({route}) => {
   
   // Add a back handler to handle navigation
   useEffect(() => {
-    const handleBackPress = () => {
+    const handleBackPress = async () => {
       console.log('Back pressed in Playlist, attempting to navigate back');
+      
+      // Clear album data from AsyncStorage to prevent it from being restored
+      // when navigating back from playlist
+      try {
+        await Promise.all([
+          AsyncStorage.removeItem(CURRENT_ALBUM_ID_KEY),
+          AsyncStorage.removeItem(CURRENT_ALBUM_DATA_KEY),
+          // Also clear playlist data to ensure it doesn't persist either
+          AsyncStorage.removeItem(CURRENT_PLAYLIST_ID_KEY),
+          AsyncStorage.removeItem(CURRENT_PLAYLIST_DATA_KEY)
+        ]);
+        console.log('Cleared navigation data from AsyncStorage when leaving playlist');
+      } catch (error) {
+        console.error('Error clearing navigation data:', error);
+      }
       
       // Check if we know where we came from
       if (source) {
@@ -176,6 +202,12 @@ export const Playlist = ({route}) => {
           navigation.navigate('Discover', { 
             screen: 'LanguageDetail',
             params: { language: language || 'hindi' }
+          });
+          return true;
+        } else if (source === 'Home') {
+          // Navigate directly to HomePage
+          navigation.navigate('Home', { 
+            screen: 'HomePage' 
           });
           return true;
         }
@@ -326,8 +358,8 @@ export const Playlist = ({route}) => {
         paddingBottom:80,
          backgroundColor:"#101010",
       }}>
-        <PlaylistTopHeader AnimatedRef={AnimatedRef} url={image} />
-        <PlaylistDetails id={id} image={image} name={truncateText(name || "")} follower={follower} listener={follower ?? ""} releasedDate={Data?.data?.releaseDate ?? ""} Data={Data}  Loading={Loading}/>
+        <PlaylistTopHeader AnimatedRef={AnimatedRef} url={getValidImageUrl(image)} />
+        <PlaylistDetails id={id} image={getValidImageUrl(image)} name={truncateText(name || "")} follower={follower} listener={follower ?? ""} releasedDate={Data?.data?.releaseDate ?? ""} Data={Data}  Loading={Loading}/>
          {Loading &&
            <LoadingComponent loading={Loading} height={200}/>}
         {!Loading && <View style={{

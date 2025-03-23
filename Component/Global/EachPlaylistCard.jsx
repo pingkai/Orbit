@@ -6,6 +6,13 @@ import FontAwesome5 from "react-native-vector-icons/FontAwesome5";
 import FastImage from "react-native-fast-image";
 import { memo } from "react";
 import { useNavigation, useTheme } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// AsyncStorage keys
+const CURRENT_ALBUM_ID_KEY = "orbit_current_album_id";
+const CURRENT_ALBUM_DATA_KEY = "orbit_current_album_data";
+const CURRENT_PLAYLIST_ID_KEY = "orbit_current_playlist_id";
+const CURRENT_PLAYLIST_DATA_KEY = "orbit_current_playlist_data";
 
 // Add a utility function to truncate text
 const truncateText = (text, limit = 30) => {
@@ -27,27 +34,42 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
   const theme = useTheme()
   const navigation = useNavigation()
   
-  const handleNavigation = () => {
-    const params = {
-      id,
-      image,
-      name,
-      follower,
-      timestamp: Date.now() // Add timestamp to ensure fresh navigation and prevent caching issues
-    };
-    
-    if (source) {
-      params.source = source;
+  const handleNavigation = async () => {
+    try {
+      // Clear any existing album and playlist data to prevent navigation conflicts
+      // Await all operations to ensure they complete before navigation
+      await Promise.all([
+        AsyncStorage.removeItem(CURRENT_ALBUM_ID_KEY),
+        AsyncStorage.removeItem(CURRENT_ALBUM_DATA_KEY),
+        AsyncStorage.removeItem(CURRENT_PLAYLIST_ID_KEY),
+        AsyncStorage.removeItem(CURRENT_PLAYLIST_DATA_KEY)
+      ]);
       
-      if (source === 'ShowPlaylistofType' && searchText) {
-        params.searchText = searchText;
-      } else if (source === 'LanguageDetail' && language) {
-        params.language = language;
+      const params = {
+        id,
+        image,
+        name,
+        follower,
+        timestamp: Date.now() // Add timestamp to ensure fresh navigation and prevent caching issues
+      };
+      
+      if (source) {
+        params.source = source;
+        
+        if (source === 'ShowPlaylistofType' && searchText) {
+          params.searchText = searchText;
+        } else if (source === 'LanguageDetail' && language) {
+          params.language = language;
+        }
       }
+      
+      console.log(`Navigating to Playlist with params:`, JSON.stringify(params));
+      navigation.navigate("Playlist", params);
+    } catch (error) {
+      console.error('Error navigating to Playlist:', error);
+      // Fallback navigation to prevent dead-end
+      navigation.navigate("Home", { screen: "HomePage" });
     }
-    
-    console.log(`Navigating to Playlist with params:`, JSON.stringify(params));
-    navigation.navigate("Playlist", params);
   };
   
   return (

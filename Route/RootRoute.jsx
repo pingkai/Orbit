@@ -24,6 +24,16 @@ import { LogBox } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 
 const Tab = createBottomTabNavigator();
+
+// AsyncStorage keys
+const CURRENT_ALBUM_ID_KEY = "orbit_current_album_id";
+const CURRENT_ALBUM_DATA_KEY = "orbit_current_album_data";
+const CURRENT_PLAYLIST_ID_KEY = "orbit_current_playlist_id";
+const CURRENT_PLAYLIST_DATA_KEY = "orbit_current_playlist_data";
+
+// Define tab names for reference
+const Tabs = ['Home', 'Discover', 'Library'];
+
 export const RootRoute = () => {
   const theme = useTheme();
   const { Index, setIndex, previousScreen, setPreviousScreen, musicPreviousScreen, setMusicPreviousScreen } = useContext(Context);
@@ -34,6 +44,9 @@ export const RootRoute = () => {
   // Track fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
   const prevFullscreenState = useRef(false);
+  
+  // Track screen before entering fullscreen
+  const [previousFullscreenScreen, setPreviousFullscreenScreen] = useState(null);
   
   // Global back button handler to ensure proper navigation hierarchy
   useEffect(() => {
@@ -94,109 +107,135 @@ export const RootRoute = () => {
     return () => backHandler.remove();
   }, [navigation]);
 
-  // Effect to track fullscreen state only (no navigation)
+  // Effect to track fullscreen state
   useEffect(() => {
+    // Update fullscreen active ref for back handling
+    isFullscreenActive.current = (Index === 1);
+    
+    // When entering fullscreen mode, save the current screen
+    if (Index === 1 && !prevFullscreenState.current) {
+      // Store current screen information before entering fullscreen
+      const state = navigation.getState();
+      const routes = state?.routes || [];
+      const currentRoute = routes.find(r => r.name === 'MainRoute');
+      
+      // Capture screen details
+      if (currentRoute && currentRoute.state) {
+        const tabRoutes = currentRoute.state.routes;
+        const currentTab = tabRoutes[currentRoute.state.index];
+        
+        if (currentTab) {
+          const tabName = currentTab.name;
+          let screenName = '';
+          let screenParams = {};
+          
+          // Get current screen details
+          if (currentTab.state && currentTab.state.routes && currentTab.state.routes.length > 0) {
+            const currentScreen = currentTab.state.routes[currentTab.state.index];
+            screenName = currentScreen.name;
+            screenParams = currentScreen.params || {};
+          }
+          
+          // Save screen info to restore later
+          const screenInfo = {
+            tab: tabName,
+            screen: screenName,
+            params: screenParams
+          };
+          
+          console.log('Saving screen before fullscreen:', JSON.stringify(screenInfo));
+          setPreviousFullscreenScreen(screenInfo);
+        }
+      }
+    }
+    
     // Track changes in fullscreen state
     if (Index === 0) {
       // Not in fullscreen
-      if (prevFullscreenState.current) {
-        console.log('Exited fullscreen player');
+      if (prevFullscreenState.current && previousFullscreenScreen) {
+        console.log('Exited fullscreen player, restoring previous screen:', JSON.stringify(previousFullscreenScreen));
         
-        // Check for screens that need to be refreshed when returning from fullscreen player
-        const state = navigation.getState();
-        const routes = state?.routes || [];
-        const currentRoute = routes.find(r => r.name === 'MainRoute');
-        
-        if (currentRoute && currentRoute.state) {
-          const tabRoutes = currentRoute.state.routes;
-          const currentTab = tabRoutes[currentRoute.state.index];
+        // Restore previous screen after short delay to ensure proper navigation
+        setTimeout(() => {
+          const { tab, screen, params } = previousFullscreenScreen;
           
-          if (currentTab && currentTab.name === 'Discover') {
-            console.log('Current tab is Discover');
-            
-            // Get the current screen in Discover tab
-            const currentScreen = currentTab.state?.routes[currentTab.state.index]?.name;
-            console.log('Current screen in Discover tab:', currentScreen);
-            
-            // Force refresh problematic screens
-            if (currentScreen === 'ShowPlaylistofType' || currentScreen === 'LanguageDetail') {
-              console.log('Force refreshing Discover screen:', currentScreen);
-              // Small timeout to ensure navigation is complete
-              setTimeout(() => {
-                const params = navigation.getState().routes.find(r => 
-                  r.name === 'MainRoute')?.state?.routes?.find(r => 
-                  r.name === 'Discover')?.state?.routes?.find(r => 
-                  r.name === currentScreen)?.params;
-                  
-                // Navigate to the same screen to force refresh
-                navigation.navigate('Discover', {
-                  screen: currentScreen,
-                  params
-                });
-              }, 100);
-            }
-          } else if (currentTab && currentTab.state?.routes?.some(r => r.name === 'Album')) {
-            console.log('Current screen is Album, checking for refresh need');
-            
-            // Small timeout to ensure navigation is complete
-            setTimeout(() => {
-              // Get the album ID from AsyncStorage and refresh if needed
-              const refreshAlbum = async () => {
-                try {
-                  const albumId = await AsyncStorage.getItem('orbit_current_album_id');
-                  const albumDataStr = await AsyncStorage.getItem('orbit_current_album_data');
-                  
-                  if (albumId && albumDataStr) {
-                    const albumData = JSON.parse(albumDataStr);
-                    console.log('Refreshing Album with ID:', albumId);
-                    
-                    // Navigate to Album with recovered params
-                    if (currentTab.name === 'Home') {
-                      // If we're in the Home tab, navigate to Album through Home
-                      navigation.navigate('Home', {
-                        screen: 'Album',
-                        params: {
-                          id: albumId,
-                          source: albumData.source || 'Home',
-                          language: albumData.language,
-                          searchText: albumData.searchText
-                        }
-                      });
-                    } else {
-                      // Otherwise use the standard navigation
-                      navigation.navigate('Album', {
-                        id: albumId,
-                        source: albumData.source,
-                        language: albumData.language,
-                        searchText: albumData.searchText
-                      });
-                    }
-                  } else {
-                    // If no album data is found, navigate back to Home
-                    navigation.navigate('Home', {
-                      screen: 'HomePage'
-                    });
-                  }
-                } catch (error) {
-                  console.error('Error refreshing album:', error);
-                  // On error, navigate to Home
-                  navigation.navigate('Home', {
-                    screen: 'HomePage'
-                  });
-                }
-              };
-              
-              refreshAlbum();
-            }, 100);
+          // Skip navigation if we're already on the correct screen
+          const currentState = navigation.getState();
+          const currentTabIndex = currentState?.index || 0;
+          const currentTab = currentState?.routes?.[currentTabIndex];
+          
+          // Extract current screen info
+          const currentTabName = currentTab?.name;
+          const currentNestedState = currentTab?.state;
+          const currentScreenName = currentNestedState?.routes?.[currentNestedState.index]?.name;
+          const currentParams = currentNestedState?.routes?.[currentNestedState.index]?.params;
+          
+          // Log current location
+          console.log(`Currently at: Tab=${currentTabName}, Screen=${currentScreenName}`);
+          console.log(`Want to go to: Tab=${tab}, Screen=${screen}`);
+          
+          // Check if we're already on the target screen
+          const alreadyOnTargetScreen = (
+            currentTabName === tab && 
+            currentScreenName === screen && 
+            JSON.stringify(currentParams) === JSON.stringify(params)
+          );
+          
+          if (alreadyOnTargetScreen) {
+            console.log('Already on the target screen, skipping navigation');
+            return;
           }
-        }
+          
+          // Handle different screen types
+          if (screen === 'Album') {
+            console.log(`Navigating to Album in ${tab} tab with params:`, params);
+            if (tab === 'Home') {
+              navigation.navigate('Home', {
+                screen: 'Album',
+                params: params
+              });
+            } else {
+              // Ensure we're in the right tab first
+              navigation.navigate(tab);
+              // Then navigate to Album
+              setTimeout(() => {
+                navigation.navigate('Album', params);
+              }, 50);
+            }
+          } else if (screen === 'Playlist') {
+            console.log(`Navigating to Playlist in ${tab} tab with params:`, params);
+            navigation.navigate(tab, {
+              screen: 'Playlist',
+              params: params
+            });
+          } else if (screen === 'ShowPlaylistofType') {
+            console.log(`Navigating to ShowPlaylistofType in ${tab} tab with params:`, params);
+            navigation.navigate(tab, {
+              screen: 'ShowPlaylistofType',
+              params: params
+            });
+          } else if (screen === 'LanguageDetailPage') {
+            console.log(`Navigating to LanguageDetailPage in ${tab} tab with params:`, params);
+            navigation.navigate(tab, {
+              screen: 'LanguageDetailPage',
+              params: params
+            });
+          } else if (tab && screen) {
+            // Generic navigation to any tab/screen
+            console.log(`Generic navigation to ${tab}/${screen} with params:`, params);
+            navigation.navigate(tab, {
+              screen: screen,
+              params: params
+            });
+          }
+        }, 150);
       }
       prevFullscreenState.current = false;
     } else {
       // In fullscreen
       prevFullscreenState.current = true;
     }
-  }, [Index, navigation]);
+  }, [Index, navigation, previousFullscreenScreen]);
 
   // Track screen changes continuously to better remember which screen the user was on
   // This helps with navigation after closing the fullscreen player
@@ -300,6 +339,32 @@ export const RootRoute = () => {
     // Clean up the listener when the component unmounts
     return unsubscribe;
   }, [navigation, setPreviousScreen, setMusicPreviousScreen]);
+
+  // Track tab changes to clear navigation history
+  useEffect(() => {
+    const asyncFunction = async () => {
+      if (previousTabName.current !== null && previousTabName.current !== Tabs[Index]) {
+        try {
+          console.log(`Tab changed from ${previousTabName.current} to ${Tabs[Index]}, clearing stored screen data`);
+          
+          // Clear all stored navigation data to prevent incorrect behavior
+          await Promise.all([
+            AsyncStorage.removeItem(CURRENT_ALBUM_ID_KEY),
+            AsyncStorage.removeItem(CURRENT_ALBUM_DATA_KEY),
+            AsyncStorage.removeItem(CURRENT_PLAYLIST_ID_KEY),
+            AsyncStorage.removeItem(CURRENT_PLAYLIST_DATA_KEY)
+          ]);
+          
+          console.log('Successfully cleared all stored navigation data');
+        } catch (error) {
+          console.error('Error clearing stored screen data:', error);
+        }
+      }
+      previousTabName.current = Tabs[Index];
+    };
+    
+    asyncFunction();
+  }, [Index]);
 
   return (
     <View style={{ flex: 1 }}>

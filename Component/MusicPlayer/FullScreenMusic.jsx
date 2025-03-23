@@ -653,28 +653,24 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     }
   }, [navigation, musicPreviousScreen, setIndex]);
 
+  // Add back handler to minimize player instead of navigating away
   useEffect(() => {
-    // Handle back button press
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      try {
-        console.log('Back pressed in fullscreen player');
-        
-        // Only handle back press if we're in the fullscreen view
-        if (Index === 1) {
-          // Use the same handler for consistent behavior
-          handlePlayerClose();
-      return true;
-        }
-        
-        return false;
-      } catch (error) {
-        console.error('Error handling back button press:', error);
-        return false;
+    const backAction = () => {
+      if (Index === 1) {
+        // Only minimize the player when in fullscreen mode
+        setIndex(0);
+        return true; // Prevent default back action
       }
-    });
+      return false; // Let default back action happen otherwise
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
 
     return () => backHandler.remove();
-  }, [Index, handlePlayerClose]);
+  }, [Index, setIndex]);
 
   // Combine gestures with the pan taking priority
   const combinedGestures = Gesture.Exclusive(pan, tap);

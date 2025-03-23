@@ -132,45 +132,8 @@ const BottomSheetMusic = ({color}) => {
         // First minimize the player
         setIndex(0);
         
-        // IMPROVED APPROACH: Navigate back to the screen user was on before opening player
-        try {
-          if (musicPreviousScreen) {
-            console.log('FIXED NAVIGATION: Returning to music screen:', musicPreviousScreen);
-            
-            // Delay slightly to ensure UI update happens first
-            setTimeout(() => {
-              // Parse the stored navigation path
-              const parts = musicPreviousScreen.split('/');
-              const tabName = parts[0]; // e.g., "Library"
-              const screenName = parts[1]; // e.g., "MyMusicPage"
-              
-              if (tabName === 'Library' && screenName === 'MyMusicPage') {
-                // FOR MYMUSICPAGE: Use reset for cleaner navigation state
-                navigation.reset({
-                  index: 0,
-                  routes: [
-                    { 
-                      name: 'Library',
-                      state: {
-                        routes: [{ name: 'MyMusicPage' }],
-                        index: 0
-                      }
-                    }
-                  ]
-                });
-              } else if (tabName && screenName) {
-                // For other screens, normal navigation
-              navigation.navigate(tabName, { screen: screenName });
-              } else {
-                // Fallback to the main tab if needed
-                navigation.navigate(tabName || 'Home');
-              }
-            }, 150);
-          }
-        } catch (error) {
-          console.error('Navigation error:', error);
-        }
-        
+        // Don't navigate away when minimizing from fullscreen
+        // This allows the underlying album/playlist to remain visible
         return true; // Prevent default back behavior
       }
       
@@ -237,12 +200,13 @@ const BottomSheetMusic = ({color}) => {
       backAction
     );
     
+    // Only remove the handler when minimized, keep it active for fullscreen
     if (Index === 0){
-      backHandler.remove()
+      backHandler.remove();
     }
     
     return () => { 
-      backHandler.remove()
+      backHandler.remove();
     };
   }, [Index, navigation, setIndex, musicPreviousScreen]);
 
