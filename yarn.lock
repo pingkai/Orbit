@@ -7344,6 +7344,11 @@ react-native-get-music-files@^2.2.4:
   resolved "https://registry.npmjs.org/react-native-get-music-files/-/react-native-get-music-files-2.2.4.tgz"
   integrity sha512-jHTOZ/yH+OIlYG0xG0eli7Ztw/KLbwBrX/oSviqEeSHIW983/CNorY2JcT64y7qZiXzJdYhehsAtZuPF6xw04A==
 
+react-native-gif@^1.0.3:
+  version "1.0.3"
+  resolved "https://registry.npmjs.org/react-native-gif/-/react-native-gif-1.0.3.tgz"
+  integrity sha512-UXeT8Gyff0ksCTiRYNZ3DqykevG1vZUQLi7oe9pB7yS4nSlMn11w22/nOcNCpHuZsaod86+xPi1MSxtNkFNJ5g==
+
 react-native-linear-gradient@^2.8.3:
   version "2.8.3"
   resolved "https://registry.npmjs.org/react-native-linear-gradient/-/react-native-linear-gradient-2.8.3.tgz"

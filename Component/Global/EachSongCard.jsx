@@ -26,39 +26,46 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
     if (isFromPlaylist){
       const ForMusicPlayer = []
       const quality = await getIndexQuality()
-      Data?.data?.songs?.map((e,i)=>{
-        if (i >= index){
-          ForMusicPlayer.push({
-            url:e?.downloadUrl[quality].url,
-            title: formatText(e?.name),
-            artist: formatText(FormatArtist(e?.artists?.primary)),
-            artwork:e?.image[2]?.url,
-            image:e?.image[2]?.url,
-            duration:e?.duration,
-            id:e?.id,
-            language:e?.language,
-            downloadUrl:e?.downloadUrl,
-          })
-        }
-      })
+      
+      // Create a reference to the ordered songs
+      const songs = Data?.data?.songs || []
+      
+      // Add songs to playlist starting from the clicked index
+      for (let i = index; i < songs.length; i++) {
+        const e = songs[i]
+        ForMusicPlayer.push({
+          url: e?.downloadUrl[quality].url,
+          title: formatText(e?.name),
+          artist: formatText(FormatArtist(e?.artists?.primary)),
+          artwork: e?.image[2]?.url,
+          image: e?.image[2]?.url,
+          duration: e?.duration,
+          id: e?.id,
+          language: e?.language,
+          downloadUrl: e?.downloadUrl,
+        })
+      }
+      
       await AddPlaylist(ForMusicPlayer)
     } else if (isLibraryLiked){
       const Final = []
-      Data?.map((e,i)=>{
-        if (i >= index) {
-          Final.push({
-            url:e.url,
-            title: formatText(e?.title),
-            artist: formatText(e?.artist),
-            artwork:e?.artwork,
-            duration:e?.duration,
-            id:e?.id,
-            language:e?.language,
-            artistID:e?.primary_artists_id,
-            downloadUrl:e?.downloadUrl,
-          })
-        }
-      })
+      
+      // Use a for loop for consistent approach
+      for (let i = index; i < Data.length; i++) {
+        const e = Data[i]
+        Final.push({
+          url: e.url,
+          title: formatText(e?.title),
+          artist: formatText(e?.artist),
+          artwork: e?.artwork,
+          duration: e?.duration,
+          id: e?.id,
+          language: e?.language,
+          artistID: e?.primary_artists_id,
+          downloadUrl: e?.downloadUrl,
+        })
+      }
+      
       await AddPlaylist(Final)
     } else {
       const quality = await getIndexQuality()

@@ -66,7 +66,7 @@ export const HorizontalScrollSongs = ({id}) => {
           <View>
             {getRandomizedSongs.firstGroup.map((e,i)=><View key={`first-${e.id}-${i}`} style={{marginBottom:7}}>
               <EachSongCard 
-                index={i} 
+                index={randomOffset + i} 
                 isFromPlaylist={true} 
                 Data={Data} 
                 artist={FormatArtist(e?.artists?.primary).length > 20 ? FormatArtist(e?.artists?.primary).substring(0, 20) + '...' : FormatArtist(e?.artists?.primary)}
@@ -86,7 +86,7 @@ export const HorizontalScrollSongs = ({id}) => {
           <View>
             {getRandomizedSongs.secondGroup.map((e,i)=><View key={`second-${e.id}-${i}`} style={{marginBottom:7}}>
               <EachSongCard 
-                index={i + 4} 
+                index={randomOffset + i + 4} 
                 Data={Data} 
                 isFromPlaylist={true}  
                 artist={FormatArtist(e?.artists?.primary).length > 20 ? FormatArtist(e?.artists?.primary).substring(0, 20) + '...' : FormatArtist(e?.artists?.primary)}
