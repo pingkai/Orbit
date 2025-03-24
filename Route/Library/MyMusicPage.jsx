@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
-import { View, Text, FlatList, ActivityIndicator, PermissionsAndroid, StyleSheet, Button, Linking, Platform, ToastAndroid, Image, Pressable, BackHandler } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, PermissionsAndroid, StyleSheet, Button, Linking, Platform, ToastAndroid, Image, Pressable, BackHandler, RefreshControl } from 'react-native';
 import { AnimatedSearchBar } from '../../Component/Global/AnimatedSearchBar';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import MusicFiles from 'react-native-get-music-files';
@@ -20,6 +20,7 @@ export const MyMusicPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isOffline, setIsOffline] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const currentPlaying = useActiveTrack();
   const { Index, setIndex } = useContext(Context);
   const [searchQuery, setSearchQuery] = useState('');
@@ -164,165 +165,172 @@ export const MyMusicPage = () => {
     }
   };
 
-  useEffect(() => {
-    // Subscribe to network state updates
-    const unsubscribe = NetInfo.addEventListener(state => {
-      setIsOffline(!state.isConnected);
-    });
+  const fetchLocalMusic = async (useCache = true) => {
+    setLoading(true);
+    setError(null);
+    console.log('Starting fetchLocalMusic...');
 
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const fetchLocalMusic = async () => {
-      setLoading(true);
-      setError(null);
-      console.log('Starting fetchLocalMusic...');
-
-      // Try to load from cache first
+    // Try to load from cache first if useCache is true
+    if (useCache) {
       const cachedData = await StorageManager.getLocalMusicCache();
       if (cachedData) {
         console.log('Loading music from cache...');
         setLocalMusic(cachedData.music);
         setLoading(false);
       }
+    }
 
-      const permissionStatus = await requestStoragePermission();
-      console.log('Permission status:', permissionStatus);
+    const permissionStatus = await requestStoragePermission();
+    console.log('Permission status:', permissionStatus);
 
-      if (!permissionStatus.granted) {
-        if (permissionStatus.neverAskAgain) {
-          setError('Permission denied permanently. Please enable it in settings.');
-          console.log('Set error: Permission denied permanently');
-          // Automatically open settings when permissions are permanently denied
-          ToastAndroid.show('Please enable storage permission in settings', ToastAndroid.LONG);
-          Linking.openSettings();
-        } else {
-          setError('Permission denied. Please grant storage access to view music files.');
-          console.log('Set error: Permission denied');
-        }
-        setLoading(false);
-        return;
+    if (!permissionStatus.granted) {
+      if (permissionStatus.neverAskAgain) {
+        setError('Permission denied permanently. Please enable it in settings.');
+        console.log('Set error: Permission denied permanently');
+        // Automatically open settings when permissions are permanently denied
+        ToastAndroid.show('Please enable storage permission in settings', ToastAndroid.LONG);
+        Linking.openSettings();
+      } else {
+        setError('Permission denied. Please grant storage access to view music files.');
+        console.log('Set error: Permission denied');
+      }
+      setLoading(false);
+      return;
+    }
+
+    try {
+      console.log('Fetching music files...');
+      
+      // Try to use MusicFiles library first
+      let tracks = [];
+      let fetchError = null;
+      
+      try {
+        tracks = await MusicFiles.getAll({
+          title: true,
+          artist: true,
+          duration: true,
+          cover: true,
+          minimumSongDuration: 10000,
+          batchNumber: 100,
+        });
+        console.log('Tracks fetched with MusicFiles:', tracks?.length || 0);
+      } catch (err) {
+        console.warn('Error using MusicFiles library:', err);
+        fetchError = err;
       }
 
-      try {
-        console.log('Fetching music files...');
-        
-        // Try to use MusicFiles library first
-        let tracks = [];
-        let fetchError = null;
-        
+      // Save tracks to cache if we have any
+      if (tracks && tracks.length > 0) {
+        await StorageManager.saveLocalMusicCache({ music: tracks });
+      }
+      
+      // If MusicFiles fails or returns no tracks, try using RNFS as fallback
+      if ((!tracks || tracks.length === 0) && fetchError) {
         try {
-          tracks = await MusicFiles.getAll({
-            title: true,
-            artist: true,
-            duration: true,
-            cover: true,
-            minimumSongDuration: 10000,
-            batchNumber: 100,
+          console.log('Trying fallback method with RNFS...');
+          const RNFS = require('react-native-fs');
+          
+          // Define directories to search for music files
+          const directories = [
+            RNFS.ExternalStorageDirectoryPath + '/Music',
+            RNFS.ExternalStorageDirectoryPath + '/Download',
+          ];
+          
+          // Define supported audio file extensions
+          const audioExtensions = ['.mp3', '.m4a', '.wav', '.ogg', '.flac'];
+          
+          // Read all directories concurrently
+          const allFiles = await Promise.all(
+            directories.map(async (dir) => {
+              try {
+                const files = await RNFS.readDir(dir);
+                // Filter for audio files
+                return files.filter(
+                  (file) =>
+                    file.isFile() &&
+                    audioExtensions.some((ext) =>
+                      file.name.toLowerCase().endsWith(ext)
+                    )
+                );
+              } catch (err) {
+                console.warn(`Directory ${dir} not found or inaccessible`);
+                return []; // Return empty array if directory is inaccessible
+              }
+            })
+          );
+          
+          // Convert RNFS files to the same format as MusicFiles
+          tracks = allFiles.flat().map((file, index) => {
+            const title = file.name.replace(/\.(mp3|m4a|wav|ogg|flac)$/, ''); // Remove file extension
+            const artist = extractArtistFromTitle(title); // Extract artist name
+            return {
+              path: file.path,
+              title: title,
+              artist: artist, // Use extracted artist name
+              duration: 0 // We don't have duration info from RNFS
+            };
           });
-          console.log('Tracks fetched with MusicFiles:', tracks?.length || 0);
-        } catch (err) {
-          console.warn('Error using MusicFiles library:', err);
-          fetchError = err;
+          
+          console.log('Tracks fetched with RNFS fallback:', tracks.length);
+        } catch (fallbackErr) {
+          console.error('Fallback method also failed:', fallbackErr);
+          // If fallback also fails, we'll continue with the original error
         }
+      }
 
-        // Save tracks to cache if we have any
-        if (tracks && tracks.length > 0) {
-          await StorageManager.saveLocalMusicCache({ music: tracks });
-        }
-        
-        // If MusicFiles fails or returns no tracks, try using RNFS as fallback
-        if ((!tracks || tracks.length === 0) && fetchError) {
-          try {
-            console.log('Trying fallback method with RNFS...');
-            const RNFS = require('react-native-fs');
-            
-            // Define directories to search for music files
-            const directories = [
-              RNFS.ExternalStorageDirectoryPath + '/Music',
-              RNFS.ExternalStorageDirectoryPath + '/Download',
-            ];
-            
-            // Define supported audio file extensions
-            const audioExtensions = ['.mp3', '.m4a', '.wav', '.ogg', '.flac'];
-            
-            // Read all directories concurrently
-            const allFiles = await Promise.all(
-              directories.map(async (dir) => {
-                try {
-                  const files = await RNFS.readDir(dir);
-                  // Filter for audio files
-                  return files.filter(
-                    (file) =>
-                      file.isFile() &&
-                      audioExtensions.some((ext) =>
-                        file.name.toLowerCase().endsWith(ext)
-                      )
-                  );
-                } catch (err) {
-                  console.warn(`Directory ${dir} not found or inaccessible`);
-                  return []; // Return empty array if directory is inaccessible
-                }
-              })
-            );
-            
-            // Convert RNFS files to the same format as MusicFiles
-            tracks = allFiles.flat().map((file, index) => {
-              const title = file.name.replace(/\.(mp3|m4a|wav|ogg|flac)$/, ''); // Remove file extension
-              const artist = extractArtistFromTitle(title); // Extract artist name
-              return {
-                path: file.path,
-                title: title,
-                artist: artist, // Use extracted artist name
-                duration: 0 // We don't have duration info from RNFS
-              };
-            });
-            
-            console.log('Tracks fetched with RNFS fallback:', tracks.length);
-          } catch (fallbackErr) {
-            console.error('Fallback method also failed:', fallbackErr);
-            // If fallback also fails, we'll continue with the original error
-          }
-        }
-
-        if (!tracks || tracks.length === 0) {
-          if (fetchError && cachedData?.music?.length) {
-            // Use cached data if available when fetch fails
+      if (!tracks || tracks.length === 0) {
+        if (fetchError && useCache) {
+          // Use cached data if available when fetch fails
+          const cachedData = await StorageManager.getLocalMusicCache();
+          if (cachedData?.music?.length) {
             tracks = cachedData.music;
             console.log('Using cached music data');
-          } else if (!cachedData?.music?.length) {
+          } else {
             setError('No music files found on your device.');
             console.log('Set error: No music files found');
           }
         } else {
-          const musicFilesList = tracks.map((song, index) => {
-            const musicItem = {
-            id: song.path || `${index}`,
-              title: song.title && song.title.length > 20 ? `${song.title.substring(0, 20)}...` : song.title || song.path?.split('/').pop() || `Track ${index + 1}`,
-              artist: song.artist && song.artist.length > 20 ? `${song.artist.substring(0, 20)}...` : song.artist || 'Unknown Artist', // Note: 'artist' is correct per library docs
-              duration: formatDuration(song.duration || 0),
-              path: song.path,
-              cover: song.cover || Cover,
-            };
-            return musicItem;
-          });
-          
-          // Save to cache
-          await StorageManager.saveLocalMusicCache(musicFilesList);
-          setLocalMusic(musicFilesList);
-          console.log('Music files set:', musicFilesList.length);
+          setError('No music files found on your device.');
+          console.log('Set error: No music files found');
         }
-      } catch (err) {
-        setError('Failed to fetch music files. Please try again.');
-        console.error('Music fetch error:', err);
-      } finally {
-        setLoading(false);
-        console.log('Loading complete');
+      } else {
+        const musicFilesList = tracks.map((song, index) => {
+          const musicItem = {
+            id: song.path || `${index}`,
+            title: song.title && song.title.length > 20 ? `${song.title.substring(0, 20)}...` : song.title || song.path?.split('/').pop() || `Track ${index + 1}`,
+            artist: song.artist && song.artist.length > 20 ? `${song.artist.substring(0, 20)}...` : song.artist || 'Unknown Artist',
+            duration: formatDuration(song.duration || 0),
+            path: song.path,
+            cover: song.cover || Cover,
+          };
+          return musicItem;
+        });
+        
+        // Save to cache
+        await StorageManager.saveLocalMusicCache(musicFilesList);
+        setLocalMusic(musicFilesList);
+        console.log('Music files set:', musicFilesList.length);
       }
-    };
+    } catch (err) {
+      setError('Failed to fetch music files. Please try again.');
+      console.error('Music fetch error:', err);
+    } finally {
+      setLoading(false);
+      console.log('Loading complete');
+    }
+  };
 
+  useEffect(() => {
+    // Subscribe to network state updates
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOffline(!state.isConnected);
+    });
+
+    // Initial fetch
     fetchLocalMusic();
+
+    return () => unsubscribe();
   }, []);
 
   const formatDuration = (duration) => {
@@ -494,6 +502,12 @@ export const MyMusicPage = () => {
     };
   }, [navigation]);
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchLocalMusic(false); // Don't use cache when refreshing
+    setRefreshing(false);
+  }, []);
+
   if (isOffline) {
     console.log('Device is offline, but still displaying local music');
   }
@@ -561,6 +575,13 @@ export const MyMusicPage = () => {
         )}
         ListEmptyComponent={<Text style={styles.emptyText}>No music files available.</Text>}
         contentContainerStyle={styles.listContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#1DB954']}
+          />
+        }
       />
       
       {/* Add buttons for next and previous song */}

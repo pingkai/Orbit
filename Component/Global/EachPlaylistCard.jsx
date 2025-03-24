@@ -29,7 +29,9 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
   ImageStyle,
   source,
   searchText,
-  language
+  language,
+  navigationSource,
+  style
 }){
   const theme = useTheme()
   const navigation = useNavigation()
@@ -88,6 +90,12 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
         }
       }
       
+      // Pass along the navigation source if available
+      if (navigationSource) {
+        params.navigationSource = navigationSource;
+        console.log(`Including navigation source in params: ${navigationSource}`);
+      }
+      
       console.log(`Navigating to Playlist with params:`, JSON.stringify(params));
       navigation.navigate("Playlist", params);
     } catch (error) {
@@ -97,14 +105,21 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
     }
   };
   
+  // Add validation for empty image URLs
+  const imageSource = image && image !== "" 
+    ? { uri: image } 
+    : require('../../Images/default.jpg');
+  
   return (
     <Pressable onPress={handleNavigation} style={{
+      ...(style || {}),
+      margin: 2,
+      borderRadius: 8,
+      overflow: 'hidden',
       ...responsiveStyles.container,
       ...MainContainerStyle,
     }}>
-      <FastImage source={{
-        uri:image,
-      }} style={{
+      <FastImage source={imageSource} style={{
         ...responsiveStyles.image,
         borderRadius:10,
         ...ImageStyle,

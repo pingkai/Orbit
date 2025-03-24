@@ -34,7 +34,7 @@ export const EachAlbumCard = memo(function EachAlbumCard({image, name, artists, 
   }, [width]);
   
   // Improved truncation function that works for any text
-  function truncateText(text, limit = 30) {
+  function truncateText(text, limit = 20) {
     if (!text) return "";
     return text.length > limit ? text.slice(0, limit) + "..." : text;
   }
@@ -69,6 +69,11 @@ export const EachAlbumCard = memo(function EachAlbumCard({image, name, artists, 
     // Truncate the combined artists string if it's too long
     artistsNames = truncateText(artistsNames);
   }
+  
+  // Add validation for empty image URLs
+  const imageSource = image && image !== "" 
+    ? { uri: image } 
+    : require('../../Images/default.jpg');
   
   return (
     <Pressable onPress={async () => {
@@ -130,15 +135,13 @@ export const EachAlbumCard = memo(function EachAlbumCard({image, name, artists, 
         navigation.navigate("Home", { screen: "HomePage" });
       }
     }} style={{
+      ...(mainContainerStyle || {}),
+      margin: 2,
+      borderRadius: 8,
+      overflow: 'hidden',
       ...responsiveStyles.container,
-      backgroundColor:"rgba(55,55,79,0)",
-      flexDirection:"row",
-      overflow:"hidden",
-      ...mainContainerStyle,
     }}>
-      <ImageBackground source={{
-        uri:image,
-      }} style={responsiveStyles.image}>
+      <ImageBackground source={imageSource} style={responsiveStyles.image}>
         <View style={{
           width:"100%",
           height:"100%",

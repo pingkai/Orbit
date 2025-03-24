@@ -16,6 +16,7 @@ import { useState } from "react";
 import { ScrollView, TextInput } from "react-native";
 import { CreateCustomPlaylist } from "../../LocalStorage/CustomPlaylists";
 import FastImage from "react-native-fast-image";
+
 const styles = {
   emptyState: {
     alignItems: 'center',
@@ -55,6 +56,37 @@ const styles = {
   },
 };
 
+// Helper function to safely get the song URL
+const getSongUrl = (urlData, quality = 4) => {
+  try {
+    // Check if urlData is an array with at least quality+1 elements
+    if (Array.isArray(urlData) && urlData.length > quality) {
+      return urlData[quality].url;
+    }
+    
+    // Check if urlData is an object with a downloadUrl property
+    if (urlData && urlData.downloadUrl && Array.isArray(urlData.downloadUrl) && urlData.downloadUrl.length > quality) {
+      return urlData.downloadUrl[quality].url;
+    }
+    
+    // Check if urlData is a string directly
+    if (typeof urlData === 'string') {
+      return urlData;
+    }
+    
+    // Handle local music path
+    if (urlData && urlData.path) {
+      return urlData.path;
+    }
+    
+    console.log("Unable to extract song URL from:", JSON.stringify(urlData));
+    return null;
+  } catch (error) {
+    console.error("Error getting song URL:", error);
+    return null;
+  }
+};
+
 export const EachSongMenuModal = ({Visible, setVisible}) => {
   const {updateTrack} = useContext(Context);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
@@ -64,6 +96,27 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
   
   // Check if the song is a local music file
   const isLocalMusic = Visible.isLocalMusic === true;
+  
+  // Debug log when modal opens
+  React.useEffect(() => {
+    if (Visible.visible) {
+      console.log("Song menu opened for:", Visible.title);
+      if (Visible.url) {
+        console.log("URL structure:", typeof Visible.url, Array.isArray(Visible.url) ? `Array[${Visible.url.length}]` : "Not Array");
+        
+        // More detailed logging of URL structure
+        if (Array.isArray(Visible.url)) {
+          console.log("URL array first element:", JSON.stringify(Visible.url[0]));
+        } else if (typeof Visible.url === 'object') {
+          console.log("URL keys:", Object.keys(Visible.url));
+          if (Visible.url.downloadUrl) {
+            console.log("downloadUrl structure:", Array.isArray(Visible.url.downloadUrl) ? 
+              `Array[${Visible.url.downloadUrl.length}]` : typeof Visible.url.downloadUrl);
+          }
+        }
+      }
+    }
+  }, [Visible.visible, Visible.title, Visible.url]);
   
   // Check if the song is a favorite when the modal opens
   React.useEffect(() => {
@@ -79,66 +132,112 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
   }, [Visible.visible, Visible.id, isLocalMusic]);
   
   async function actualDownload () {
-    let dirs = ReactNativeBlobUtil.fs.dirs
-    const path = await GetDownloadPath()
-    ToastAndroid.showWithGravity(
-      `Download Started`,
-      ToastAndroid.SHORT,
-      ToastAndroid.CENTER,
-    );
-    ReactNativeBlobUtil
-      .config({
-        addAndroidDownloads:{
-          useDownloadManager:true,
-          path:(path === "Downloads") ? dirs.LegacyDownloadDir + `/Orbit/${FormatTitleAndArtist(Visible.title)}.m4a` : dirs.LegacyMusicDir + `/Orbit/${FormatTitleAndArtist(Visible.title)}.m4a`,
-          notification:true,
-          title:`${FormatTitleAndArtist(Visible.title)}`,
-        },
-        fileCache: true,
-      })
-      .fetch('GET', Visible.url[4].url, {
-      })
-      .then((res) => {
-        console.log('The file saved to ', res.path())
+    try {
+      let dirs = ReactNativeBlobUtil.fs.dirs
+      const path = await GetDownloadPath()
+      
+      // Get the song URL
+      const songUrl = getSongUrl(Visible.url, 4);
+      
+      if (!songUrl) {
         ToastAndroid.showWithGravity(
-          "Download successfully Completed",
+          `Cannot download: Invalid URL`,
           ToastAndroid.SHORT,
           ToastAndroid.CENTER,
         );
-      })
-    setVisible({visible: false})
-  }
-  async function playNext() {
-    let song;
-    
-    if (isLocalMusic) {
-      // Format local music for player
-      song = {
-        url: Visible.path,
-        title: FormatTitleAndArtist(Visible.title),
-        artist: FormatTitleAndArtist(Visible.artist),
-        artwork: Visible.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
-        duration: Visible.duration,
-        id: Visible.id,
-        isLocalMusic: true
-      };
-    } else {
-      // Format online music for player
-      const quality = await getIndexQuality()
-      song = {
-        url: Visible.url[quality].url,
-        title: FormatTitleAndArtist(Visible.title),
-        artist: FormatTitleAndArtist(Visible.artist),
-        artwork: Visible.image,
-        duration: Visible.duration,
-        id: Visible.id,
-        language: Visible.language,
-        image: Visible.image,
-        downloadUrl: Visible.url,
+        return;
       }
+      
+      ToastAndroid.showWithGravity(
+        `Download Started`,
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
+      
+      ReactNativeBlobUtil
+        .config({
+          addAndroidDownloads:{
+            useDownloadManager:true,
+            path:(path === "Downloads") ? dirs.LegacyDownloadDir + `/Orbit/${FormatTitleAndArtist(Visible.title)}.m4a` : dirs.LegacyMusicDir + `/Orbit/${FormatTitleAndArtist(Visible.title)}.m4a`,
+            notification:true,
+            title:`${FormatTitleAndArtist(Visible.title)}`,
+          },
+          fileCache: true,
+        })
+        .fetch('GET', songUrl, {
+        })
+        .then((res) => {
+          console.log('The file saved to ', res.path())
+          ToastAndroid.showWithGravity(
+            "Download successfully Completed",
+            ToastAndroid.SHORT,
+            ToastAndroid.CENTER,
+          );
+        })
+        .catch(error => {
+          console.error("Download failed:", error);
+          ToastAndroid.showWithGravity(
+            "Download failed",
+            ToastAndroid.SHORT,
+            ToastAndroid.CENTER,
+          );
+        });
+      setVisible({visible: false})
+    } catch (error) {
+      console.error("Download error:", error);
+      ToastAndroid.showWithGravity(
+        `Download failed: ${error.message}`,
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
     }
-    
+  }
+  
+  async function playNext() {
     try {
+      let song;
+      
+      if (isLocalMusic) {
+        // Format local music for player
+        song = {
+          url: Visible.path,
+          title: FormatTitleAndArtist(Visible.title),
+          artist: FormatTitleAndArtist(Visible.artist),
+          artwork: Visible.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
+          duration: Visible.duration,
+          id: Visible.id,
+          isLocalMusic: true
+        };
+      } else {
+        // Format online music for player
+        const quality = await getIndexQuality();
+        
+        // Get the song URL safely
+        const songUrl = getSongUrl(Visible.url, quality);
+        
+        if (!songUrl) {
+          console.error("Invalid song URL structure:", Visible.url);
+          ToastAndroid.showWithGravity(
+            `Cannot play: Invalid URL`,
+            ToastAndroid.SHORT,
+            ToastAndroid.CENTER,
+          );
+          return;
+        }
+        
+        song = {
+          url: songUrl,
+          title: FormatTitleAndArtist(Visible.title),
+          artist: FormatTitleAndArtist(Visible.artist),
+          artwork: Visible.image,
+          duration: Visible.duration,
+          id: Visible.id,
+          language: Visible.language,
+          image: Visible.image,
+          downloadUrl: Visible.url,
+        }
+      }
+      
       const queue = await TrackPlayer.getQueue();
       const currentIndex = await TrackPlayer.getCurrentTrack();
       
@@ -158,14 +257,15 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
         ToastAndroid.CENTER,
       );
     } catch (error) {
-      console.log("Play next error:", error);
+      console.error("Play next error:", error);
       ToastAndroid.showWithGravity(
-        `Unable to add song`,
+        `Unable to add song: ${error.message}`,
         ToastAndroid.SHORT,
         ToastAndroid.CENTER,
       );
     }
   }
+  
   const getPermission = async () => {
     if (Platform.OS === 'ios') {
       actualDownload();
@@ -184,9 +284,20 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
           actualDownload();
         } else {
           console.log("please grant permission");
+          ToastAndroid.showWithGravity(
+            "Storage permission required for download",
+            ToastAndroid.SHORT,
+            ToastAndroid.CENTER,
+          );
         }
       } catch (err) {
-        console.log("display error",err)    }
+        console.error("Permission error:", err);
+        ToastAndroid.showWithGravity(
+          "Error requesting permission",
+          ToastAndroid.SHORT,
+          ToastAndroid.CENTER,
+        );
+      }
     }
   };
   
@@ -223,7 +334,7 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
       setIsFavorite(!isCurrentlyFavorite);
       setVisible({visible: false});
     } catch (error) {
-      console.log("Error toggling favorite status:", error);
+      console.error("Error toggling favorite status:", error);
       ToastAndroid.showWithGravity(
         "Failed to update favorites",
         ToastAndroid.SHORT,
@@ -231,43 +342,68 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
       );
     }
   };
+  
   async function addSongToQueue(){
-    let song;
-    
-    if (isLocalMusic) {
-      // Format local music for queue
-      song = {
-        url: Visible.path,
-        title: FormatTitleAndArtist(Visible.title),
-        artist: FormatTitleAndArtist(Visible.artist),
-        artwork: Visible.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
-        duration: Visible.duration,
-        id: Visible.id,
-        isLocalMusic: true
-      };
-    } else {
-      // Format online music for queue
-      const quality = await getIndexQuality()
-      song = {
-        url: Visible.url[quality].url,
-        title:FormatTitleAndArtist(Visible.title),
-        artist:FormatTitleAndArtist(Visible.artist),
-        artwork:Visible.image,
-        duration:Visible.duration,
-        id:Visible.id,
-        language:Visible.language,
-        image:Visible.image,
-        downloadUrl:Visible.url,
+    try {
+      let song;
+      
+      if (isLocalMusic) {
+        // Format local music for queue
+        song = {
+          url: Visible.path,
+          title: FormatTitleAndArtist(Visible.title),
+          artist: FormatTitleAndArtist(Visible.artist),
+          artwork: Visible.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
+          duration: Visible.duration,
+          id: Visible.id,
+          isLocalMusic: true
+        };
+      } else {
+        // Format online music for queue
+        const quality = await getIndexQuality();
+        
+        // Get the song URL safely
+        const songUrl = getSongUrl(Visible.url, quality);
+        
+        if (!songUrl) {
+          console.error("Invalid song URL structure for queue:", Visible.url);
+          ToastAndroid.showWithGravity(
+            `Cannot add to queue: Invalid URL`,
+            ToastAndroid.SHORT,
+            ToastAndroid.CENTER,
+          );
+          return;
+        }
+        
+        song = {
+          url: songUrl,
+          title: FormatTitleAndArtist(Visible.title),
+          artist: FormatTitleAndArtist(Visible.artist),
+          artwork: Visible.image,
+          duration: Visible.duration,
+          id: Visible.id,
+          language: Visible.language,
+          image: Visible.image,
+          downloadUrl: Visible.url,
+        }
       }
+      
+      await AddSongsToQueue([song]);
+      updateTrack();
+      setVisible({visible: false});
+      ToastAndroid.showWithGravity(
+        `Added to Queue`,
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
+    } catch (error) {
+      console.error("Add to queue error:", error);
+      ToastAndroid.showWithGravity(
+        `Error adding to queue: ${error.message}`,
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
     }
-   await AddSongsToQueue([song])
-    updateTrack()
-    setVisible({visible: false})
-    ToastAndroid.showWithGravity(
-      `Song Added To Queue`,
-      ToastAndroid.SHORT,
-      ToastAndroid.CENTER,
-    );
   }
   const size = Dimensions.get("window").height
   // Add this function alongside other functions like playNext, addSongToQueue, etc.
@@ -277,55 +413,78 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
     setShowPlaylistModal(true);
   }
   async function addSongToSelectedPlaylist(playlistName) {
-    let song;
+    try {
+      let song;
+      
+      if (isLocalMusic) {
+        // Format local music for playlist
+        song = {
+          url: Visible.path,
+          title: FormatTitleAndArtist(Visible.title),
+          artist: FormatTitleAndArtist(Visible.artist),
+          artwork: Visible.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
+          duration: Visible.duration,
+          id: Visible.id,
+          isLocalMusic: true
+        };
+      } else {
+        // Format online music for playlist
+        const quality = await getIndexQuality();
+        
+        // Get the song URL safely
+        const songUrl = getSongUrl(Visible.url, quality);
+        
+        if (!songUrl) {
+          console.error("Invalid song URL structure for playlist:", Visible.url);
+          ToastAndroid.showWithGravity(
+            `Cannot add to playlist: Invalid URL`,
+            ToastAndroid.SHORT,
+            ToastAndroid.CENTER,
+          );
+          return;
+        }
+        
+        song = {
+          url: songUrl,
+          title: FormatTitleAndArtist(Visible.title),
+          artist: FormatTitleAndArtist(Visible.artist),
+          artwork: Visible.image,
+          duration: Visible.duration,
+          id: Visible.id,
+          language: Visible.language,
+          image: Visible.image,
+          downloadUrl: Visible.url,
+        };
+      }
     
-    if (isLocalMusic) {
-      // Format local music for playlist
-      song = {
-        url: Visible.path,
-        title: FormatTitleAndArtist(Visible.title),
-        artist: FormatTitleAndArtist(Visible.artist),
-        artwork: Visible.cover || 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
-        duration: Visible.duration,
-        id: Visible.id,
-        isLocalMusic: true
-      };
-    } else {
-      // Format online music for playlist
-      const quality = await getIndexQuality();
-      song = {
-        url: Visible.url[quality].url,
-        title: FormatTitleAndArtist(Visible.title),
-        artist: FormatTitleAndArtist(Visible.artist),
-        artwork: Visible.image,
-        duration: Visible.duration,
-        id: Visible.id,
-        language: Visible.language,
-        image: Visible.image,
-        downloadUrl: Visible.url,
-      };
-    }
-  
-    const playlists = await GetCustomPlaylists();
-    const playlist = playlists[playlistName] || [];
-    
-    if (playlist.some(track => track.id === song.id)) {
+      const playlists = await GetCustomPlaylists();
+      const playlist = playlists[playlistName] || [];
+      
+      if (playlist.some(track => track.id === song.id)) {
+        ToastAndroid.showWithGravity(
+          "Song already exists in this playlist",
+          ToastAndroid.SHORT,
+          ToastAndroid.CENTER
+        );
+        return;
+      }
+
+      await AddSongToCustomPlaylist(playlistName, song);
       ToastAndroid.showWithGravity(
-        "Song already exists in this playlist",
+        "Song added to " + playlistName,
         ToastAndroid.SHORT,
         ToastAndroid.CENTER
       );
-      return;
+      setShowPlaylistModal(false);
+      setVisible({visible: false});
+    } catch (error) {
+      console.error("Error adding song to playlist:", error);
+      ToastAndroid.showWithGravity(
+        `Error adding to playlist: ${error.message}`,
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER
+      );
     }
-
-    await AddSongToCustomPlaylist(playlistName, song);
-    ToastAndroid.showWithGravity(
-      "Song added to " + playlistName,
-      ToastAndroid.SHORT,
-      ToastAndroid.CENTER
-    );
-    setShowPlaylistModal(false);
-    setVisible({visible: false});
   }
   async function handleCreatePlaylist() {
     if (newPlaylistName.trim()) {

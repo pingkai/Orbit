@@ -152,9 +152,20 @@ export const Album = ({route}) => {
       return true;
     } else if (source === 'Search') {
       // Navigate back to Search tab with the search text if available
-      navigation.navigate('SearchPage', {
-        searchText: route?.params?.searchText || ''
-      });
+      console.log('Navigating back to Search screen from Album with searchText:', route?.params?.searchText);
+      // Try to go back without explicit navigation first
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      } else {
+        // If that fails, force navigation to the Search screen
+        navigation.navigate('Home', {
+          screen: 'Search',
+          params: { 
+            searchText: route?.params?.searchText || '',
+            timestamp: Date.now() // Add timestamp to force refresh
+          }
+        });
+      }
       return true;
     } else if (source === 'Home') {
       // Navigate back to Home tab's HomePage

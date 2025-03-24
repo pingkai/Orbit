@@ -8,55 +8,70 @@ let isPlayerInitialized = false;
 export const setupPlayer = async () => {
   try {
     if (!isPlayerInitialized) {
-      await TrackPlayer.setupPlayer({
-        android: {
-          appKilledPlaybackBehavior: 'StopPlaybackAndRemoveNotification'
-        },
-        autoHandleInterruptions: true
-      });
-      
-      // Add event listeners
-      TrackPlayer.addEventListener('remote-play', () => TrackPlayer.play());
-      TrackPlayer.addEventListener('remote-pause', () => TrackPlayer.pause());
-      TrackPlayer.addEventListener('remote-stop', () => TrackPlayer.destroy());
-      TrackPlayer.addEventListener('remote-next', () => PlayNextSong());
-      TrackPlayer.addEventListener('remote-previous', () => PlayPreviousSong());
-      await TrackPlayer.updateOptions({
-        android: {
-          appKilledPlaybackBehavior: 'StopPlaybackAndRemoveNotification'
-        },
-        capabilities: [
-          'play',
-          'pause',
-          'stop',
-          'seekTo',
-          'skip',
-          'skipToNext',
-          'skipToPrevious',
-        ],
-        compactCapabilities: [
-          'play',
-          'pause',
-          'stop',
-          'seekTo',
-          'skip',
-          'skipToNext',
-          'skipToPrevious',
-        ],
-        notificationCapabilities: [
-          'play',
-          'pause',
-          'stop',
-          'seekTo',
-          'skip',
-          'skipToNext',
-          'skipToPrevious',
-        ]
-      });
-      isPlayerInitialized = true;
+      try {
+        await TrackPlayer.setupPlayer({
+          android: {
+            appKilledPlaybackBehavior: 'StopPlaybackAndRemoveNotification'
+          },
+          autoHandleInterruptions: true
+        });
+        console.log('Player initialized successfully in MusicPlayerFunctions');
+        
+        // Add event listeners
+        TrackPlayer.addEventListener('remote-play', () => TrackPlayer.play());
+        TrackPlayer.addEventListener('remote-pause', () => TrackPlayer.pause());
+        TrackPlayer.addEventListener('remote-stop', () => TrackPlayer.destroy());
+        TrackPlayer.addEventListener('remote-next', () => PlayNextSong());
+        TrackPlayer.addEventListener('remote-previous', () => PlayPreviousSong());
+        await TrackPlayer.updateOptions({
+          android: {
+            appKilledPlaybackBehavior: 'StopPlaybackAndRemoveNotification'
+          },
+          capabilities: [
+            'play',
+            'pause',
+            'stop',
+            'seekTo',
+            'skip',
+            'skipToNext',
+            'skipToPrevious',
+          ],
+          compactCapabilities: [
+            'play',
+            'pause',
+            'stop',
+            'seekTo',
+            'skip',
+            'skipToNext',
+            'skipToPrevious',
+          ],
+          notificationCapabilities: [
+            'play',
+            'pause',
+            'stop',
+            'seekTo',
+            'skip',
+            'skipToNext',
+            'skipToPrevious',
+          ]
+        });
+        
+        isPlayerInitialized = true;
+      } catch (setupError) {
+        // Check if the error is about player already being initialized
+        if (setupError.message && setupError.message.includes('player has already been initialized')) {
+          console.log('Player already initialized in MusicPlayerFunctions');
+          isPlayerInitialized = true;
+        } else {
+          console.error('Error setting up player in MusicPlayerFunctions:', setupError);
+          throw setupError;
+        }
+      }
+    } else {
+      console.log('Player already initialized, skipping setup in MusicPlayerFunctions');
     }
   } catch (error) {
-    console.log('Error setting up player:', error);
+    console.error('Error in setupPlayer function:', error);
   }
 };
 

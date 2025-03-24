@@ -7,6 +7,7 @@ import FormatArtist from "../Utils/FormatArtists";
 import { Repeats } from "../Utils/Repeats";
 import { SetQueueSongs } from "../LocalStorage/storeQueue";
 import { EachSongMenuModal } from "../Component/Global/EachSongMenuModal";
+import { CacheManager } from "../Utils/CacheManager";
 
 
 const events = [
@@ -92,10 +93,23 @@ const ContextState = (props)=>{
         }
     });
     async function InitialSetup(){
-        await TrackPlayer.setupPlayer()
+        try {
+            // Clear old cache entries to prevent storage full errors
+            await CacheManager.clearOldCacheEntries();
+            
+            await TrackPlayer.setupPlayer()
+            console.log('Player initialized successfully in Context');
+        } catch (error) {
+            // Ignore the error if player is already initialized
+            if (error.message && error.message.includes('player has already been initialized')) {
+                console.log('Player already initialized in Context');
+            } else {
+                console.error('Error initializing player in Context:', error);
+            }
+        }
+        
         await updateTrack()
         await getCurrentSong()
-        // await updateTrack()
     }
     async function getCurrentSong(){
         const song = await TrackPlayer.getActiveTrack()

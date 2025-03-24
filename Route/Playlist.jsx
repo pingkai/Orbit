@@ -2,9 +2,9 @@ import { MainWrapper } from "../Layout/MainWrapper";
 import Animated, { useAnimatedRef} from "react-native-reanimated";
 import { PlaylistTopHeader } from "../Component/Playlist/PlaylistTopHeader";
 import { PlaylistDetails } from "../Component/Playlist/PlaylistDetails";
-import { View, BackHandler, Pressable, ActivityIndicator } from "react-native";
+import { View, BackHandler, Pressable, ActivityIndicator, StyleSheet, Dimensions, Text } from "react-native";
 import { EachSongCard } from "../Component/Global/EachSongCard";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { getPlaylistData } from "../Api/Playlist";
 import { LoadingComponent } from "../Component/Global/Loading";
 import { PlainText } from "../Component/Global/PlainText";
@@ -82,13 +82,14 @@ const formatArtistData = (artistData) => {
 };
 
 export const Playlist = ({route}) => {
-  const AnimatedRef = useAnimatedRef()
-  const [Loading, setLoading] = useState(true)
+  const AnimatedRef = useAnimatedRef();
+  const [Loading, setLoading] = useState(true);
   const [Data, setData] = useState({});
   const navigation = useNavigation();
+  const { width, height } = Dimensions.get('window');
   
   // Safely destructure route.params with default values
-  const {id: routeId, image: routeImage, name: routeName, follower: routeFollower} = route?.params || {};
+  const {id: routeId, image: routeImage, name: routeName, follower: routeFollower, navigationSource: routeNavigationSource} = route?.params || {};
   
   // State to hold the actual ID we'll use (either from route or storage)
   const [id, setId] = useState(routeId);
@@ -97,6 +98,55 @@ export const Playlist = ({route}) => {
   const [follower, setFollower] = useState(routeFollower);
   // Add source tracking
   const [source, setSource] = useState(route?.params?.source || null);
+  const [navigationSource, setNavigationSource] = useState(routeNavigationSource || null);
+  
+  // Memoized fetch function for playlist data to reduce API calls
+  const fetchPlaylistData = useCallback(async () => {
+    try {
+      // Only fetch if id is defined
+      if (!id) {
+        console.log("No playlist ID available in fetchPlaylistData");
+        setLoading(false);
+        return;
+      }
+      
+      console.log(`Fetching playlist data for ID: ${id}`);
+      setLoading(true);
+      let data = {};
+      data = await getPlaylistData(id);
+      console.log(`Playlist data fetched successfully for ID ${id}:`, 
+                 data?.data?.name || 'Unknown playlist', 
+                 `songs count: ${data?.data?.songs?.length || 0}`);
+      
+      // Log a sample song to debug structure
+      // if (data?.data?.songs && data?.data?.songs.length > 0) {
+      //   console.log('Sample song structure:', JSON.stringify(data.data.songs[0], null, 2));
+      // }
+      
+      setData(data);
+      
+      // If we successfully got playlist data, update the stored information
+      if (data?.data) {
+        const updatedPlaylistData = {
+          id: id,
+          image: image || data?.data?.image?.[2]?.url || '',
+          name: data?.data?.name || name || 'Playlist',
+          follower: data?.data?.follower || follower || '',
+          source: source || null,
+          searchText: route?.params?.searchText || '',
+          language: route?.params?.language || '',
+          navigationSource: navigationSource || null
+        };
+        
+        await AsyncStorage.setItem(CURRENT_PLAYLIST_DATA_KEY, JSON.stringify(updatedPlaylistData));
+        console.log('Updated stored playlist data with API response, source:', updatedPlaylistData.source);
+      }
+    } catch (e) {
+      console.error(`Error fetching playlist with ID ${id}:`, e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [id, image, name, follower, source, navigationSource, route?.params]);
   
   // When component mounts, check if we have a route ID - if not, try to recover from AsyncStorage
   useEffect(() => {
@@ -111,6 +161,7 @@ export const Playlist = ({route}) => {
           setName(routeName || 'Playlist');
           setFollower(routeFollower || '');
           setSource(route?.params?.source || null);
+          setNavigationSource(routeNavigationSource || null);
           
           // Store the new playlist data
           const playlistData = {
@@ -120,7 +171,8 @@ export const Playlist = ({route}) => {
             follower: routeFollower || '',
             source: route?.params?.source || null,
             searchText: route?.params?.searchText || null,
-            language: route?.params?.language || null
+            language: route?.params?.language || null,
+            navigationSource: routeNavigationSource || null
           };
           
           await AsyncStorage.setItem(CURRENT_PLAYLIST_ID_KEY, routeId);
@@ -146,230 +198,135 @@ export const Playlist = ({route}) => {
                 setName(storedData.name || 'Playlist');
                 setFollower(storedData.follower || '');
                 setSource(storedData.source || null);
+                setNavigationSource(storedData.navigationSource || null);
                 console.log('Successfully recovered playlist data from storage');
               } catch (parseError) {
                 console.error('Error parsing stored playlist data:', parseError);
               }
             }
           } else {
-            console.log('No stored playlist ID found, navigating back to safe screen');
-            // Navigate to a safe screen if we can't recover data
+            console.log('No playlist ID found in storage, navigating back to home');
             navigation.navigate('Home', { screen: 'HomePage' });
+            return;
           }
         }
-      } catch (error) {
-        console.error('Error recovering playlist data:', error);
+        
+        // After setting up the ID (either from route or storage), fetch the playlist data
+        fetchPlaylistData();
+        
+      } catch (e) {
+        console.error('Error recovering playlist data:', e);
+        navigation.navigate('Home', { screen: 'HomePage' });
       }
     };
     
     recoverPlaylistData();
-  }, [routeId, routeImage, routeName, routeFollower, route?.params?.source, route?.params?.searchText, route?.params?.language, navigation]);
-  
-  // Add logging to check route params
-  useEffect(() => {
-    console.log('Playlist component mounted with route params:', JSON.stringify({
-      routeId, routeImage, routeName, routeFollower, source: route?.params?.source
-    }));
     
-    console.log('Using actual playlist data:', JSON.stringify({
-      id, image, name, follower, source
-    }));
-  }, [routeId, routeImage, routeName, routeFollower, id, image, name, follower, source, route?.params?.source]);
-  
-  // Add a back handler to handle navigation
-  useEffect(() => {
-    const handleBackPress = async () => {
-      console.log('Back pressed in Playlist, attempting to navigate back');
-      
-      // Clear album data from AsyncStorage to prevent it from being restored
-      // when navigating back from playlist
-      try {
-        await Promise.all([
-          AsyncStorage.removeItem(CURRENT_ALBUM_ID_KEY),
-          AsyncStorage.removeItem(CURRENT_ALBUM_DATA_KEY),
-          // Also clear playlist data to ensure it doesn't persist either
-          AsyncStorage.removeItem(CURRENT_PLAYLIST_ID_KEY),
-          AsyncStorage.removeItem(CURRENT_PLAYLIST_DATA_KEY)
-        ]);
-        console.log('Cleared navigation data from AsyncStorage when leaving playlist');
-      } catch (error) {
-        console.error('Error clearing navigation data:', error);
-      }
-      
-      // Check if we know where we came from
-      if (source) {
-        console.log(`Navigating back to source: ${source}, params:`, JSON.stringify({
-          searchText: route?.params?.searchText || '',
-          language: route?.params?.language || ''
-        }));
-        
-        // Handle different source screens
-        if (source === 'ShowPlaylistofType') {
-          // Get searchText from either route params or stored state
-          const searchText = route?.params?.searchText || '';
-          
-          // Navigate to Discover tab first to ensure we're in the right tab
-          navigation.navigate('Discover', { 
-            screen: 'ShowPlaylistofType',
-            params: { Searchtext: searchText || 'most searched' }
-          });
-          return true;
-        } else if (source === 'LanguageDetail') {
-          // Get language from either route params or stored state
-          const language = route?.params?.language || '';
-          
-          // Navigate to Discover tab first to ensure we're in the right tab
-          navigation.navigate('Discover', { 
-            screen: 'LanguageDetail',
-            params: { language: language || 'hindi' }
-          });
-          return true;
-        } else if (source === 'Home') {
-          // Navigate directly to HomePage
-          navigation.navigate('Home', { 
-            screen: 'HomePage' 
-          });
-          return true;
-        }
-      }
-      
-      // Find which tab we're in by checking the navigation state
-      const state = navigation.getState();
-      const routes = state?.routes || [];
-      let currentTab = '';
-      
-      for (const route of routes) {
-        if (route.state && route.state.routes) {
-          for (const nestedRoute of route.state.routes) {
-            if (nestedRoute.state && nestedRoute.state.routes) {
-              for (const deepRoute of nestedRoute.state.routes) {
-                if (deepRoute.name === 'Playlist') {
-                  currentTab = nestedRoute.name;
-                  console.log('Found Playlist in tab:', currentTab);
-                  break;
-                }
-              }
-            }
-          }
-        }
-      }
-      
-      // If we detect we're in the Discover tab, go back to DiscoverPage
-      if (currentTab === 'Discover') {
-        navigation.navigate('Discover', { screen: 'DiscoverPage' });
-        return true;
-      }
-      
-      // Standard back navigation logic as fallback
-      const canGoBack = navigation.canGoBack();
-      
-      if (canGoBack) {
-        // Normal back navigation when possible
-        navigation.goBack();
-        return true;
-      } else {
-        // If we can't go back in the current stack, try to navigate to the appropriate tab
-        console.log('Cannot go back in current stack, navigating to tab');
-        
-        // Get the current route name to determine where to navigate
-        const routes = navigation.getState()?.routes || [];
-        const currentRoute = routes[routes.length - 1];
-        const parentRoute = currentRoute?.name?.split('/')[0];
-        
-        if (parentRoute === 'Discover') {
-          // Navigate to the Discover tab
-          navigation.navigate('Discover', { screen: 'DiscoverPage' });
-        } else if (parentRoute === 'Library') {
-          // Navigate to the Library tab
-          navigation.navigate('Library', { screen: 'LibraryPage' });
-        } else {
-          // Default to Home tab
-          navigation.navigate('Home', { screen: 'HomePage' });
-        }
-        return true;
-      }
-    };
-
+    // Set up back handler
     const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
     
     return () => {
       backHandler.remove();
     };
-  }, [navigation, source, route?.params, id]);
+  }, [routeId, routeImage, routeName, routeFollower, routeNavigationSource, fetchPlaylistData, navigation]);
   
-  async function fetchPlaylistData(){
+  // Function to handle back button press
+  const handleBackPress = async () => {
+    console.log('Back pressed in Playlist, attempting to navigate back');
+    
     try {
-      // Only fetch if id is defined
-      if (!id) {
-        console.log("No playlist ID available in fetchPlaylistData");
-        setLoading(false);
-        return;
-      }
+      // Clear navigation data before going back
+      await AsyncStorage.removeItem(CURRENT_PLAYLIST_ID_KEY);
+      await AsyncStorage.removeItem(CURRENT_PLAYLIST_DATA_KEY);
+      console.log('Cleared navigation data from AsyncStorage when leaving playlist');
       
-      console.log(`Fetching playlist data for ID: ${id}`);
-      setLoading(true);
-      let data = {};
-      data = await getPlaylistData(id);
-      console.log(`Playlist data fetched successfully for ID ${id}:`, 
-                 data?.data?.name || 'Unknown playlist', 
-                 `songs count: ${data?.data?.songs?.length || 0}`);
-      
-      // Log a sample song to debug structure
-      if (data?.data?.songs && data?.data?.songs.length > 0) {
-        console.log('Sample song structure:', JSON.stringify(data.data.songs[0], null, 2));
-      }
-      
-      setData(data);
-      
-      // If we successfully got playlist data, update the stored information
-      if (data?.data) {
-        const updatedPlaylistData = {
-          id: id,
-          image: image || data?.data?.image?.[2]?.url || '',
-          name: data?.data?.name || name || 'Playlist',
-          follower: data?.data?.follower || follower || '',
-          source: source || null,
-          searchText: route?.params?.searchText || '',
-          language: route?.params?.language || ''
-        };
+      // Navigate based on source and navigation source
+      if (source === 'ShowPlaylistofType' && route?.params?.searchText) {
+        console.log(`Navigating back to source: ${source}, params: ${JSON.stringify({
+          searchText: route.params.searchText,
+          language: route?.params?.language || '',
+          navigationSource: navigationSource || ''
+        })}`);
         
-        await AsyncStorage.setItem(CURRENT_PLAYLIST_DATA_KEY, JSON.stringify(updatedPlaylistData));
-        console.log('Updated stored playlist data with API response, source:', updatedPlaylistData.source);
+        navigation.navigate('Discover', { 
+          screen: 'ShowPlaylistofType', 
+          params: {
+            Searchtext: route.params.searchText,
+            navigationSource: navigationSource || null
+          }
+        });
+        return true;
+      } 
+      else if (source === 'LanguageDetail' && route?.params?.language) {
+        console.log(`Navigating back to language detail for: ${route.params.language}`);
+        navigation.navigate('Discover', { 
+          screen: 'LanguageDetailPage', 
+          params: { 
+            language: route.params.language,
+            navigationSource: navigationSource || null
+          } 
+        });
+        return true;
       }
+      else if (source === 'Search') {
+        // Navigate back to Search tab with the search text if available
+        console.log('Navigating back to Search screen from Playlist with searchText:', route?.params?.searchText);
+        // Try to go back without explicit navigation first
+        if (navigation.canGoBack()) {
+          navigation.goBack();
+        } else {
+          // If that fails, force navigation to the Search screen
+          navigation.navigate('Home', {
+            screen: 'Search',
+            params: { 
+              searchText: route?.params?.searchText || '',
+              timestamp: Date.now() // Add timestamp to force refresh
+            }
+          });
+        }
+        return true;
+      }
+      else if (navigationSource) {
+        // Use the navigationSource to go back to the proper tab
+        console.log(`Using navigationSource to go back to: ${navigationSource}`);
+        if (navigationSource === 'HomePage') {
+          navigation.navigate('Home', { screen: 'HomePage' });
+        } else if (navigationSource === 'LibraryPage') {
+          navigation.navigate('Library', { screen: 'LibraryPage' });
+        } else {
+          navigation.navigate('Discover', { screen: 'DiscoverPage' });
+        }
+        return true;
+      }
+      else {
+        // Default fallback to home
+        console.log('No specific back navigation info, defaulting to Home');
+        navigation.navigate('Home', { screen: 'HomePage' });
+      }
+      
+      return true;
     } catch (e) {
-      console.error(`Error fetching playlist with ID ${id}:`, e.message);
-    } finally {
-      setLoading(false);
+      console.error('Error during back navigation:', e);
+      // Default fallback
+      navigation.navigate('Home', { screen: 'HomePage' });
+      return true;
     }
-  }
+  };
   
-  useEffect(() => {
-    if (id) {
-      fetchPlaylistData();
-    }
-  }, [id]);
-
   // If no ID is provided, show an error message
   if (!id) {
     console.log("No playlist ID available (not in route params or storage)");
     
     return (
       <MainWrapper>
-        <View style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-        }}>
+        <View style={styles.errorContainer}>
           <PlainText text={"Playlist not available"} />
           <SmallText text={"No playlist ID found"} />
           <Spacer height={20} />
           <Pressable 
             onPress={() => navigation.goBack()}
-            style={{
-              backgroundColor: 'rgba(255,255,255,0.1)',
-              padding: 10,
-              borderRadius: 5
-            }}
+            style={styles.goBackButton}
+            android_ripple={{color: 'rgba(255,255,255,0.1)'}}
           >
             <PlainText text="Go Back" />
           </Pressable>
@@ -382,39 +339,32 @@ export const Playlist = ({route}) => {
     <MainWrapper>
       {Loading && <LoadingComponent loading={Loading}/>}
       {!Loading && (!Data?.data?.songs || Data?.data?.songs?.length === 0) && (
-        <View style={{
-          flex: 1, 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          paddingHorizontal: 20
-        }}>
-          <PlainText text="Playlist is empty or not available" style={{textAlign: 'center'}}/>
-          <SmallText text="Please try another playlist or check your connection" style={{textAlign: 'center'}}/>
+        <View style={styles.emptyContainer}>
+          <PlainText text="Playlist is empty or not available" style={styles.centeredText}/>
+          <SmallText text="Please try another playlist or check your connection" style={styles.centeredText}/>
         </View>
       )}
       {!Loading && Data?.data?.songs && Data?.data?.songs?.length > 0 && (
         <Animated.ScrollView 
           scrollEventThrottle={16} 
           ref={AnimatedRef} 
-          contentContainerStyle={{
-            // paddingBottom: 5, // Extra padding to account for bottom player
-            backgroundColor: "#101010",
-          }}
+          contentContainerStyle={styles.scrollViewContent}
         >
-          <PlaylistTopHeader AnimatedRef={AnimatedRef} url={image || (Data?.data?.songs[0]?.images && Data?.data?.songs[0]?.images[2]?.url ? Data?.data?.songs[0]?.images[2]?.url : "")} />
+          <PlaylistTopHeader 
+            AnimatedRef={AnimatedRef} 
+            url={image || (Data?.data?.songs[0]?.images && Data?.data?.songs[0]?.images[2]?.url ? Data?.data?.songs[0]?.images[2]?.url : "")} 
+          />
           <PlaylistDetails 
             name={truncateText(name || Data?.data?.name || "Playlist")} 
             follower={follower || Data?.data?.follower || ""} 
             total={Data?.data?.songs?.length || 0} 
             Data={Data}
+            Loading={Loading}
+            id={id}
+            image={image}
           />
-          <View style={{
-            paddingHorizontal: 15,
-            backgroundColor: "#101010",
-            gap: 8,
-            paddingBottom: 5, // Add extra padding at the bottom
-          }}>
-            {Data?.data?.songs?.map((e,i) => {
+          <View style={styles.songsContainer}>
+            {Data?.data?.songs?.map((e, i) => {
               // Process artist data to avoid [object Object] display
               const artistData = e?.artists || e?.primary_artists;
               const formattedArtist = formatArtistData(artistData);
@@ -422,11 +372,14 @@ export const Playlist = ({route}) => {
               // Get proper image URL
               const imageUrl = getValidImageUrl(ensureStringUrl(e?.image?.[2]?.url || e?.images?.[2]?.url));
               
+              // Get download URL properly for menu options
+              const downloadUrlData = e?.downloadUrl || e?.download_url;
+            
               return (
                 <EachSongCard 
                   isFromPlaylist={true} 
                   Data={Data} 
-                  index={i} 
+                  index={i}  
                   artist={formattedArtist} 
                   language={e?.language} 
                   artistID={e?.artist_id || e?.primary_artists_id} 
@@ -434,24 +387,58 @@ export const Playlist = ({route}) => {
                   duration={e?.duration} 
                   image={imageUrl} 
                   id={e?.id} 
-                  url={e?.media_preview_url || getValidDownloadUrl(e?.download_url)}
+                  url={downloadUrlData}
                   title={truncateText(e?.song || e?.name, 22)} // Update to 22 chars to match other truncations
-                  style={{
-                    marginBottom: 15,
-                    borderRadius: 8,
-                    elevation: 2,
-                  }}
+                  style={styles.songCard}
                 />
               );
             })}
             {/* Add view to hide the "No music" player at bottom */}
-            <View style={{
-              height: 100,
-              backgroundColor: "#101010",
-            }} />
+            <View style={styles.bottomSpacer} />
           </View>
         </Animated.ScrollView>
       )}
     </MainWrapper>
   );
 };
+
+// Move styles to StyleSheet for better performance
+const styles = StyleSheet.create({
+  errorContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  goBackButton: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    padding: 10,
+    borderRadius: 5
+  },
+  emptyContainer: {
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    paddingHorizontal: 20
+  },
+  centeredText: {
+    textAlign: 'center'
+  },
+  scrollViewContent: {
+    backgroundColor: "#101010",
+  },
+  songsContainer: {
+    paddingHorizontal: 15,
+    backgroundColor: "#101010",
+    gap: 8,
+    paddingBottom: 5,
+  },
+  songCard: {
+    marginBottom: 15,
+    borderRadius: 8,
+    elevation: 2,
+  },
+  bottomSpacer: {
+    height: 100,
+    backgroundColor: "#101010",
+  }
+});

@@ -33,8 +33,35 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
       // Add songs to playlist starting from the clicked index
       for (let i = index; i < songs.length; i++) {
         const e = songs[i]
+        if (!e) continue;
+
+        // Get the correct URL using safer checks
+        let songUrl = "";
+        
+        // Check if downloadUrl exists in proper format
+        if (e.downloadUrl && Array.isArray(e.downloadUrl) && e.downloadUrl.length > quality && e.downloadUrl[quality]?.url) {
+          songUrl = e.downloadUrl[quality].url;
+        } 
+        // Check if download_url exists (alternate format)
+        else if (e.download_url && Array.isArray(e.download_url) && e.download_url.length > quality && e.download_url[quality]?.url) {
+          songUrl = e.download_url[quality].url;
+        }
+        // Fallback to any available URL in the array
+        else if (e.downloadUrl && Array.isArray(e.downloadUrl) && e.downloadUrl.length > 0 && e.downloadUrl[0]?.url) {
+          songUrl = e.downloadUrl[0].url;
+        }
+        // Final fallback
+        else if (e.download_url && Array.isArray(e.download_url) && e.download_url.length > 0 && e.download_url[0]?.url) {
+          songUrl = e.download_url[0].url;
+        }
+
+        if (!songUrl) {
+          console.log(`EachSongCard: No valid URL found for song at index ${i}, song ID: ${e?.id || 'unknown'}`);
+          continue;
+        }
+
         ForMusicPlayer.push({
-          url: e?.downloadUrl[quality].url,
+          url: songUrl,
           title: formatText(e?.name),
           artist: formatText(FormatArtist(e?.artists?.primary)),
           artwork: e?.image[2]?.url,
@@ -42,11 +69,17 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
           duration: e?.duration,
           id: e?.id,
           language: e?.language,
-          downloadUrl: e?.downloadUrl,
+          downloadUrl: e?.downloadUrl || e?.download_url || [],
         })
       }
       
-      await AddPlaylist(ForMusicPlayer)
+      if (ForMusicPlayer.length > 0) {
+        console.log(`EachSongCard: Playing ${ForMusicPlayer.length} songs starting from index ${index}`);
+        await AddPlaylist(ForMusicPlayer)
+        updateTrack()
+      } else {
+        console.log("EachSongCard: No valid songs to play");
+      }
     } else if (isLibraryLiked){
       const Final = []
       
@@ -90,10 +123,12 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
       <View style={{
         flexDirection:'row',
         width:width ? width : width1,
-        marginRight:10,
+        marginRight:0,
         alignItems:"center",
-        paddingRight:4,
-        // backgroundColor:"red"
+        paddingRight: isFromPlaylist ? 2 : 2,
+        paddingVertical: 4,
+        justifyContent: 'space-between',
+        paddingHorizontal: isFromPlaylist ? 6 : 4,
       }}>
         <Pressable onPress={AddSongToPlayer} style={{
           flexDirection:'row',
@@ -101,7 +136,6 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
           alignItems:"center",
           maxHeight:60,
           elevation:10,
-          marginBottom:6,
           flex:1,
         }}>
           <FastImage source={((id === currentPlaying?.id ?? "") && playerState.state === "playing") ? require("../../Images/playing.gif") : ((id === currentPlaying?.id ?? "") && playerState.state !== "playing" ) ? require("../../Images/songPaused.gif") : {
@@ -113,26 +147,36 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
           }}/>
           <View style={{
             flex:1,
+            marginRight: isFromPlaylist ? 10 : 8,
           }}>
-            <PlainText text={formatText(title)} style={{width:titleandartistwidth ? titleandartistwidth : width1 * 0.67}}/>
-            <SmallText text={formatText(artist)} style={{width:titleandartistwidth ? titleandartistwidth : width1 * 0.67}}/>
+            <PlainText text={formatText(title)} style={{width:titleandartistwidth ? titleandartistwidth : width1 * (isFromPlaylist ? 0.63 : 0.66)}}/>
+            <SmallText text={formatText(artist)} style={{width:titleandartistwidth ? titleandartistwidth : width1 * (isFromPlaylist ? 0.63 : 0.66)}}/>
           </View>
         </Pressable>
-        <EachSongMenuButton 
-              Onpress={({pageY}) => {
-                setVisible({
-                  visible: true,
-                  title: formatText(title),
-                  artist: formatText(artist),
-                  image,
-                  id,
-                  url,
-                  duration,
-                  language,
-                  position: { y: pageY }
-                });
-              }}
-            />
+        <View style={{
+          justifyContent: 'center',
+          alignItems: 'center',
+          minWidth: isFromPlaylist ? 40 : 36,
+          paddingLeft: isFromPlaylist ? 3 : 2,
+          marginRight: isFromPlaylist ? 8 : 6,
+        }}>
+          <EachSongMenuButton 
+            isFromPlaylist={isFromPlaylist}
+            Onpress={({pageY}) => {
+              setVisible({
+                visible: true,
+                title: formatText(title),
+                artist: formatText(artist),
+                image,
+                id,
+                url,
+                duration,
+                language,
+                position: { y: pageY }
+              });
+            }}
+          />
+        </View>
       </View>
     </>
   );

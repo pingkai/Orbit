@@ -1,9 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as RNFS from 'react-native-fs';
+import { Platform } from 'react';
 
 const STORAGE_KEYS = {
   LOCAL_MUSIC_CACHE: '@melody_local_music_cache',
   LAST_SCAN_TIME: '@melody_last_scan_time',
+  DOWNLOADED_SONGS_METADATA: '@orbit_downloaded_songs_metadata',
 };
 
 export const StorageManager = {
@@ -85,5 +87,130 @@ export const StorageManager = {
       console.error('Error clearing cache:', error);
       return false;
     }
+  },
+
+  // Save metadata for downloaded song
+  saveDownloadedSongMetadata: async (songId, metadata) => {
+    try {
+      // Get existing metadata
+      const existingData = await AsyncStorage.getItem(STORAGE_KEYS.DOWNLOADED_SONGS_METADATA);
+      const metadataMap = existingData ? JSON.parse(existingData) : {};
+      
+      // Add new metadata
+      metadataMap[songId] = {
+        ...metadata,
+        downloadTime: Date.now(),
+      };
+      
+      // Save updated metadata
+      await AsyncStorage.setItem(STORAGE_KEYS.DOWNLOADED_SONGS_METADATA, JSON.stringify(metadataMap));
+      return true;
+    } catch (error) {
+      console.error('Error saving song metadata:', error);
+      return false;
+    }
+  },
+
+  // Get metadata for a downloaded song
+  getDownloadedSongMetadata: async (songId) => {
+    try {
+      const allMetadata = await AsyncStorage.getItem(STORAGE_KEYS.DOWNLOADED_SONGS_METADATA);
+      if (!allMetadata) return null;
+      
+      const metadataMap = JSON.parse(allMetadata);
+      return metadataMap[songId] || null;
+    } catch (error) {
+      console.error('Error getting song metadata:', error);
+      return null;
+    }
+  },
+
+  // Get all downloaded songs metadata
+  getAllDownloadedSongsMetadata: async () => {
+    try {
+      const allMetadata = await AsyncStorage.getItem(STORAGE_KEYS.DOWNLOADED_SONGS_METADATA);
+      return allMetadata ? JSON.parse(allMetadata) : {};
+    } catch (error) {
+      console.error('Error getting all songs metadata:', error);
+      return {};
+    }
+  },
+
+  // Remove metadata for a song
+  removeDownloadedSongMetadata: async (songId) => {
+    try {
+      const allMetadata = await AsyncStorage.getItem(STORAGE_KEYS.DOWNLOADED_SONGS_METADATA);
+      if (!allMetadata) return true;
+      
+      const metadataMap = JSON.parse(allMetadata);
+      delete metadataMap[songId];
+      
+      await AsyncStorage.setItem(STORAGE_KEYS.DOWNLOADED_SONGS_METADATA, JSON.stringify(metadataMap));
+      return true;
+    } catch (error) {
+      console.error('Error removing song metadata:', error);
+      return false;
+    }
+  },
+
+  // Create necessary directories for song storage
+  ensureDirectoriesExist: async () => {
+    try {
+      const dirs = RNFS.fs.dirs;
+      const basePath = dirs.DocumentDirectoryPath + '/Orbit';
+      const paths = [
+        basePath,
+        basePath + '/songs',
+        basePath + '/artwork',
+        basePath + '/metadata'
+      ];
+      
+      for (const path of paths) {
+        const exists = await RNFS.exists(path);
+        if (!exists) {
+          await RNFS.mkdir(path);
+          // Create .nomedia file on Android to hide media from gallery
+          if (Platform.OS === 'android') {
+            await RNFS.writeFile(path + '/.nomedia', '');
+          }
+        }
+      }
+      return true;
+    } catch (error) {
+      console.error('Error creating directories:', error);
+      return false;
+    }
+  },
+
+  // Save artwork for a song
+  saveArtwork: async (songId, artworkUrl) => {
+    try {
+      await StorageManager.ensureDirectoriesExist();
+      const dirs = RNFS.fs.dirs;
+      const artworkPath = `${dirs.DocumentDirectoryPath}/Orbit/artwork/${songId}.jpg`;
+      
+      // Download and save artwork
+      await RNFS.downloadFile({
+        fromUrl: artworkUrl,
+        toFile: artworkPath,
+      }).promise;
+      
+      return artworkPath;
+    } catch (error) {
+      console.error('Error saving artwork:', error);
+      return null;
+    }
+  },
+
+  // Get artwork path for a song
+  getArtworkPath: (songId) => {
+    const dirs = RNFS.fs.dirs;
+    return `${dirs.DocumentDirectoryPath}/Orbit/artwork/${songId}.jpg`;
+  },
+
+  // Get song file path
+  getSongPath: (songId) => {
+    const dirs = RNFS.fs.dirs;
+    return `${dirs.DocumentDirectoryPath}/Orbit/songs/${songId}.mp3`;
   },
 };

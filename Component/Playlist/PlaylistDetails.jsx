@@ -1,4 +1,4 @@
-import { Dimensions, View } from "react-native";
+import { Dimensions, View, StyleSheet } from "react-native";
 import { Heading } from "../Global/Heading";
 import { SmallText } from "../Global/SmallText";
 import { Spacer } from "../Global/Spacer";
@@ -12,9 +12,10 @@ import { LikedPlaylist } from "./LikedPlaylist";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import FormatArtist from "../../Utils/FormatArtists";
 import FormatTitleAndArtist from "../../Utils/FormatTitleAndArtist";
+import { CacheManager } from '../../Utils/CacheManager';
 
-// Reduce truncate limit to 22 characters to avoid breaking
-const truncateText = (text, limit = 22) => {
+// Reduce truncate limit further to avoid layout issues
+const truncateText = (text, limit = 20) => {
   if (!text) return '';
   return text.length > limit ? text.substring(0, limit) + '...' : text;
 };
@@ -39,9 +40,40 @@ const formatArtistData = (artistData) => {
   return "Unknown Artist";
 };
 
-export const PlaylistDetails = ({name = "", listener = "", notReleased = false, Data = {}, Loading = true, id = "", image = "", follower = ""}) => {
-  const {updateTrack} = useContext(Context)
+// Helper to safely get song URL
+const getSongUrl = (song, quality) => {
+  // Check if downloadUrl exists in proper format
+  if (song.downloadUrl && Array.isArray(song.downloadUrl) && song.downloadUrl.length > quality && song.downloadUrl[quality]?.url) {
+    return song.downloadUrl[quality].url;
+  } 
+  // Check if download_url exists (alternate format)
+  else if (song.download_url && Array.isArray(song.download_url) && song.download_url.length > quality && song.download_url[quality]?.url) {
+    return song.download_url[quality].url;
+  }
+  // Fallback to any available URL in the array
+  else if (song.downloadUrl && Array.isArray(song.downloadUrl)) {
+    for (let i = 0; i < song.downloadUrl.length; i++) {
+      if (song.downloadUrl[i]?.url) return song.downloadUrl[i].url;
+    }
+  }
+  // Final fallback for download_url
+  else if (song.download_url && Array.isArray(song.download_url)) {
+    for (let i = 0; i < song.download_url.length; i++) {
+      if (song.download_url[i]?.url) return song.download_url[i].url;
+    }
+  }
+  
+  return "";
+};
+
+export const PlaylistDetails = ({name = "", listener = "", notReleased = false, Data = {}, Loading = true, id = "", image = "", follower = "", playlistId = ""}) => {
+  const {updateTrack} = useContext(Context);
   const [isPlaying, setIsPlaying] = useState(false);
+  const theme = useTheme();
+  const width = Dimensions.get('window').width;
+  const displayName = truncateText(name, 18); // Reduce to 18 characters
+  const [playlistData, setPlaylistData] = useState(Data);
+  const [loading, setLoading] = useState(Loading);
   
   // Reset isPlaying when Loading changes to false
   useEffect(() => {
@@ -50,7 +82,56 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
     }
   }, [Loading]);
   
+  useEffect(() => {
+    const loadPlaylistData = async () => {
+      try {
+        setLoading(true);
+        
+        // Try to get data from cache first
+        const cachedData = await CacheManager.getFromCache(playlistId, 'playlist');
+        if (cachedData) {
+          setPlaylistData(cachedData);
+          setLoading(false);
+          // Fetch fresh data in background
+          fetchPlaylistData();
+          return;
+        }
+
+        // If no cache, fetch fresh data
+        await fetchPlaylistData();
+      } catch (error) {
+        console.error('Error loading playlist:', error);
+        setLoading(false);
+      }
+    };
+
+    const fetchPlaylistData = async () => {
+      try {
+        // Your existing fetch logic here
+        const response = await fetch(`${API_BASE_URL}/playlists/${playlistId}`);
+        const data = await response.json();
+        
+        setPlaylistData(data);
+        // Cache the fresh data
+        await CacheManager.saveToCache(playlistId, data, 'playlist');
+      } catch (error) {
+        console.error('Error fetching playlist:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (playlistId) {
+      loadPlaylistData();
+    }
+  }, [playlistId]);
+  
   async function AddToPlayer(){
+    console.log("PlaylistDetails: AddToPlayer called with data:", {
+      hasSongs: !!Data?.data?.songs,
+      songCount: Data?.data?.songs?.length || 0
+    });
+    
     if (!Data?.data?.songs || Data.data.songs.length === 0) {
       console.log("No songs available to play");
       return;
@@ -58,16 +139,29 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
     
     try {
       setIsPlaying(true);
-      const quality = await getIndexQuality()
-      const ForMusicPlayer = Data?.data?.songs?.map((e,i)=>{
-        if (!e) return null;
+      const quality = await getIndexQuality();
+      
+      const ForMusicPlayer = [];
+      
+      // Process each song in the playlist
+      for (let i = 0; i < Data.data.songs.length; i++) {
+        const e = Data.data.songs[i];
+        if (!e) continue;
         
         // Process artist data to avoid [object Object] display
         const artistData = e?.artists || e?.primary_artists;
         const formattedArtist = formatArtistData(artistData);
         
-        return {
-          url: e?.downloadUrl?.[quality]?.url || e?.download_url?.[quality]?.url || "",
+        // Get song URL using helper function
+        const songUrl = getSongUrl(e, quality);
+
+        if (!songUrl) {
+          console.log(`No valid URL found for song at index ${i}, song ID: ${e?.id || 'unknown'}`);
+          continue;
+        }
+
+        ForMusicPlayer.push({
+          url: songUrl,
           title: FormatTitleAndArtist(e?.name || e?.song || ""),
           artist: FormatTitleAndArtist(formattedArtist),
           artwork: e?.image?.[2]?.url || e?.images?.[2]?.url || "",
@@ -76,8 +170,12 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
           id: e?.id || `unknown-${i}`,
           language: e?.language || "",
           artistID: e?.primary_artists_id || e?.artist_id || "",
-        }
-      }).filter(item => item !== null && item.url);
+          // Include basic info for debugging
+          downloadUrl: e?.downloadUrl || e?.download_url || [],
+        });
+      }
+      
+      console.log(`Prepared ${ForMusicPlayer.length} songs for playback`);
       
       if (ForMusicPlayer.length === 0) {
         console.log("No valid tracks to play");
@@ -85,8 +183,10 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
         return;
       }
       
-      await AddPlaylist(ForMusicPlayer)
-      updateTrack()
+      // Use AddPlaylist function to play the songs
+      await AddPlaylist(ForMusicPlayer);
+      updateTrack();
+      console.log("Successfully added songs to player");
     } catch (error) {
       console.error("Error adding songs to player:", error);
     } finally {
@@ -94,48 +194,75 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
     }
   }
   
-  const theme = useTheme()
-  const width = Dimensions.get('window').width
-  
-  const displayName = truncateText(name, 22);
+  // If not released, don't render anything
+  if (notReleased) return null;
   
   return (
-    <LinearGradient start={{x: 0, y: 0}} end={{x: 0, y: 1}} colors={['rgba(44,44,44,0)', 'rgb(18,18,18)', theme.colors.background]} style={{
-      padding: 10,
-      alignItems: "center",
-      justifyContent: "space-between",
-      flexDirection: "row",
-    }}>
-      {!notReleased && <>
-        <View style={{
-          flex: 1,
-          paddingLeft: 5,
-          maxWidth: width * 0.65, // Reduce the width to ensure space for buttons
-        }}>
-          <Heading text={displayName}/>
-          <View style={{flexDirection: "row", gap: 5}}>
-            <Ionicons name={"musical-note"} size={16}/>
-            <SmallText text={follower || listener || ""}/>
-          </View>
-          <Spacer/>
+    <LinearGradient 
+      start={{x: 0, y: 0}} 
+      end={{x: 0, y: 1}} 
+      colors={['rgba(44,44,44,0)', 'rgb(23,23,23)', theme.colors.background]} 
+      style={styles.container}
+    >
+      <View style={styles.infoContainer}>
+        <Heading text={displayName} style={styles.heading}/>
+        <View style={styles.followerContainer}>
+          <Ionicons name={"musical-note"} size={16} color={theme.colors.text}/>
+          <SmallText text={follower || listener || ""}/>
         </View>
-        <View style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "flex-end",
-          minWidth: 90, // Ensure consistent width for the buttons area
-        }}>
-          <LikedPlaylist id={id} image={image} name={name || ""} follower={follower}/>
-          <PlayButton 
-            Loading={isPlaying} 
-            onPress={() => {
-              if (!Loading && !isPlaying) {
-                AddToPlayer();
-              }
-            }}
-          />
-        </View>
-      </>}
+      </View>
+      
+      <View style={styles.buttonContainer}>
+        <LikedPlaylist 
+          id={id} 
+          image={image} 
+          name={name || ""} 
+          follower={follower}
+          size="small"
+        />
+        <Spacer width={20} />
+        <PlayButton 
+          Loading={isPlaying} 
+          size="large"
+          onPress={() => {
+            if (!Loading && !isPlaying) {
+              console.log("Play button pressed - attempting to play all songs");
+              AddToPlayer();
+            }
+          }}
+        />
+      </View>
     </LinearGradient>
   );
 };
+
+// Move styles to StyleSheet for better performance
+const styles = StyleSheet.create({
+  container: {
+    padding: 10,
+    paddingVertical: 15,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  infoContainer: {
+    paddingLeft: 5,
+    maxWidth: Dimensions.get('window').width * 0.5, // Further reduce width for more space
+  },
+  heading: {
+    fontSize: 24,
+    marginBottom: 5,
+  },
+  followerContainer: {
+    flexDirection: "row", 
+    alignItems: "center", 
+    gap: 5
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingRight: 10,
+    paddingVertical: 5,
+    marginLeft: 20, // Increase left margin for more space
+  }
+});

@@ -32,6 +32,7 @@ import { useTrackPlayerEvents } from "react-native-track-player";
 import { Event } from "react-native-track-player";
 import Context from "../../Context/Context";
 import { useNavigation, CommonActions } from "@react-navigation/native";
+import { StorageManager } from '../../Utils/StorageManager';
 
 // Import SleepTimerButton from its dedicated component file
 import { SleepTimerButton } from './SleepTimer';
@@ -244,69 +245,32 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
   // Function to load local tracks with improved error handling
   const loadLocalTracks = async () => {
     try {
-      const path = await GetDownloadPath();
-      const dirs = ReactNativeBlobUtil.fs.dirs;
-      const downloadDir = (path === "Downloads") 
-        ? dirs.LegacyDownloadDir + `/Orbit` 
-        : dirs.LegacyMusicDir + `/Orbit`;
+      // Get all downloaded songs metadata
+      const allMetadata = await StorageManager.getAllDownloadedSongsMetadata();
       
-      // Check if directory exists
-      const exists = await ReactNativeBlobUtil.fs.exists(downloadDir);
-      if (!exists) {
-        console.log('Download directory does not exist');
-        setLocalTracks([]);
-        return;
-      }
-      
-      // List files in the directory
-      const files = await ReactNativeBlobUtil.fs.ls(downloadDir);
-      
-      // Filter music files
-      const musicFiles = files.filter(file => 
-        file.endsWith('.mp3') || 
-        file.endsWith('.m4a') || 
-        file.endsWith('.wav') || 
-        file.endsWith('.flac')
-      );
-      
-      if (musicFiles.length === 0) {
-        console.log('No music files found');
-        setLocalTracks([]);
-        return;
-      }
-      
-      // Extract artist from title
-      const extractArtistFromTitle = (title) => {
-        const regex = /- (.+)$/;
-        const match = title.match(regex);
-        return match ? match[1].trim() : "Unknown Artist";
-      };
-
-      // Format tracks for TrackPlayer
-      const formattedTracks = musicFiles.map(file => {
-        const title = file.replace(/\.(mp3|m4a|wav|flac)$/, '');
-        const artist = extractArtistFromTitle(title);
-
+      // Format tracks with metadata
+      const formattedTracks = Object.values(allMetadata).map(metadata => {
+        const artworkPath = StorageManager.getArtworkPath(metadata.id);
+        const songPath = StorageManager.getSongPath(metadata.id);
+        
         return {
-          id: `local_${file}`,
-          url: `file://${downloadDir}/${file}`,
-          title: title,
-          artist: artist,
-          artwork: 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
-          isLocal: true
+          id: metadata.id,
+          url: `file://${songPath}`,
+          title: metadata.title,
+          artist: metadata.artist,
+          artwork: `file://${artworkPath}`,
+          duration: metadata.duration,
+          isLocal: true,
+          language: metadata.language,
+          artistID: metadata.artistID
         };
       });
-      
+
       setLocalTracks(formattedTracks);
-      
-      // Don't automatically reset and add tracks here
-      // This allows the MyMusicPage component to handle track playback
-      console.log('Found local tracks:', formattedTracks.length);
-      
+      console.log('Loaded local tracks with metadata:', formattedTracks.length);
       return formattedTracks;
     } catch (error) {
       console.error('Error loading local tracks:', error);
-      setLocalTracks([]);
       return [];
     }
   };
@@ -355,14 +319,7 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     elevation: 3,
   };
 
-  const volumeLevelTextStyle = {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    textAlign: 'center',
-  };
-
+  
   const volumeBarFillStyle = useAnimatedStyle(() => {
     return {
       position: 'absolute',
@@ -681,26 +638,28 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
       setLoading(true);
       if (!currentPlaying?.id) return;
 
-      if (isOffline) {
-        // Try to load cached lyrics if offline
-        const cachedLyrics = await AsyncStorage.getItem(`lyrics_${currentPlaying.id}`);
-        if (cachedLyrics) {
-          setLyric(JSON.parse(cachedLyrics));
+      // Instead of using our own caching logic, use the cached version from API
+      // This leverages the centralized cache mechanism
+      const result = await getLyricsSongData(currentPlaying.id);
+      
+      if (result) {
+        if (result.fromCache) {
+          console.log('Lyrics loaded from cache');
         } else {
-          setLyric({ lyrics: "No cached lyrics found. Please connect to the internet to download lyrics." });
+          console.log('Lyrics freshly fetched');
         }
-      } else {
-        // If online, fetch lyrics and cache them
-        const Lyrics = await getLyricsSongData(currentPlaying.id);
-        if (Lyrics.success) {
-          setLyric(Lyrics.data);
-          // Cache lyrics for offline use
-          await AsyncStorage.setItem(`lyrics_${currentPlaying.id}`, JSON.stringify(Lyrics.data));
+        
+        // If we got data, use it
+        if (result.success) {
+          setLyric(result.data);
         } else {
           setLyric({ lyrics: "No Lyrics Found \nOpps... O_o" });
         }
+      } else {
+        setLyric({ lyrics: isOffline ? "You are offline. Lyrics are not available." : "No Lyrics Found \nOpps... O_o" });
       }
     } catch (e) {
+      console.error("Error fetching lyrics:", e);
       setLyric({ lyrics: isOffline ? "You are offline. Lyrics are not available." : "No Lyrics Found \nOpps... O_o" });
     } finally {
       setLoading(false);
@@ -708,42 +667,83 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
   }
 
   const actualDownload = async () => {
-    let dirs = ReactNativeBlobUtil.fs.dirs;
-    const path = await GetDownloadPath();
-    ToastAndroid.showWithGravity(
-      `Download Started`,
-      ToastAndroid.SHORT,
-      ToastAndroid.CENTER,
-    );
-    if (!currentPlaying?.url) return;
+    if (!currentPlaying?.url) {
+      ToastAndroid.show('No song URL available', ToastAndroid.SHORT);
+      return;
+    }
 
-    ReactNativeBlobUtil
-      .config({
-        addAndroidDownloads: {
-          useDownloadManager: true,
-          path: (path === "Downloads") ? dirs.LegacyDownloadDir + `/Orbit/${currentPlaying.title}.m4a` : dirs.LegacyMusicDir + `/Orbit/${currentPlaying.title}.m4a`,
-          notification: true,
-          title: `${currentPlaying.title}`,
-        },
-        fileCache: true,
-      })
-      .fetch('GET', currentPlaying.url, {})
-      .then((res) => {
-        ToastAndroid.showWithGravity(
-          "Download successfully Completed",
-          ToastAndroid.SHORT,
-          ToastAndroid.CENTER,
-        );
-        // After successful download, add to local tracks list
-        loadLocalTracks();
-      })
-      .catch((error) => {
-        ToastAndroid.showWithGravity(
-          "Download failed",
-          ToastAndroid.SHORT,
-          ToastAndroid.CENTER,
-        );
-      });
+    try {
+      // Ensure directories exist
+      await StorageManager.ensureDirectoriesExist();
+
+      // Prepare metadata
+      const metadata = {
+        id: currentPlaying.id,
+        title: currentPlaying.title,
+        artist: currentPlaying.artist,
+        duration: currentPlaying.duration,
+        artwork: currentPlaying.artwork,
+        originalUrl: currentPlaying.url,
+        language: currentPlaying.language,
+        artistID: currentPlaying.artistID,
+        downloadTime: Date.now()
+      };
+
+      // Save metadata first
+      await StorageManager.saveDownloadedSongMetadata(currentPlaying.id, metadata);
+
+      // Download artwork if available
+      if (currentPlaying.artwork && typeof currentPlaying.artwork === 'string') {
+        await StorageManager.saveArtwork(currentPlaying.id, currentPlaying.artwork);
+      }
+
+      // Get the song path
+      const songPath = StorageManager.getSongPath(currentPlaying.id);
+
+      // Show download started toast
+      ToastAndroid.showWithGravity(
+        `Download Started`,
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
+
+      // Download the song
+      await ReactNativeBlobUtil
+        .config({
+          fileCache: true,
+          appendExt: 'mp3',
+          path: songPath,
+          addAndroidDownloads: {
+            useDownloadManager: true,
+            notification: true,
+            title: currentPlaying.title,
+            description: `Downloading ${currentPlaying.title}`,
+            mime: 'audio/mpeg',
+          },
+        })
+        .fetch('GET', currentPlaying.url, {})
+        .then((res) => {
+          console.log('Download completed:', res.path());
+          ToastAndroid.showWithGravity(
+            "Download successfully completed",
+            ToastAndroid.SHORT,
+            ToastAndroid.CENTER,
+          );
+        });
+
+      // After successful download, update local tracks list
+      await loadLocalTracks();
+    } catch (error) {
+      console.error('Download error:', error);
+      ToastAndroid.showWithGravity(
+        "Download failed",
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
+
+      // Clean up metadata if download fails
+      await StorageManager.removeDownloadedSongMetadata(currentPlaying.id);
+    }
   };
 
   const getPermission = async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { getHomePageData } from "../../Api/HomePage";
 import { MainWrapper } from "../../Layout/MainWrapper";
 import { LoadingComponent } from "../Global/Loading";

@@ -8,22 +8,72 @@ import { SmallText } from "../Global/SmallText";
 import { getSearchPlaylistData } from "../../Api/Playlist";
 import { Heading } from "../Global/Heading";
 import { PaddingConatiner } from "../../Layout/PaddingConatiner";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useNavigation, useFocusEffect, useRoute } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Add a utility function to truncate text
-const truncateText = (text, limit = 30) => {
+const truncateText = (text, limit = 22) => {
   if (!text) return '';
   return text.length > limit ? text.substring(0, limit) + '...' : text;
 };
 
+// AsyncStorage key for navigation source
+const NAVIGATION_SOURCE_KEY = "orbit_navigation_source";
+
 export default function ShowPlaylistofType({route}) {
-  const {Searchtext = 'most searched'} = route?.params || {}; // Provide default value
+  const {Searchtext = 'most searched', navigationSource } = route?.params || {}; // Get nav source if available
   const navigation = useNavigation();
+  const currentRoute = useRoute();
   const limit = 30;
   const [Data, setData] = useState({});
   const [Loading, setLoading] = useState(true);
   const [isRendered, setIsRendered] = useState(false);
   const [fetchError, setFetchError] = useState(null);
+  const [source, setSource] = useState(null);
+  const { width } = Dimensions.get("window");
+  
+  // Store the navigation source when component mounts
+  useEffect(() => {
+    const getNavigationSource = async () => {
+      try {
+        // First check route params
+        if (navigationSource) {
+          console.log(`Setting navigation source from route params: ${navigationSource}`);
+          setSource(navigationSource);
+          await AsyncStorage.setItem(NAVIGATION_SOURCE_KEY, navigationSource);
+          return;
+        }
+        
+        // Then check for current route state
+        const routeName = currentRoute?.name;
+        const parentRoute = navigation.getState()?.routes?.[0]?.name;
+        
+        if (parentRoute && parentRoute !== 'Discover') {
+          console.log(`Setting navigation source from parent route: ${parentRoute}`);
+          setSource(parentRoute);
+          await AsyncStorage.setItem(NAVIGATION_SOURCE_KEY, parentRoute);
+          return;
+        }
+        
+        // Fallback to AsyncStorage
+        const storedSource = await AsyncStorage.getItem(NAVIGATION_SOURCE_KEY);
+        if (storedSource) {
+          console.log(`Retrieved navigation source from storage: ${storedSource}`);
+          setSource(storedSource);
+        } else {
+          // Default to Discover if no source found
+          console.log('No navigation source found, defaulting to Discover');
+          setSource('Discover');
+          await AsyncStorage.setItem(NAVIGATION_SOURCE_KEY, 'Discover');
+        }
+      } catch (error) {
+        console.error('Error managing navigation source:', error);
+        setSource('Discover'); // Default fallback
+      }
+    };
+    
+    getNavigationSource();
+  }, [navigation, navigationSource, currentRoute]);
   
   // Force refresh when screen is focused (coming back from playlist)
   useFocusEffect(
@@ -46,13 +96,21 @@ export default function ShowPlaylistofType({route}) {
   // Add back handler for hardware back button
   useEffect(() => {
     const handleBackPress = () => {
-      console.log('Back pressed in ShowPlaylistofType, navigating to Discover');
+      console.log(`Back pressed in ShowPlaylistofType, source is ${source}`);
       
-      // Reset the Discover tab stack and navigate to DiscoverPage
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'DiscoverPage' }],
-      });
+      // Navigate based on the source instead of always going to Discover
+      if (source === 'HomePage') {
+        console.log('Navigating back to Home');
+        navigation.navigate('Home', { screen: 'HomePage' });
+      } else if (source === 'LibraryPage') {
+        console.log('Navigating back to Library');
+        navigation.navigate('Library', { screen: 'LibraryPage' });
+      } else {
+        // Default to Discover (backward compatibility)
+        console.log('Navigating back to Discover');
+        navigation.navigate('Discover', { screen: 'DiscoverPage' });
+      }
+      
       return true;
     };
 
@@ -61,7 +119,7 @@ export default function ShowPlaylistofType({route}) {
     return () => {
       backHandler.remove();
     };
-  }, [navigation]);
+  }, [navigation, source]);
   
   async function addSearchData(){
     // Always try to fetch data, even with empty search text
@@ -91,9 +149,17 @@ export default function ShowPlaylistofType({route}) {
     }
   }, []);
 
-  const width = Dimensions.get("window").width
+  // Calculate optimal card sizing based on screen width
+  const getCardWidth = () => {
+    // Allow for 2 columns with proper spacing
+    const cardWidth = (width - 48) / 2; // 48 = total horizontal padding (16 left + 16 right + 16 between cards)
+    return cardWidth;
+  };
+
+  const cardWidth = getCardWidth();
+
   return (
-    <>
+    <View style={{ flex: 1 }}>
       <PaddingConatiner>
         <Heading text={(Searchtext || 'Popular Playlists').toUpperCase()}/>
       </PaddingConatiner>
@@ -143,35 +209,49 @@ export default function ShowPlaylistofType({route}) {
               numColumns={2}
               keyExtractor={(item, index) => String(index)}
               contentContainerStyle={{
-                paddingHorizontal: 10,
+                paddingHorizontal: 16,
                 paddingBottom: 120, // Extra padding for player
-                alignItems: "center",
               }}
               columnWrapperStyle={{
                 justifyContent: 'space-between',
-                marginBottom: 15,
+                marginBottom: 16,
                 width: '100%',
               }}
               data={Data?.data?.results}
               renderItem={(item) => (
                 <EachPlaylistCard
-                  name={truncateText(item.item.name, 30)}
-                  follower={truncateText("Total " + item.item.songCount + " Songs", 30)}
-                  key={item.index}
-                  image={item.item.image[2].link}
-                  id={item.item.id}
+                  name={truncateText(item.item.name, 22)}
+                  follower={truncateText("Total " + item.item.songCount + " Songs", 22)}
+            key={item.index}
+            image={item.item.image[2].link}
+            id={item.item.id}
                   source="ShowPlaylistofType"
                   searchText={Searchtext}
+                  navigationSource={source} // Pass the source for back navigation
                   MainContainerStyle={{
-                    width: width * 0.46,
-                    margin: 0,
-                  }}
-                  ImageStyle={{
-                    height: width * 0.46, // Make image square
+                    width: cardWidth,
+                    marginHorizontal: 0,
+                    marginVertical: 10,
+            }}
+            ImageStyle={{
+                    height: cardWidth, // Make image square
+                    width: cardWidth,
                     borderRadius: 8,
                   }}
                 />
               )}
+              ListEmptyComponent={
+                <View style={{
+                  flex: 1,
+                  height: 400,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingHorizontal: 20,
+                }}>
+                  <PlainText text={"No Playlists Found"} style={{textAlign: 'center'}}/>
+                  <SmallText text={"Try searching for something else"} style={{textAlign: 'center'}}/>
+                </View>
+              }
             />
           ) : (
             <View style={{
@@ -187,6 +267,6 @@ export default function ShowPlaylistofType({route}) {
           )}
         </>
       )}
-    </>
+    </View>
   );
 }
