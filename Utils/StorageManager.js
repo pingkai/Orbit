@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as RNFS from 'react-native-fs';
-import { Platform } from 'react';
+import { Platform } from 'react-native';
 
 const STORAGE_KEYS = {
   LOCAL_MUSIC_CACHE: '@melody_local_music_cache',
@@ -156,8 +156,10 @@ export const StorageManager = {
   // Create necessary directories for song storage
   ensureDirectoriesExist: async () => {
     try {
-      const dirs = RNFS.fs.dirs;
-      const basePath = dirs.DocumentDirectoryPath + '/Orbit';
+      const basePath = Platform.OS === 'android' 
+        ? RNFS.DocumentDirectoryPath + '/Orbit'
+        : RNFS.DocumentDirectoryPath + '/Orbit';
+      
       const paths = [
         basePath,
         basePath + '/songs',
@@ -186,8 +188,9 @@ export const StorageManager = {
   saveArtwork: async (songId, artworkUrl) => {
     try {
       await StorageManager.ensureDirectoriesExist();
-      const dirs = RNFS.fs.dirs;
-      const artworkPath = `${dirs.DocumentDirectoryPath}/Orbit/artwork/${songId}.jpg`;
+      const artworkPath = Platform.OS === 'android'
+        ? `${RNFS.DocumentDirectoryPath}/Orbit/artwork/${songId}.jpg`
+        : `${RNFS.DocumentDirectoryPath}/Orbit/artwork/${songId}.jpg`;
       
       // Download and save artwork
       await RNFS.downloadFile({
@@ -204,13 +207,15 @@ export const StorageManager = {
 
   // Get artwork path for a song
   getArtworkPath: (songId) => {
-    const dirs = RNFS.fs.dirs;
-    return `${dirs.DocumentDirectoryPath}/Orbit/artwork/${songId}.jpg`;
+    return Platform.OS === 'android'
+      ? `${RNFS.DocumentDirectoryPath}/Orbit/artwork/${songId}.jpg`
+      : `${RNFS.DocumentDirectoryPath}/Orbit/artwork/${songId}.jpg`;
   },
 
   // Get song file path
   getSongPath: (songId) => {
-    const dirs = RNFS.fs.dirs;
-    return `${dirs.DocumentDirectoryPath}/Orbit/songs/${songId}.mp3`;
+    return Platform.OS === 'android'
+      ? `${RNFS.DocumentDirectoryPath}/Orbit/songs/${songId}.mp3`
+      : `${RNFS.DocumentDirectoryPath}/Orbit/songs/${songId}.mp3`;
   },
 };

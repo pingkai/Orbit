@@ -72,7 +72,16 @@ const QueueRenderSongs = memo(() => {
           
           // Filter the queue
           const filtered = await filterQueueBySource(track);
-          setUpcomingQueue(filtered);
+          
+          // Filter out duplicate songs based on ID
+          const uniqueIds = new Set();
+          const uniqueFiltered = filtered.filter(track => {
+            if (!track.id || uniqueIds.has(track.id)) return false;
+            uniqueIds.add(track.id);
+            return true;
+          });
+          
+          setUpcomingQueue(uniqueFiltered);
         } else {
           setUpcomingQueue([]);
         }
@@ -92,7 +101,16 @@ const QueueRenderSongs = memo(() => {
         if (currentPlaying) {
           // Filter queue based on current track
           const filtered = await filterQueueBySource(currentPlaying);
-          setUpcomingQueue(filtered);
+          
+          // Filter out duplicate songs based on ID
+          const uniqueIds = new Set();
+          const uniqueFiltered = filtered.filter(track => {
+            if (!track.id || uniqueIds.has(track.id)) return false;
+            uniqueIds.add(track.id);
+            return true;
+          });
+          
+          setUpcomingQueue(uniqueFiltered);
           
           // Get current index
           const index = await TrackPlayer.getCurrentTrack();
@@ -141,8 +159,16 @@ const QueueRenderSongs = memo(() => {
       // Set operation flag to prevent interference
       operationInProgressRef.current = true;
       
+      // Filter out any duplicates that might have been created during dragging
+      const uniqueIds = new Set();
+      const uniqueData = data.filter(track => {
+        if (!track.id || uniqueIds.has(track.id)) return false;
+        uniqueIds.add(track.id);
+        return true;
+      });
+      
       // Update UI immediately for responsiveness
-      setUpcomingQueue(data);
+      setUpcomingQueue(uniqueData);
       
       // Get the track being moved
       const movedTrack = data[to];

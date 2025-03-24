@@ -96,6 +96,7 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
     <Pressable 
       onPress={() => SkipToTrack(index)} 
       {...dragHandlers}
+      android_ripple={{ color: 'rgba(255, 255, 255, 0.05)' }} // Very subtle ripple effect for Android
       style={{
         flexDirection: 'row',
         alignItems: "center",
@@ -109,9 +110,9 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
             ? 'rgba(29, 185, 84, 0.08)' 
             : 'transparent',
         borderRadius: 6,
+        // No border styling at all
         ...(isActive && {
-          borderColor: 'white', // White border when active for better visibility
-          borderWidth: 1,
+          // Only keep the shadow effects
           elevation: 5,
           shadowColor: "#000",
           shadowOffset: {
@@ -123,7 +124,7 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
         }),
       }}
     >
-      {/* Song image */}
+      {/* Song image - no border styling */}
       <FastImage 
         source={getImageSource()} 
         style={{
@@ -131,11 +132,8 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
           width: 48,
           borderRadius: 8,
           marginRight: 12,
-          opacity: isActive ? 1 : 1, // Keep image at full opacity even when dragging
-          ...(isActive && {
-            borderColor: 'white', // White border when active
-            borderWidth: 1,
-          }),
+          opacity: 1,
+          // No border styling
         }}
       />
       

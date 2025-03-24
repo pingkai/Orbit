@@ -4,7 +4,6 @@ import QueueRenderSongs from "./QueueRenderSongs";
 import { PlainText } from "../Global/PlainText";
 import { SmallText } from "../Global/SmallText";
 import { View, StyleSheet, Dimensions } from "react-native";
-import Ionicons from "react-native-vector-icons/Ionicons";
 import Octicons from "react-native-vector-icons/Octicons";
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -25,7 +24,7 @@ const QueueBottomSheet = () => {
       onChange={handleSheetChange}
       enablePanDownToClose={false}
       animateOnMount={false}
-      snapPoints={[100, '50%']} // Increased height for better visibility
+      snapPoints={[120, '50%']} // Increased height for better visibility
       ref={bottomSheetRef}
       style={{
         backgroundColor,

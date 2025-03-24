@@ -161,20 +161,18 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
           marginRight: isFromPlaylist ? 8 : 6,
         }}>
           <EachSongMenuButton 
-            isFromPlaylist={isFromPlaylist}
-            Onpress={({pageY}) => {
-              setVisible({
-                visible: true,
-                title: formatText(title),
-                artist: formatText(artist),
-                image,
-                id,
-                url,
-                duration,
-                language,
-                position: { y: pageY }
-              });
+            song={{
+              title,
+              artist,
+              artwork: image,
+              image,
+              id,
+              url,
+              duration,
+              language,
+              artistID
             }}
+            isFromPlaylist={isFromPlaylist}
           />
         </View>
       </View>

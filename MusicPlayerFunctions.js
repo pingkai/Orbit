@@ -2,6 +2,7 @@ import TrackPlayer from "react-native-track-player";
 import { setRepeatMode } from "react-native-track-player/lib/trackPlayer";
 import { GetPlaybackQuality } from "./LocalStorage/AppSettings";
 import NetInfo from "@react-native-community/netinfo";
+import { ToastAndroid } from "react-native";
 
 let isPlayerInitialized = false;
 
@@ -124,8 +125,41 @@ async function SetProgressSong(value){
 }
 
 async function PlayNextSong(){
-  await TrackPlayer.skipToNext();
-  PlaySong()
+  try {
+    // Get current track and queue info
+    const currentTrack = await TrackPlayer.getCurrentTrack();
+    const queue = await TrackPlayer.getQueue();
+    const playerState = await TrackPlayer.getState();
+    
+    console.log('PlayNextSong called - Current track:', currentTrack, 'Queue length:', queue.length, 'Player state:', playerState);
+    
+    // If there's no next track, just return
+    if (currentTrack >= queue.length - 1) {
+      console.log('No next track available');
+      return;
+    }
+    
+    // Skip to next track and ensure it plays
+    await TrackPlayer.skipToNext();
+    
+    // Short delay to allow track to change
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Check player state and play if not already playing
+    const stateAfterSkip = await TrackPlayer.getState();
+    console.log('Player state after skip:', stateAfterSkip);
+    
+    if (stateAfterSkip !== TrackPlayer.STATE_PLAYING) {
+      try {
+        await TrackPlayer.play();
+        console.log('Play command issued after skip');
+      } catch (playError) {
+        console.error('Error playing after skip:', playError);
+      }
+    }
+  } catch (error) {
+    console.error('Error in PlayNextSong:', error);
+  }
 }
 
 async function PlayPreviousSong(){
@@ -158,4 +192,53 @@ async function getIndexQuality(){
   return index
 }
 
-export {PlayOneSong, PlaySong, PauseSong, SetProgressSong, PlayNextSong, AddPlaylist, PlayPreviousSong, AddSongsToQueue, SkipToTrack,SetRepeatMode, getIndexQuality}
+async function AddOneSongToPlaylist(song) {
+  try {
+    // Direct import to avoid circular dependency issues
+    const { showPlaylistSelector } = require('./Utils/PlaylistManager');
+    
+    // Validate song object
+    if (!song || !song.id) {
+      console.error('Invalid song object provided to AddOneSongToPlaylist');
+      ToastAndroid.show('Invalid song data', ToastAndroid.SHORT);
+      return false;
+    }
+    
+    console.log('AddOneSongToPlaylist called with song:', song.title);
+    
+    // Format song object for playlist compatibility if needed
+    const formattedSong = {
+      id: song.id,
+      title: song.title || 'Unknown Title',
+      artist: song.artist || 'Unknown Artist',
+      artwork: song.artwork || song.image || null,
+      url: song.url || '',
+      duration: song.duration || 0,
+      language: song.language || '',
+      artistID: song.artistID || song.primary_artists_id || '',
+    };
+    
+    // Use the PlaylistManager function to show the playlist selector
+    const result = await showPlaylistSelector(formattedSong);
+    return result;
+  } catch (error) {
+    console.error('Error showing playlist selector:', error);
+    ToastAndroid.show('Error opening playlist selector', ToastAndroid.SHORT);
+    return false;
+  }
+}
+
+export {
+  PlayOneSong, 
+  PlaySong, 
+  PauseSong, 
+  SetProgressSong, 
+  PlayNextSong, 
+  AddPlaylist, 
+  PlayPreviousSong, 
+  AddSongsToQueue, 
+  SkipToTrack,
+  SetRepeatMode, 
+  getIndexQuality,
+  AddOneSongToPlaylist
+}

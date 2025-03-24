@@ -9,6 +9,7 @@ import { RouteOnboarding } from "./Route/OnboardingScreen/RouteOnboarding";
 import { InitialScreen } from "./Route/InitialScreen";
 import CodePush from "react-native-code-push";
 import { useEffect, useRef} from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const Stack = createStackNavigator()
 let codePushOptions = { checkFrequency: CodePush.CheckFrequency.ON_APP_START };
@@ -31,6 +32,26 @@ function App(){
       background:'#101010',
     },
   };
+  
+  useEffect(() => {
+    // Initialize playlists structure if needed
+    const initializeUserPlaylists = async () => {
+      try {
+        const userPlaylistsJson = await AsyncStorage.getItem('userPlaylists');
+        if (!userPlaylistsJson) {
+          console.log('Initializing user playlists structure');
+          await AsyncStorage.setItem('userPlaylists', JSON.stringify([]));
+        } else {
+          console.log('User playlists structure already exists');
+        }
+      } catch (error) {
+        console.error('Error initializing user playlists:', error);
+      }
+    };
+    
+    initializeUserPlaylists();
+  }, []);
+  
   useEffect(()=>{
     // @ts-ignore
     CodePush.notifyAppReady()

@@ -4,7 +4,7 @@ import { View, ScrollView, Pressable, ToastAndroid, Text, StatusBar, Image, Back
 import FastImage from 'react-native-fast-image';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import TrackPlayer from 'react-native-track-player';
-import { AddSongsToQueue } from '../../MusicPlayerFunctions';
+import { AddSongsToQueue, PlayOneSong } from '../../MusicPlayerFunctions';
 import Context from '../../Context/Context';
 import Modal from "react-native-modal";
 import { GetCustomPlaylists, AddSongToCustomPlaylist, CreateCustomPlaylist } from '../../LocalStorage/CustomPlaylists';
@@ -13,10 +13,13 @@ import { useNavigation, CommonActions } from "@react-navigation/native";
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { PlainText } from '../Global/PlainText';
+import { getUserPlaylists } from '../../Utils/PlaylistManager';
 
 export const CustomPlaylistView = (props) => {
   const [Songs, setSongs] = useState([]);
   const [playlistName, setPlaylistName] = useState("");
+  const [playlistId, setPlaylistId] = useState(null);
+  const [isUserPlaylist, setIsUserPlaylist] = useState(false);
   const navigation = useNavigation();
   const { Queue, setQueue, setCurrentPlaying, currentPlaying } = useContext(Context);
   const [menuVisible, setMenuVisible] = useState(false);
@@ -54,10 +57,18 @@ export const CustomPlaylistView = (props) => {
         
         setPlaylistName(name);
         
-        console.log(`CustomPlaylistView loaded with ${songs.length} songs and name: ${name}`);
+        // Get and store playlist ID if available
+        const id = props.route?.params?.playlistId || paramsFromState?.playlistId || null;
+        setPlaylistId(id);
+        
+        // Check if this is a user playlist from the PlaylistManager
+        const userPlaylist = (id && id.startsWith('playlist_'));
+        setIsUserPlaylist(userPlaylist);
+        
+        console.log(`CustomPlaylistView loaded with ${songs.length} songs and name: ${name}, ID: ${id}, isUserPlaylist: ${userPlaylist}`);
         
         // Store the current playlist data for recovery
-        storeCurrentPlaylist(name, songs);
+        storeCurrentPlaylist(name, songs, id);
       } else {
         console.log('No route params available, using default values');
         setSongs([]);
@@ -76,13 +87,13 @@ export const CustomPlaylistView = (props) => {
   }, [props.route, navigation]);
   
   // Helper for storing playlist data
-  const storeCurrentPlaylist = async (name, songs) => {
+  const storeCurrentPlaylist = async (name, songs, id = null) => {
     try {
       // Only store if we have valid data
       if (name && songs && songs.length > 0) {
-        const playlistData = { name, songs };
+        const playlistData = { name, songs, id };
         await AsyncStorage.setItem('last_viewed_custom_playlist', JSON.stringify(playlistData));
-        console.log(`Stored playlist "${name}" with ${songs.length} songs for recovery`);
+        console.log(`Stored playlist "${name}" with ${songs.length} songs for recovery, ID: ${id}`);
       }
     } catch (err) {
       console.error('Failed to save playlist data:', err);
@@ -100,13 +111,21 @@ export const CustomPlaylistView = (props) => {
           // Ensure we use the actual playlist name from storage
           setPlaylistName(playlistData.name || "Custom Playlist");
           setSongs(playlistData.songs || []);
-          console.log(`Recovered playlist data: ${playlistData.name} with ${playlistData.songs.length} songs`);
+          
+          // Also recover playlist ID if available
+          if (playlistData.id) {
+            setPlaylistId(playlistData.id);
+            setIsUserPlaylist(playlistData.id.startsWith('playlist_'));
+          }
+          
+          console.log(`Recovered playlist data: ${playlistData.name} with ${playlistData.songs.length} songs, ID: ${playlistData.id}`);
           
           // Update navigation params to reflect recovered data
           navigation.setParams({
             playlistName: playlistData.name,
             name: playlistData.name,
-            songs: playlistData.songs
+            songs: playlistData.songs,
+            playlistId: playlistData.id
           });
         } else {
           console.log('Recovered playlist had no songs, not using it');
@@ -180,16 +199,19 @@ export const CustomPlaylistView = (props) => {
       // Format all tracks for playback
       const formattedTracks = Songs.map(track => {
         // Check if this is a local song
-        const isLocalFile = track.isLocalMusic || track.path || (track.url && track.url.startsWith('file://'));
+        const isLocalFile = track.isLocalMusic || track.path || 
+           (track.url && typeof track.url === 'string' && track.url.startsWith('file://'));
         
         // Format local song
         if (isLocalFile) {
           const formattedTrack = {
             id: track.id || `local-${Date.now()}`,
-            url: track.url && track.url.startsWith('file://') ? track.url : `file://${track.path || track.url}`,
+            url: track.url && typeof track.url === 'string' && track.url.startsWith('file://') 
+                 ? track.url : `file://${track.path || track.url}`,
             title: track.title || 'Unknown',
             artist: track.artist || 'Unknown Artist',
-            artwork: (typeof track.artwork === 'number' || !track.artwork) ? DEFAULT_MUSIC_IMAGE : { uri: track.artwork },
+            artwork: (typeof track.artwork === 'number' || !track.artwork) 
+                     ? DEFAULT_MUSIC_IMAGE : { uri: track.artwork },
             // Ensure duration is a number
             duration: typeof track.duration === 'string' ? parseFloat(track.duration) || 0 : track.duration || 0,
             isLocalMusic: true
@@ -198,16 +220,38 @@ export const CustomPlaylistView = (props) => {
           return formattedTrack;
         } 
         
-        // Format online song - handle both downloadUrl array and direct url string formats
-        let url = track.url;
-        if (track.downloadUrl) {
+        // Format online song - handle multiple URL formats
+        let url = '';
+        
+        // Case 1: Direct URL string
+        if (typeof track.url === 'string') {
+          url = track.url;
+        }
+        // Case 2: URL is an array
+        else if (Array.isArray(track.url)) {
+          // Try to get highest quality URL from array
+          const highestQualityUrl = getHighestQualityUrl(track.url);
+          url = highestQualityUrl || '';
+        }
+        // Case 3: downloadUrl array
+        else if (track.downloadUrl) {
           if (Array.isArray(track.downloadUrl) && track.downloadUrl.length > 0) {
             // Find the best quality URL from downloadUrl array
             const quality = track.downloadUrl.length - 1; // Default to highest quality
-            url = track.downloadUrl[quality]?.url || track.url;
+            url = track.downloadUrl[quality]?.url || '';
           } else if (typeof track.downloadUrl === 'string') {
             url = track.downloadUrl;
           }
+        }
+        
+        // If we still don't have a URL, check if track.url is an object with properties
+        if (!url && typeof track.url === 'object' && track.url !== null) {
+          // Try various quality options
+          url = track.url['320kbps'] || track.url['160kbps'] || track.url['96kbps'] || track.url['48kbps'] || '';
+        }
+        
+        if (!url) {
+          console.warn('Could not determine URL for track:', track.id || track.title);
         }
         
         return {
@@ -245,6 +289,41 @@ export const CustomPlaylistView = (props) => {
     }
   };
 
+  // Helper function to get highest quality URL from an array
+  const getHighestQualityUrl = (urlArray) => {
+    if (!Array.isArray(urlArray) || urlArray.length === 0) {
+      return '';
+    }
+    
+    try {
+      // If array contains objects with quality property
+      if (typeof urlArray[0] === 'object' && urlArray[0].quality) {
+        // Sort by quality (assuming quality is in format like "320kbps")
+        const sortedUrls = [...urlArray].sort((a, b) => {
+          const qualityA = parseInt(a.quality?.replace(/[^\d]/g, '') || 0);
+          const qualityB = parseInt(b.quality?.replace(/[^\d]/g, '') || 0);
+          return qualityB - qualityA; // Descending order
+        });
+        
+        return sortedUrls[0]?.url || '';
+      }
+      // If array contains string URLs
+      else if (typeof urlArray[0] === 'string') {
+        return urlArray[0];
+      }
+      // If array contains objects with URL property
+      else if (urlArray[0] && typeof urlArray[0] === 'object' && 'url' in urlArray[0]) {
+        return urlArray[0].url;
+      }
+    } catch (error) {
+      console.error('Error parsing URL array:', error);
+    }
+    
+    // Fallback to first item if possible
+    return typeof urlArray[0] === 'string' ? urlArray[0] : 
+           (urlArray[0]?.url || '');
+  };
+
   // Add a custom SongCard component to replace AlbumSongCard
   const SongCard = ({ e, allSongs, index }) => {
     const { updateTrack } = useContext(Context);
@@ -276,13 +355,13 @@ export const CustomPlaylistView = (props) => {
     // Format track for playback
     const formatTrack = (track) => {
       // Check if this is a local song
-      const isLocalFile = track.isLocalMusic || track.path || (track.url && track.url.startsWith('file://'));
+      const isLocalFile = track.isLocalMusic || track.path || (track.url && typeof track.url === 'string' && track.url.startsWith('file://'));
       
       // Format local song
       if (isLocalFile) {
-        return {
+        const formattedTrack = {
           id: track.id || `local-${Date.now()}`,
-          url: track.url && track.url.startsWith('file://') ? track.url : `file://${track.path || track.url}`,
+          url: track.url && typeof track.url === 'string' && track.url.startsWith('file://') ? track.url : `file://${track.path || track.url}`,
           title: track.title || 'Unknown',
           artist: track.artist || 'Unknown Artist',
           artwork: (typeof track.artwork === 'number' || !track.artwork) ? DEFAULT_MUSIC_IMAGE : { uri: track.artwork },
@@ -290,18 +369,42 @@ export const CustomPlaylistView = (props) => {
           duration: typeof track.duration === 'string' ? parseFloat(track.duration) || 0 : track.duration || 0,
           isLocalMusic: true
         };
+        console.log('Formatted local track:', formattedTrack);
+        return formattedTrack;
       } 
       
-      // Format online song - handle both downloadUrl array and direct url string formats
-      let url = track.url;
-      if (track.downloadUrl) {
+      // Format online song - handle multiple URL formats
+      let url = '';
+      
+      // Case 1: Direct URL string
+      if (typeof track.url === 'string') {
+        url = track.url;
+      }
+      // Case 2: URL is an array
+      else if (Array.isArray(track.url)) {
+        // Try to get highest quality URL from array
+        const highestQualityUrl = getHighestQualityUrl(track.url);
+        url = highestQualityUrl || '';
+      }
+      // Case 3: downloadUrl array
+      else if (track.downloadUrl) {
         if (Array.isArray(track.downloadUrl) && track.downloadUrl.length > 0) {
           // Find the best quality URL from downloadUrl array
           const quality = track.downloadUrl.length - 1; // Default to highest quality
-          url = track.downloadUrl[quality]?.url || track.url;
+          url = track.downloadUrl[quality]?.url || '';
         } else if (typeof track.downloadUrl === 'string') {
           url = track.downloadUrl;
         }
+      }
+      
+      // If we still don't have a URL, check if track.url is an object with properties
+      if (!url && typeof track.url === 'object' && track.url !== null) {
+        // Try various quality options
+        url = track.url['320kbps'] || track.url['160kbps'] || track.url['96kbps'] || track.url['48kbps'] || '';
+      }
+      
+      if (!url) {
+        console.warn('Could not determine URL for track:', track.id || track.title);
       }
       
       return {
@@ -322,13 +425,13 @@ export const CustomPlaylistView = (props) => {
         // Format all tracks starting from the current one
         const tracksToPlay = allSongs.slice(index).map(track => {
           // Check if this is a local song
-          const isLocalFile = track.isLocalMusic || track.path || (track.url && track.url.startsWith('file://'));
+          const isLocalFile = track.isLocalMusic || track.path || (track.url && typeof track.url === 'string' && track.url.startsWith('file://'));
           
           // Format local song
           if (isLocalFile) {
             const formattedTrack = {
               id: track.id || `local-${Date.now()}`,
-              url: track.url && track.url.startsWith('file://') ? track.url : `file://${track.path || track.url}`,
+              url: track.url && typeof track.url === 'string' && track.url.startsWith('file://') ? track.url : `file://${track.path || track.url}`,
               title: track.title || 'Unknown',
               artist: track.artist || 'Unknown Artist',
               artwork: (typeof track.artwork === 'number' || !track.artwork) ? DEFAULT_MUSIC_IMAGE : { uri: track.artwork },
@@ -340,16 +443,38 @@ export const CustomPlaylistView = (props) => {
             return formattedTrack;
           } 
           
-          // Format online song - handle both downloadUrl array and direct url string formats
-          let url = track.url;
-          if (track.downloadUrl) {
+          // Format online song - handle multiple URL formats
+          let url = '';
+          
+          // Case 1: Direct URL string
+          if (typeof track.url === 'string') {
+            url = track.url;
+          }
+          // Case 2: URL is an array
+          else if (Array.isArray(track.url)) {
+            // Try to get highest quality URL from array
+            const highestQualityUrl = getHighestQualityUrl(track.url);
+            url = highestQualityUrl || '';
+          }
+          // Case 3: downloadUrl array
+          else if (track.downloadUrl) {
             if (Array.isArray(track.downloadUrl) && track.downloadUrl.length > 0) {
               // Find the best quality URL from downloadUrl array
               const quality = track.downloadUrl.length - 1; // Default to highest quality
-              url = track.downloadUrl[quality]?.url || track.url;
+              url = track.downloadUrl[quality]?.url || '';
             } else if (typeof track.downloadUrl === 'string') {
               url = track.downloadUrl;
             }
+          }
+          
+          // If we still don't have a URL, check if track.url is an object with properties
+          if (!url && typeof track.url === 'object' && track.url !== null) {
+            // Try various quality options
+            url = track.url['320kbps'] || track.url['160kbps'] || track.url['96kbps'] || track.url['48kbps'] || '';
+          }
+          
+          if (!url) {
+            console.warn('Could not determine URL for track:', track.id || track.title);
           }
           
           return {
@@ -420,6 +545,22 @@ export const CustomPlaylistView = (props) => {
     }
   };
     
+  const handleAddToPlaylist = async (song) => {
+    try {
+      // Import the function to add song to playlist
+      const { AddOneSongToPlaylist } = require('../../MusicPlayerFunctions');
+      
+      // Call the function to add song to playlist
+      const result = await AddOneSongToPlaylist(song);
+      if (!result) {
+        ToastAndroid.show('Failed to open playlist selector', ToastAndroid.SHORT);
+      }
+    } catch (error) {
+      console.error('Error adding to playlist:', error);
+      ToastAndroid.show('Failed to add to playlist', ToastAndroid.SHORT);
+    }
+  };
+
   return (
       <>
         <Pressable
@@ -436,10 +577,10 @@ export const CustomPlaylistView = (props) => {
           {/* Song details */}
           <View style={styles.songInfo}>
             <Text style={styles.songTitle} numberOfLines={1}>
-              {e.title}
+              {e.title.length > 20 ? e.title.substring(0, 20) + '...' : e.title}
             </Text>
             <Text style={styles.artistName} numberOfLines={1}>
-              {e.artist}
+              {e.artist.length > 20 ? e.artist.substring(0, 20) + '...' : e.artist}
             </Text>
       </View>
 
@@ -482,6 +623,18 @@ export const CustomPlaylistView = (props) => {
             >
               <MaterialCommunityIcons name="play-box-multiple" size={22} color="white" />
               <Text style={styles.modalOptionText}>Play Next</Text>
+            </Pressable>
+            
+            <Pressable
+              style={styles.modalOption}
+              onPress={() => {
+                setMenuVisible(false);
+                handleAddToPlaylist(e);
+              }}
+              android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
+            >
+              <MaterialCommunityIcons name="playlist-plus" size={22} color="white" />
+              <Text style={styles.modalOptionText}>Add to Playlist</Text>
             </Pressable>
             
             <Pressable
