@@ -164,7 +164,7 @@ export const Home = () => {
               contentContainerStyle={{
                 paddingLeft: 15,
                 paddingRight: 10,
-                gap: 15,
+                gap: 20,
               }}
               data={shuffledPlaylists}
               keyExtractor={(item, index) => `playlist-${item.id}-${index}`}
@@ -186,6 +186,9 @@ export const Home = () => {
                   image={item.image[2].link}
                   id={item.id}
                   source="Home"
+                  MainContainerStyle={{
+                    marginHorizontal: 4, // Add horizontal margin
+                  }}
                 />
               )}
             />
@@ -198,7 +201,7 @@ export const Home = () => {
               contentContainerStyle={{
                 paddingLeft: 15,
                 paddingRight: 10,
-                gap: 15,
+                gap: 20,
               }}
               data={shuffledAlbums}
               keyExtractor={(item, index) => `album-${item.id}-${index}`}

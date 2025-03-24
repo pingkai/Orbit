@@ -281,16 +281,16 @@ const styles = StyleSheet.create({
   },
   // Update playlist styling to match album styling while keeping albums unchanged
   playlistContainer: {
-    width: width / 2 - 32,
+    width: width / 2 - 36,  // Reduced width to account for margins
     paddingVertical: 8,
     paddingHorizontal: 0,
-    marginHorizontal: 8,
+    marginHorizontal: 10,  // Increased from 8
     marginBottom: 16,
     borderRadius: 8,
     backgroundColor: Color.backgroundColor2,
   },
   playlistGrid: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     marginTop: 4,
   },
@@ -298,6 +298,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
+    marginBottom: 12,  // Added margin bottom for vertical spacing
   },
   albumContainer: {
     width: width / 2 - 32,

@@ -10,6 +10,7 @@ import { Heading } from "../Global/Heading";
 import { PaddingConatiner } from "../../Layout/PaddingConatiner";
 import { useNavigation, useFocusEffect, useRoute } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { PlaylistItemWrapper } from "./PlaylistItemWrapper";
 
 // Add a utility function to truncate text
 const truncateText = (text, limit = 22) => {
@@ -152,7 +153,7 @@ export default function ShowPlaylistofType({route}) {
   // Calculate optimal card sizing based on screen width
   const getCardWidth = () => {
     // Allow for 2 columns with proper spacing
-    const cardWidth = (width - 48) / 2; // 48 = total horizontal padding (16 left + 16 right + 16 between cards)
+    const cardWidth = (width - 40) / 2; // Reduced from 60 to make cards larger and more compact
     return cardWidth;
   };
 
@@ -209,35 +210,23 @@ export default function ShowPlaylistofType({route}) {
               numColumns={2}
               keyExtractor={(item, index) => String(index)}
               contentContainerStyle={{
-                paddingHorizontal: 16,
-                paddingBottom: 120, // Extra padding for player
+                paddingHorizontal: 12,
+                paddingBottom: 100,
+                paddingTop: 4,
               }}
               columnWrapperStyle={{
                 justifyContent: 'space-between',
-                marginBottom: 16,
+                marginBottom: 12, // Reduced from 24 for less vertical space
                 width: '100%',
               }}
               data={Data?.data?.results}
               renderItem={(item) => (
-                <EachPlaylistCard
-                  name={truncateText(item.item.name, 22)}
-                  follower={truncateText("Total " + item.item.songCount + " Songs", 22)}
-            key={item.index}
-            image={item.item.image[2].link}
-            id={item.item.id}
+                <PlaylistItemWrapper 
+                  item={item.item}
+                  cardWidth={cardWidth}
                   source="ShowPlaylistofType"
                   searchText={Searchtext}
-                  navigationSource={source} // Pass the source for back navigation
-                  MainContainerStyle={{
-                    width: cardWidth,
-                    marginHorizontal: 0,
-                    marginVertical: 10,
-            }}
-            ImageStyle={{
-                    height: cardWidth, // Make image square
-                    width: cardWidth,
-                    borderRadius: 8,
-                  }}
+                  navigationSource={source}
                 />
               )}
               ListEmptyComponent={

@@ -7,6 +7,7 @@ import FastImage from "react-native-fast-image";
 import { memo, useMemo } from "react";
 import { useNavigation, useTheme } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LanguageTag } from "./LanguageTag";
 
 // AsyncStorage keys
 const CURRENT_ALBUM_ID_KEY = "orbit_current_album_id";
@@ -41,8 +42,8 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
   const responsiveStyles = useMemo(() => {
     // Base width is ~30% of screen width with some minimum size
     const cardWidth = Math.max(150, width * 0.3);
-    // Height maintains aspect ratio plus text area
-    const cardHeight = cardWidth * 1.35;
+    // Height maintains aspect ratio plus text area with more space for text
+    const cardHeight = cardWidth * 1.3; // Reduced from 1.45 to make cards more compact
     // Image height is square
     const imageHeight = cardWidth;
     
@@ -57,6 +58,9 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
       },
       textContainer: {
         height: cardHeight - imageHeight,
+        marginTop: 4,
+        paddingTop: 8, // Reduced from 8
+        // paddingBottom: 4, // Reduced from 6
       }
     };
   }, [width]);
@@ -113,25 +117,42 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
   return (
     <Pressable onPress={handleNavigation} style={{
       ...(style || {}),
-      margin: 2,
+      margin: 4,
       borderRadius: 8,
       overflow: 'hidden',
       ...responsiveStyles.container,
       ...MainContainerStyle,
     }}>
-      <FastImage source={imageSource} style={{
-        ...responsiveStyles.image,
-        borderRadius:10,
-        ...ImageStyle,
-      }}/>
+      <View style={{ position: 'relative' }}>
+        <FastImage source={imageSource} style={{
+          ...responsiveStyles.image,
+          borderRadius: 10,
+          ...ImageStyle,
+        }}/>
+        {language && <LanguageTag language={language} />}
+      </View>
       <SpaceBetween style={{
         ...responsiveStyles.textContainer,
+        paddingHorizontal: 5, // Add horizontal padding
       }}>
         <View style={{
           width:"85%",
         }}>
-          <PlainText text={truncateText(name, 30)}/>
-          <SmallText text={truncateText(follower, 30)}/>
+          <PlainText 
+            text={truncateText(name, 24)} 
+            style={{
+              marginBottom: 1, // Reduced from 3 for less space between title and subtitle
+              fontWeight: 'bold', // Make title bold for better visibility
+            }}
+            numberOfLine={2} // Allow two lines for title
+          />
+          <SmallText 
+            text={truncateText(follower, 28)} 
+            style={{
+              opacity: 0.8, // Better contrast for follower text
+            }}
+            maxLine={1} // Only one line for follower count
+          />
         </View>
         <FontAwesome5 name={"play"} size={15} color={theme.colors.text}/>
       </SpaceBetween>

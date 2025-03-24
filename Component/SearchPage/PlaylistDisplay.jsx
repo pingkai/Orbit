@@ -60,7 +60,7 @@ export default function PlaylistDisplay({data, limit, Searchtext}) {
           }}
           columnWrapperStyle={{
             justifyContent: 'space-between',
-            marginBottom: 15,
+            marginBottom: 20,
             width: '100%',
           }}
           data={[...Data?.data?.results ?? [], {LoadingComponent: true}]} 
@@ -78,9 +78,9 @@ export default function PlaylistDisplay({data, limit, Searchtext}) {
                   source="Search"
                   searchText={Searchtext}
                   MainContainerStyle={{
-                    width: width * 0.46,
-                    height: width * 0.66,
-                    margin: 0,
+                    width: width * 0.42,
+                    height: width * 0.62,
+                    margin: 8,
                   }}
                   ImageStyle={{
                     height: width * 0.46,
