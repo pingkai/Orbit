@@ -27,6 +27,28 @@ export const CustomPlaylist = () => {
   const [userPlaylists, setUserPlaylists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [animationsInitialized, setAnimationsInitialized] = useState(false);
+  
+  // Keep track of animation values for reuse
+  const [animationValues] = useState({
+    translateY: new Map(),
+    opacity: new Map()
+  });
+
+  // Initialize animation value for an item if it doesn't exist
+  const getAnimationValues = (id, index) => {
+    const key = id || `item-${index}`;
+    
+    if (!animationValues.translateY.has(key)) {
+      animationValues.translateY.set(key, new Animated.Value(20));
+      animationValues.opacity.set(key, new Animated.Value(0));
+    }
+    
+    return {
+      translateY: animationValues.translateY.get(key),
+      opacity: animationValues.opacity.get(key)
+    };
+  };
 
   const loadPlaylists = async () => {
     try {
@@ -94,17 +116,55 @@ export const CustomPlaylist = () => {
     }
   };
   
-  const [fadeAnim] = useState(new Animated.Value(0));
-
+  // Run animations once when playlists are loaded
   useEffect(() => {
-    loadPlaylists();
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 1000,
-      useNativeDriver: true,
-    }).start();
-  }, []);
-  
+    if ((userPlaylists.length > 0 || Object.keys(playlists).length > 0) && !animationsInitialized) {
+      // Animate user playlists
+      userPlaylists.forEach((item, index) => {
+        const key = item.id || `item-${index}`;
+        const vals = getAnimationValues(key, index);
+        
+        Animated.timing(vals.translateY, {
+          toValue: 0,
+          duration: 300,
+          easing: Easing.out(Easing.cubic),
+          delay: index * 100,
+          useNativeDriver: true,
+        }).start();
+
+        Animated.timing(vals.opacity, {
+          toValue: 1,
+          duration: 300,
+          delay: index * 100,
+          useNativeDriver: true,
+        }).start();
+      });
+      
+      // Animate legacy playlists
+      Object.keys(playlists).forEach((item, index) => {
+        const key = item;
+        const vals = getAnimationValues(key, index);
+        
+        Animated.timing(vals.translateY, {
+          toValue: 0,
+          duration: 300,
+          easing: Easing.out(Easing.cubic),
+          delay: index * 100 + (userPlaylists.length * 100), // Start after user playlists
+          useNativeDriver: true,
+        }).start();
+
+        Animated.timing(vals.opacity, {
+          toValue: 1,
+          duration: 300,
+          delay: index * 100 + (userPlaylists.length * 100),
+          useNativeDriver: true,
+        }).start();
+      });
+      
+      setAnimationsInitialized(true);
+    }
+  }, [userPlaylists, playlists, animationsInitialized, animationValues]);
+
   // Refresh playlists when the screen comes into focus
   useFocusEffect(
     useCallback(() => {
@@ -118,7 +178,7 @@ export const CustomPlaylist = () => {
   useEffect(() => {
     const handleBackPress = () => {
       console.log('Back pressed in CustomPlaylist, navigating to LibraryPage');
-      navigation.navigate('LibraryPage');
+      navigation.goBack(); // Use goBack() instead of navigate to preserve navigation stack
       return true; // Prevent default back action
     };
 
@@ -229,33 +289,22 @@ export const CustomPlaylist = () => {
   };
 
   const renderPlaylist = ({ item, index }) => {
-    const translateY = new Animated.Value(20); 
-    const opacity = new Animated.Value(0);
-
-    Animated.timing(translateY, {
-      toValue: 0,
-      duration: 300,
-      easing: Easing.out(Easing.cubic),
-      delay: index * 100,
-      useNativeDriver: true,
-    }).start();
-
-    Animated.timing(opacity, {
-      toValue: 1,
-      duration: 300,
-      delay: index * 100,
-      useNativeDriver: true,
-    }).start();
+    // Use the pre-calculated animation values
+    const animations = getAnimationValues(item, index);
     
     const handlePlaylistPress = () => {
       const playlist = playlists[item];
       if (playlist) {
-        navigation.navigate("CustomPlaylistView", { songs: playlist, playlistName: item });
+        navigation.navigate("CustomPlaylistView", { 
+          songs: playlist, 
+          playlistName: item,
+          previousScreen: "CustomPlaylist"
+        });
       }
     };
 
     return (
-      <Animated.View style={{ transform: [{ translateY }], opacity }}>
+      <Animated.View style={{ transform: [{ translateY: animations.translateY }], opacity: animations.opacity }}>
         <Pressable
           style={styles.playlistItem}
           onPress={handlePlaylistPress}
@@ -291,24 +340,11 @@ export const CustomPlaylist = () => {
   };
   
   const renderUserPlaylist = ({ item, index }) => {
-    console.log(`Rendering user playlist: ${item.name} (${item.id})`);
-    const translateY = new Animated.Value(20); 
-    const opacity = new Animated.Value(0);
-
-    Animated.timing(translateY, {
-      toValue: 0,
-      duration: 300,
-      easing: Easing.out(Easing.cubic),
-      delay: index * 100,
-      useNativeDriver: true,
-    }).start();
-
-    Animated.timing(opacity, {
-      toValue: 1,
-      duration: 300,
-      delay: index * 100,
-      useNativeDriver: true,
-    }).start();
+    // Reduce logging to avoid console spam
+    // console.log(`Rendering user playlist: ${item.name} (${item.id})`);
+    
+    // Use the pre-calculated animation values
+    const animations = getAnimationValues(item.id, index);
     
     const handlePlaylistPress = () => {
       // Navigate to the playlist view with the songs from this playlist
@@ -317,6 +353,7 @@ export const CustomPlaylist = () => {
           songs: item.songs, 
           playlistName: item.name,
           playlistId: item.id,
+          previousScreen: "CustomPlaylist"
         });
       } else {
         ToastAndroid.show('This playlist is empty', ToastAndroid.SHORT);
@@ -324,7 +361,7 @@ export const CustomPlaylist = () => {
     };
 
     return (
-      <Animated.View style={{ transform: [{ translateY }], opacity, width: '100%' }}>
+      <Animated.View style={{ transform: [{ translateY: animations.translateY }], opacity: animations.opacity, width: '100%' }}>
         <Pressable
           style={styles.playlistItem}
           onPress={handlePlaylistPress}
@@ -454,6 +491,25 @@ export const CustomPlaylist = () => {
     );
   };
 
+  // Add a separate useEffect for loadPlaylists
+  useEffect(() => {
+    loadPlaylists();
+  }, []);
+
+  // Add back handler to ensure we go back to Library
+  useEffect(() => {
+    const handleBack = () => {
+      console.log('Back pressed in CustomPlaylist');
+      // Navigate back to Library main screen
+      navigation.navigate('Library', { screen: 'LibraryPage' });
+      return true; // Prevent default back action
+    };
+    
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBack);
+    
+    return () => backHandler.remove();
+  }, [navigation]);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.header}>
@@ -463,7 +519,7 @@ export const CustomPlaylist = () => {
           onPress={() => setModalVisible(true)}
           android_ripple={{ color: 'rgba(255,255,255,0.2)', borderless: true, radius: 20 }}
         >
-          <MaterialIcons name="playlist-add" size={34} color={theme.colors.primary} />
+          <MaterialIcons name="playlist-add" size={30} color={theme.colors.primary} />
         </Pressable>
       </View>
       
@@ -548,12 +604,12 @@ export const CustomPlaylist = () => {
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </Pressable>
-              <Pressable 
-                style={styles.createPlaylistButton}
-                onPress={handleCreatePlaylist}
-              >
-                <Text style={styles.createButtonText}>Create</Text>
-              </Pressable>
+            <Pressable 
+              style={styles.createPlaylistButton}
+              onPress={handleCreatePlaylist}
+            >
+              <Text style={styles.createButtonText}>Create</Text>
+            </Pressable>
             </View>
           </View>
         </View>
@@ -609,13 +665,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   addButton: {
-    padding: 8,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    width: 44,
-    height: 44,
+    padding: 10,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    width: 48,
+    height: 48,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 4,
   },
   content: {
     flex: 1,

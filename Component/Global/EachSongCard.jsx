@@ -149,7 +149,12 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
             flex:1,
             marginRight: isFromPlaylist ? 10 : 8,
           }}>
-            <PlainText text={formatText(title)} style={{width:titleandartistwidth ? titleandartistwidth : width1 * (isFromPlaylist ? 0.63 : 0.66)}}/>
+            <PlainText 
+              text={formatText(title)} 
+              songId={id} 
+              isSongTitle={true} 
+              style={{width:titleandartistwidth ? titleandartistwidth : width1 * (isFromPlaylist ? 0.63 : 0.66)}}
+            />
             <SmallText text={formatText(artist)} style={{width:titleandartistwidth ? titleandartistwidth : width1 * (isFromPlaylist ? 0.63 : 0.66)}}/>
           </View>
         </Pressable>

@@ -92,10 +92,10 @@ export const addSongToPlaylist = async (playlistId, song) => {
     playlists[playlistIndex].songs.push(formattedSong);
     console.log('Song added to playlist in memory');
     
-    // Update playlist cover image if it doesn't have one
-    if (!playlists[playlistIndex].coverImage && (formattedSong.artwork)) {
+    // Update playlist cover image with the new song's artwork
+    if (formattedSong.artwork) {
       playlists[playlistIndex].coverImage = formattedSong.artwork;
-      console.log('Updated playlist cover image');
+      console.log('Updated playlist cover image to new song artwork');
     }
     
     // Update playlist lastModified time
@@ -206,6 +206,81 @@ export const showPlaylistSelector = (song) => {
   } catch (error) {
     console.error('Error showing playlist selector:', error);
     ToastAndroid.show('Error opening playlist selector', ToastAndroid.SHORT);
+    return false;
+  }
+};
+
+// Function to remove a song from a playlist
+export const removeSongFromPlaylist = async (playlistId, songId) => {
+  try {
+    if (!playlistId || !songId) {
+      console.error('Invalid parameters for song removal', { playlistId, songId });
+      return false;
+    }
+    
+    // Get all playlists
+    let playlists = await getUserPlaylists();
+    
+    // Early validation to prevent errors
+    if (!Array.isArray(playlists)) {
+      console.error('Playlists is not an array:', playlists);
+      playlists = [];
+      return false;
+    }
+    
+    // Find the target playlist
+    const playlistIndex = playlists.findIndex(p => p.id === playlistId);
+    
+    if (playlistIndex === -1) {
+      console.error(`Playlist with ID ${playlistId} not found`);
+      ToastAndroid.show('Playlist not found', ToastAndroid.SHORT);
+      return false;
+    }
+    
+    // Check if playlist has songs
+    if (!playlists[playlistIndex].songs || !Array.isArray(playlists[playlistIndex].songs)) {
+      console.error('Playlist songs array is invalid', playlists[playlistIndex].songs);
+      playlists[playlistIndex].songs = [];
+      return false;
+    }
+    
+    // Get the songs array
+    const songs = playlists[playlistIndex].songs;
+    
+    // Filter out the song to remove
+    const updatedSongs = songs.filter(song => song.id !== songId);
+    
+    // Check if we actually removed a song
+    if (updatedSongs.length === songs.length) {
+      console.log(`Song ${songId} not found in playlist ${playlistId}`);
+      return false;
+    }
+    
+    // Update the playlist
+    playlists[playlistIndex].songs = updatedSongs;
+    playlists[playlistIndex].lastModified = Date.now();
+    
+    // Update cover image if we removed the song that was used for the cover
+    if (updatedSongs.length > 0 && (!playlists[playlistIndex].coverImage || 
+        playlists[playlistIndex].songs.every(song => song.artwork !== playlists[playlistIndex].coverImage))) {
+      // Use the first song's artwork as the new cover
+      playlists[playlistIndex].coverImage = updatedSongs[0].artwork;
+      console.log('Updated playlist cover image after song removal');
+    } else if (updatedSongs.length === 0) {
+      // No songs left, remove cover image
+      playlists[playlistIndex].coverImage = null;
+      console.log('Removed playlist cover image (empty playlist)');
+    }
+    
+    // Save updated playlists
+    await AsyncStorage.setItem('userPlaylists', JSON.stringify(playlists));
+    console.log(`Removed song ${songId} from playlist ${playlistId}`);
+    
+    ToastAndroid.show('Song removed from playlist', ToastAndroid.SHORT);
+    return true;
+  } catch (error) {
+    console.error('Error removing song from playlist:', error);
+    ToastAndroid.show('Failed to remove song from playlist', ToastAndroid.SHORT);
     return false;
   }
 }; 

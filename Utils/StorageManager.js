@@ -3,8 +3,8 @@ import * as RNFS from 'react-native-fs';
 import { Platform } from 'react-native';
 
 const STORAGE_KEYS = {
-  LOCAL_MUSIC_CACHE: '@melody_local_music_cache',
-  LAST_SCAN_TIME: '@melody_last_scan_time',
+  LOCAL_MUSIC_CACHE: '@orbit_local_music_cache',
+  LAST_SCAN_TIME: '@orbit_last_scan_time',
   DOWNLOADED_SONGS_METADATA: '@orbit_downloaded_songs_metadata',
 };
 

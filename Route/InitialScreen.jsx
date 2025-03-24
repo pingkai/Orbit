@@ -59,7 +59,7 @@ export const InitialScreen = ({navigation}) => {
          fontSize:15,
          color:theme.colors.primary,
          marginBottom: 30,
-       }}>Music for free</Animated.Text>
+       }}>Where Universe Takes You</Animated.Text>
        
        {statusMessage ? (
          <Animated.Text 

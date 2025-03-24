@@ -1,6 +1,9 @@
 /**
  * @format
  */
+// Apply NativeEventEmitter fixes before importing React Native components
+import './Utils/NativeEventEmitterFix';
+
 import 'react-native-gesture-handler';
 import {AppRegistry} from 'react-native';
 import App from './App';

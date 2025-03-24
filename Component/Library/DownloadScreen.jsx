@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, Text, Dimensions, RefreshControl } from 'react-native';
+import { View, FlatList, StyleSheet, Text, Dimensions, RefreshControl, BackHandler } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
 import { PlainText } from '../Global/PlainText';
 import { EachSongCard } from '../Global/EachSongCard';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import { useNavigation } from '@react-navigation/native';
 
 // Hard-coded colors until we find the correct import
 const AppColors = {
@@ -17,14 +18,35 @@ const AppColors = {
 
 const { width, height } = Dimensions.get('window');
 
-export default function DownloadScreen() {
+export default function DownloadScreen(props) {
   const [downloadedSongs, setDownloadedSongs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const navigation = useNavigation();
 
   useEffect(() => {
     getDownloadedSongs();
-  }, []);
+
+    // Add back handler to properly navigate back to Library instead of Home
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      console.log('Back pressed in Download screen, navigating to Library');
+      // Check if we were navigated from Library
+      const previousScreen = props.route?.params?.previousScreen;
+      
+      if (previousScreen === 'Library') {
+        // Go back to Library screen
+        navigation.goBack();
+      } else {
+        // If we don't know where we came from, use the default library navigation
+        navigation.navigate('Library');
+      }
+      return true; // Prevent default back action
+    });
+    
+    return () => {
+      backHandler.remove();
+    };
+  }, [navigation, props.route]);
 
   const onRefresh = async () => {
     setRefreshing(true);

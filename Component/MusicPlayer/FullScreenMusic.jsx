@@ -614,8 +614,49 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
   useEffect(() => {
     const backAction = () => {
       if (Index === 1) {
+        console.log('Back pressed in fullscreen mode, minimizing player');
+        
         // Only minimize the player when in fullscreen mode
         setIndex(0);
+        
+        // Get previously stored screen data
+        const storedNavData = async () => {
+          try {
+            // First check if we have exact navigation data for the playlist
+            if (musicPreviousScreen) {
+              // Clean up the path
+              let cleanPath = musicPreviousScreen;
+              if (cleanPath.startsWith('MainRoute/')) {
+                cleanPath = cleanPath.replace('MainRoute/', '');
+              }
+              
+              // Split into parts
+              const parts = cleanPath.split('/');
+              console.log('Navigation path for return:', parts);
+              
+              // For CustomPlaylistView, make sure we have the right params
+              if (parts.length >= 2 && parts[1] === 'CustomPlaylistView') {
+                const playlistData = await AsyncStorage.getItem('last_viewed_custom_playlist');
+                if (playlistData) {
+                  const parsedData = JSON.parse(playlistData);
+                  console.log('Found stored playlist data:', parsedData.playlistName);
+                  
+                  // Use setTimeout to allow the minimize animation to complete
+                  setTimeout(() => {
+                    navigation.navigate(parts[0], {
+                      screen: parts[1],
+                      params: parsedData
+                    });
+                  }, 100);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error in back handler navigation:', error);
+          }
+        };
+        
+        storedNavData();
         return true; // Prevent default back action
       }
       return false; // Let default back action happen otherwise
@@ -627,7 +668,7 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     );
 
     return () => backHandler.remove();
-  }, [Index, setIndex]);
+  }, [Index, setIndex, navigation, musicPreviousScreen]);
 
   // Combine gestures with the pan taking priority
   const combinedGestures = Gesture.Exclusive(pan, tap);
@@ -636,31 +677,58 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     setShowDailog(true);
     try {
       setLoading(true);
-      if (!currentPlaying?.id) return;
+      if (!currentPlaying?.id) {
+        setLyric({ lyrics: "No song playing. Please play a song first." });
+        setLoading(false);
+        return;
+      }
 
-      // Instead of using our own caching logic, use the cached version from API
-      // This leverages the centralized cache mechanism
-      const result = await getLyricsSongData(currentPlaying.id);
-      
-      if (result) {
-        if (result.fromCache) {
-          console.log('Lyrics loaded from cache');
+      try {
+        // Instead of using our own caching logic, use the cached version from API
+        // This leverages the centralized cache mechanism
+        const result = await getLyricsSongData(currentPlaying.id);
+        
+        if (result) {
+          if (result.fromCache) {
+            console.log('Lyrics loaded from cache');
+          } else {
+            console.log('Lyrics freshly fetched');
+          }
+          
+          // If we got data, use it
+          if (result.success) {
+            setLyric(result.data);
+          } else {
+            setLyric({ lyrics: "No Lyrics Found\nSorry, we couldn't find lyrics for this song." });
+          }
         } else {
-          console.log('Lyrics freshly fetched');
+          setLyric({ lyrics: isOffline ? "You are offline. Lyrics are not available." : "No Lyrics Found\nSorry, we couldn't find lyrics for this song." });
+        }
+      } catch (error) {
+        // Handle specific HTTP errors
+        let errorMessage = "No Lyrics Found\nSorry, we couldn't find lyrics for this song.";
+        
+        if (error.response) {
+          // The request was made and the server responded with a status code
+          // that falls out of the range of 2xx
+          if (error.response.status === 404) {
+            errorMessage = "No Lyrics Found\nLyrics are not available for this song.";
+          } else {
+            errorMessage = `Service Error (${error.response.status})\nPlease try again later.`;
+          }
+        } else if (error.request) {
+          // The request was made but no response was received
+          errorMessage = isOffline ? 
+            "You are offline. Lyrics are not available." : 
+            "Network Error\nCouldn't connect to the lyrics service.";
         }
         
-        // If we got data, use it
-        if (result.success) {
-          setLyric(result.data);
-        } else {
-          setLyric({ lyrics: "No Lyrics Found \nOpps... O_o" });
-        }
-      } else {
-        setLyric({ lyrics: isOffline ? "You are offline. Lyrics are not available." : "No Lyrics Found \nOpps... O_o" });
+        setLyric({ lyrics: errorMessage });
+        console.log('Lyrics error handled:', error.message || error);
       }
     } catch (e) {
-      console.error("Error fetching lyrics:", e);
-      setLyric({ lyrics: isOffline ? "You are offline. Lyrics are not available." : "No Lyrics Found \nOpps... O_o" });
+      console.error("Error in GetLyrics function:", e);
+      setLyric({ lyrics: isOffline ? "You are offline. Lyrics are not available." : "No Lyrics Found\nSorry, we couldn't find lyrics for this song." });
     } finally {
       setLoading(false);
     }

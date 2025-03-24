@@ -28,7 +28,7 @@ export const EachLibraryCard = ({ icon, text, navigate }) => {
     <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
       <Pressable
         onPress={() => {
-          navigation.navigate(navigate);
+          navigation.navigate(navigate, { previousScreen: 'Library' });
         }}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}

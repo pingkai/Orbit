@@ -10,10 +10,10 @@ import { useTheme } from "@react-navigation/native";
 import CustomTabBar from '../Component/Tab/CustomTabBar';
 import BottomSheetMusic from '../Component/MusicPlayer/BottomSheetMusic';
 import { View, TouchableOpacity } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, CommonActions } from '@react-navigation/native';
 import { BackHandler } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NavigationContainer, CommonActions } from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigation/native';
 import Icons from 'react-native-vector-icons/Ionicons';
 import Context from '../Context/Context';
 import { FullScreenMusic } from '../Component/MusicPlayer/FullScreenMusic';
@@ -186,8 +186,62 @@ export const RootRoute = () => {
             return;
           }
           
+          // Special handling for CustomPlaylistView to ensure we have the right data
+          if (screen === 'CustomPlaylistView') {
+            console.log('Navigating to CustomPlaylistView with params', params);
+            
+            // Function to proceed with navigation once we have the data
+            const navigateWithParams = (navigationParams) => {
+              // Force update the navigation
+              navigation.dispatch(
+                CommonActions.reset({
+                  index: 0,
+                  routes: [
+                    {
+                      name: 'MainRoute',
+                      state: {
+                        routes: [
+                          {
+                            name: tab,
+                            state: {
+                              routes: [{ name: screen, params: navigationParams }],
+                              index: 0
+                            }
+                          }
+                        ],
+                        index: 0
+                      }
+                    }
+                  ]
+                })
+              );
+            };
+            
+            // If we already have params, use them
+            if (params && Object.keys(params).length > 0) {
+              navigateWithParams(params);
+            } 
+            // Otherwise try to retrieve from storage
+            else {
+              AsyncStorage.getItem('last_viewed_custom_playlist')
+                .then(playlistData => {
+                  if (playlistData) {
+                    const parsedData = JSON.parse(playlistData);
+                    console.log('Using stored playlist data for navigation');
+                    navigateWithParams(parsedData);
+                  } else {
+                    console.log('No stored playlist data found, navigating without params');
+                    navigateWithParams({});
+                  }
+                })
+                .catch(error => {
+                  console.error('Error retrieving playlist data:', error);
+                  navigateWithParams({});
+                });
+            }
+          } 
           // Handle different screen types
-          if (screen === 'Album') {
+          else if (screen === 'Album') {
             console.log(`Navigating to Album in ${tab} tab with params:`, params);
             if (tab === 'Home') {
               navigation.navigate('Home', {

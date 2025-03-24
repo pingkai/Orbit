@@ -63,6 +63,21 @@ async function getLyricsSongData(id) {
       return response.data;
     }
     catch (error) {
+      // Return a proper formatted response for 404 errors
+      if (error.response && error.response.status === 404) {
+        console.log(`No lyrics found for song ID ${id} (404)`);
+        // Return a properly formatted empty result rather than throwing
+        return {
+          success: false,
+          status: "NOT_FOUND",
+          message: "No lyrics available for this song",
+          data: { lyrics: "" }
+        };
+      }
+      
+      // For other errors, log and rethrow
+      console.error(`API error fetching lyrics for song ID ${id}:`, 
+        error.response ? `Status: ${error.response.status}` : error.message || error);
       throw error;
     }
   };
@@ -72,7 +87,13 @@ async function getLyricsSongData(id) {
     return await getCachedData(cacheKey, fetchFunction, 1440, CACHE_GROUPS.LYRICS);
   } catch (error) {
     console.error(`Error getting lyrics for song ID ${id}:`, error);
-    throw error;
+    // Return failure instead of throwing to prevent app crashes
+    return {
+      success: false,
+      status: "ERROR",
+      message: "Failed to get lyrics",
+      data: { lyrics: "" }
+    };
   }
 }
 

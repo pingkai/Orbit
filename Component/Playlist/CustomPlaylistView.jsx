@@ -138,49 +138,66 @@ export const CustomPlaylistView = (props) => {
     }
   };
   
-  // Improved back handler to ensure we can get back to Library
+  // Improved back handler to ensure we go back to CustomPlaylist first
   useEffect(() => {
     const handleBack = () => {
-      // Use CommonActions to reset navigation stack and ensure we go back to Library
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [
-            { 
-              name: 'MainRoute',
-              state: {
-                routes: [{ name: 'Library' }],
-                index: 0
-              }
-            },
-          ],
-        })
-      );
-      return true;
+      try {
+        console.log('Back pressed in CustomPlaylistView');
+        
+        // Check if we were navigated from CustomPlaylist
+        const previousScreen = props.route?.params?.previousScreen;
+        
+        // Always try to navigate to the playlist list first
+        if (previousScreen === "CustomPlaylist") {
+          console.log('Navigating back to CustomPlaylist');
+          // Go back to CustomPlaylist screen
+          navigation.goBack();
+        } else {
+          console.log('Navigating to Library/CustomPlaylist screen');
+          // Navigate to CustomPlaylist explicitly
+          navigation.navigate('Library', { 
+            screen: 'CustomPlaylist',
+            params: { fromCustomPlaylistView: true }
+          });
+        }
+        return true; // Prevent default back action
+      } catch (error) {
+        console.error('Error in CustomPlaylistView back handler:', error);
+        // Fallback if something goes wrong
+        navigation.navigate('Library');
+        return true;
+      }
     };
     
     const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBack);
     
     return () => backHandler.remove();
-  }, [navigation]);
+  }, [navigation, props.route]);
   
   // Handle back button press with improved navigation
   const handleGoBack = () => {
-    // Use CommonActions to reset navigation stack and ensure we go back to Library
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [
-          { 
-            name: 'MainRoute',
-            state: {
-              routes: [{ name: 'Library' }],
-              index: 0
-            }
-          },
-        ],
-      })
-    );
+    try {
+      // Check if we were navigated from CustomPlaylist
+      const previousScreen = props.route?.params?.previousScreen;
+      
+      // Always try to navigate to the playlist list first
+      if (previousScreen === "CustomPlaylist") {
+        console.log('Navigating back to CustomPlaylist');
+        // Go back to CustomPlaylist screen
+        navigation.goBack();
+      } else {
+        console.log('Navigating to Library/CustomPlaylist screen');
+        // Navigate to CustomPlaylist explicitly
+        navigation.navigate('Library', { 
+          screen: 'CustomPlaylist',
+          params: { fromCustomPlaylistView: true }
+        });
+      }
+    } catch (error) {
+      console.error('Error in handleGoBack:', error);
+      // Fallback if something goes wrong
+      navigation.navigate('Library');
+    }
   };
 
   const { updateTrack } = useContext(Context);
@@ -522,26 +539,52 @@ export const CustomPlaylistView = (props) => {
     
     const handleDeleteFromPlaylist = async () => {
     try {
-      // Get the latest playlists data
-      const playlists = await GetCustomPlaylists();
-      
-      // Filter out the song to be deleted
+      // Check if this is a modern playlist (has playlistId and isUserPlaylist flag)
+      if (playlistId && isUserPlaylist) {
+        // Import our new function
+        const { removeSongFromPlaylist } = require('../../Utils/PlaylistManager');
+        
+        // Use modern playlist removal function
+        const success = await removeSongFromPlaylist(playlistId, e.id);
+        
+        if (success) {
+          // Update the local state to remove the song (don't rely on filter directly)
+          const updatedSongs = Songs.filter(song => song.id !== e.id);
+          setSongs(updatedSongs);
+          ToastAndroid.show('Song removed from playlist', ToastAndroid.SHORT);
+        }
+      } else {
+        // Legacy playlist handling
+        const playlists = await GetCustomPlaylists();
+        
+        // Validate the playlist exists to avoid "filter of undefined" error
+        if (!playlists || !playlists[playlistName] || !Array.isArray(playlists[playlistName])) {
+          console.error('Invalid playlist data:', { playlists, playlistName });
+          ToastAndroid.show('Error: Playlist data is invalid', ToastAndroid.SHORT);
+          setMenuVisible(false);
+          return;
+        }
+        
+        // Filter out the song to be deleted
         const updatedSongs = playlists[playlistName].filter(s => s.id !== e.id);
-      
-      // Update the playlist with filtered songs
-      playlists[playlistName] = updatedSongs;
-      
+        
+        // Update the playlist with filtered songs
+        playlists[playlistName] = updatedSongs;
+        
         // Save to AsyncStorage
-      await AsyncStorage.setItem('CustomPlaylists', JSON.stringify(playlists));
-      
+        await AsyncStorage.setItem('CustomPlaylists', JSON.stringify(playlists));
+        
         // Update local state
         setSongs(updatedSongs);
+        
+        ToastAndroid.show('Song removed from playlist', ToastAndroid.SHORT);
+      }
       
-      ToastAndroid.show('Song removed from playlist', ToastAndroid.SHORT);
       setMenuVisible(false);
     } catch (error) {
       console.log('Delete error:', error);
       ToastAndroid.show('Failed to remove song', ToastAndroid.SHORT);
+      setMenuVisible(false);
     }
   };
     
@@ -576,9 +619,13 @@ export const CustomPlaylistView = (props) => {
           
           {/* Song details */}
           <View style={styles.songInfo}>
-            <Text style={styles.songTitle} numberOfLines={1}>
-              {e.title.length > 20 ? e.title.substring(0, 20) + '...' : e.title}
-            </Text>
+            <PlainText 
+              text={e.title.length > 20 ? e.title.substring(0, 20) + '...' : e.title} 
+              songId={e.id}
+              isSongTitle={true}
+              style={styles.songTitle}
+              numberOfLine={1}
+            />
             <Text style={styles.artistName} numberOfLines={1}>
               {e.artist.length > 20 ? e.artist.substring(0, 20) + '...' : e.artist}
             </Text>
