@@ -513,6 +513,18 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
         const parts = cleanPath.split('/');
         console.log('Navigation path parts:', parts);
         
+        // Special handling for Search
+        if (parts.length >= 1 && parts[0] === 'Search') {
+          console.log('Returning to Search screen after fullscreen player');
+          navigation.navigate('Home', {
+            screen: 'Search',
+            params: {
+              timestamp: Date.now() // Force refresh
+            }
+          });
+          return;
+        }
+        
         if (parts.length >= 2) {
           const tabName = parts[0];
           const screenName = parts[1];
@@ -633,6 +645,20 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
               // Split into parts
               const parts = cleanPath.split('/');
               console.log('Navigation path for return:', parts);
+              
+              // Special handling for Search
+              if (parts.length >= 1 && parts[0] === 'Search') {
+                console.log('Returning to Search screen after back press in fullscreen');
+                setTimeout(() => {
+                  navigation.navigate('Home', {
+                    screen: 'Search',
+                    params: {
+                      timestamp: Date.now() // Force refresh
+                    }
+                  });
+                }, 100);
+                return;
+              }
               
               // For CustomPlaylistView, make sure we have the right params
               if (parts.length >= 2 && parts[1] === 'CustomPlaylistView') {

@@ -70,7 +70,7 @@ export const HorizontalScrollSongs = ({id}) => {
         <Spacer/>
         {!Loading && <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
           <View>
-            {getRandomizedSongs.firstGroup.map((e,i)=><View key={`first-${e.id}-${i}`} style={{marginBottom:7}}>
+            {getRandomizedSongs.firstGroup.map((e,i)=><View key={`first-${e.id}-${i}`} style={{marginBottom:1, marginVertical: 0}}>
               <EachSongCard 
                 index={randomOffset + i} 
                 isFromPlaylist={true} 
@@ -90,7 +90,7 @@ export const HorizontalScrollSongs = ({id}) => {
             </View>)}
           </View>
           <View>
-            {getRandomizedSongs.secondGroup.map((e,i)=><View key={`second-${e.id}-${i}`} style={{marginBottom:7}}>
+            {getRandomizedSongs.secondGroup.map((e,i)=><View key={`second-${e.id}-${i}`} style={{marginBottom:1, marginVertical: 0}}>
               <EachSongCard 
                 index={randomOffset + i + 4} 
                 Data={Data} 

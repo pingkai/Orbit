@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View, ScrollView, Pressable, ToastAndroid, Text, StatusBar, Image, BackHandler } from 'react-native';
 import FastImage from 'react-native-fast-image';
@@ -14,6 +14,8 @@ import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { PlainText } from '../Global/PlainText';
 import { getUserPlaylists } from '../../Utils/PlaylistManager';
+import { Animated } from 'react';
+import { SmallText } from '../Global/SmallText';
 
 export const CustomPlaylistView = (props) => {
   const [Songs, setSongs] = useState([]);
@@ -165,7 +167,7 @@ export const CustomPlaylistView = (props) => {
         console.error('Error in CustomPlaylistView back handler:', error);
         // Fallback if something goes wrong
         navigation.navigate('Library');
-        return true;
+      return true;
       }
     };
     
@@ -344,6 +346,7 @@ export const CustomPlaylistView = (props) => {
   // Add a custom SongCard component to replace AlbumSongCard
   const SongCard = ({ e, allSongs, index }) => {
     const { updateTrack } = useContext(Context);
+    const [menuVisible, setMenuVisible] = useState(false);
     
     // Default music image to use when artwork is missing
     const DEFAULT_MUSIC_IMAGE = require('../../Images/default.jpg');
@@ -519,8 +522,6 @@ export const CustomPlaylistView = (props) => {
     };
     
     // Handle options menu
-    const [menuVisible, setMenuVisible] = useState(false);
-    
     const handleMoreOptions = () => {
       setMenuVisible(true);
     };
@@ -531,11 +532,11 @@ export const CustomPlaylistView = (props) => {
         const currentIndex = await TrackPlayer.getCurrentTrack();
         await TrackPlayer.add([e], currentIndex + 1);
         ToastAndroid.show('Added to play next', ToastAndroid.SHORT);
-    setMenuVisible(false);
+        setMenuVisible(false);
       } catch (error) {
         console.error('Play next error:', error);
       }
-  };
+    };
     
     const handleDeleteFromPlaylist = async () => {
     try {
@@ -555,7 +556,7 @@ export const CustomPlaylistView = (props) => {
         }
       } else {
         // Legacy playlist handling
-        const playlists = await GetCustomPlaylists();
+      const playlists = await GetCustomPlaylists();
         
         // Validate the playlist exists to avoid "filter of undefined" error
         if (!playlists || !playlists[playlistName] || !Array.isArray(playlists[playlistName])) {
@@ -564,20 +565,20 @@ export const CustomPlaylistView = (props) => {
           setMenuVisible(false);
           return;
         }
-        
-        // Filter out the song to be deleted
+      
+      // Filter out the song to be deleted
         const updatedSongs = playlists[playlistName].filter(s => s.id !== e.id);
-        
-        // Update the playlist with filtered songs
-        playlists[playlistName] = updatedSongs;
-        
+      
+      // Update the playlist with filtered songs
+      playlists[playlistName] = updatedSongs;
+      
         // Save to AsyncStorage
-        await AsyncStorage.setItem('CustomPlaylists', JSON.stringify(playlists));
-        
+      await AsyncStorage.setItem('CustomPlaylists', JSON.stringify(playlists));
+      
         // Update local state
         setSongs(updatedSongs);
-        
-        ToastAndroid.show('Song removed from playlist', ToastAndroid.SHORT);
+      
+      ToastAndroid.show('Song removed from playlist', ToastAndroid.SHORT);
       }
       
       setMenuVisible(false);
@@ -603,13 +604,13 @@ export const CustomPlaylistView = (props) => {
       ToastAndroid.show('Failed to add to playlist', ToastAndroid.SHORT);
     }
   };
-
+    
   return (
       <>
         <Pressable
           onPress={playSong}
           style={styles.songCard}
-          android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
+          android_ripple={{ color: 'rgba(255, 255, 255, 0.1)', borderless: false }}
         >
           {/* Song image with default fallback */}
           <FastImage
@@ -626,10 +627,13 @@ export const CustomPlaylistView = (props) => {
               style={styles.songTitle}
               numberOfLine={1}
             />
-            <Text style={styles.artistName} numberOfLines={1}>
-              {e.artist.length > 20 ? e.artist.substring(0, 20) + '...' : e.artist}
-            </Text>
-      </View>
+            <SmallText 
+              text={e.artist.length > 20 ? e.artist.substring(0, 20) + '...' : e.artist} 
+              isArtistName={true}
+              style={styles.artistName}
+              maxLine={1}
+            />
+          </View>
 
           {/* Options button */}
           <Pressable
@@ -665,15 +669,6 @@ export const CustomPlaylistView = (props) => {
             
             <Pressable
               style={styles.modalOption}
-              onPress={handlePlayNext}
-              android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
-            >
-              <MaterialCommunityIcons name="play-box-multiple" size={22} color="white" />
-              <Text style={styles.modalOptionText}>Play Next</Text>
-            </Pressable>
-            
-            <Pressable
-              style={styles.modalOption}
               onPress={() => {
                 setMenuVisible(false);
                 handleAddToPlaylist(e);
@@ -682,6 +677,15 @@ export const CustomPlaylistView = (props) => {
             >
               <MaterialCommunityIcons name="playlist-plus" size={22} color="white" />
               <Text style={styles.modalOptionText}>Add to Playlist</Text>
+            </Pressable>
+            
+            <Pressable
+              style={styles.modalOption}
+              onPress={handlePlayNext}
+              android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
+            >
+              <MaterialCommunityIcons name="play-next" size={22} color="white" />
+              <Text style={styles.modalOptionText}>Play Next</Text>
             </Pressable>
             
             <Pressable

@@ -13,6 +13,7 @@ import { RenderTopCharts } from "../Home/RenderTopCharts";
 import { Spacer } from "../Global/Spacer";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { PlainText } from "../Global/PlainText";
+import { CommonActions } from "@react-navigation/native";
 
 // Add a utility function to truncate text
 const truncateText = (text, limit = 30) => {
@@ -51,11 +52,38 @@ export const LanguageDetailPage = ({route}) => {
     const handleBackPress = () => {
       console.log('Back pressed in LanguageDetailPage, navigating to Discover');
       
-      // Reset the Discover tab stack and navigate to DiscoverPage
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'DiscoverPage' }],
-      });
+      // Use CommonActions to reset the navigation state completely
+      try {
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [
+              {
+                name: 'MainRoute',
+                state: {
+                  routes: [
+                    {
+                      name: 'Discover',
+                      state: {
+                        routes: [{ name: 'DiscoverPage' }],
+                        index: 0
+                      }
+                    }
+                  ],
+                  index: 0
+                }
+              }
+            ]
+          })
+        );
+      } catch (error) {
+        console.error('Error in navigation reset:', error);
+        // Fallback to simpler navigation
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'DiscoverPage' }],
+        });
+      }
       return true;
     };
 

@@ -3,7 +3,7 @@ import { useTheme } from "@react-navigation/native";
 import { useEffect, useState } from "react";
 import { GetFontSizeValue } from "../../LocalStorage/AppSettings";
 
-export const SmallText = ({text, color, style, maxLine, selectable}) => {
+export const SmallText = ({text, color, style, maxLine, selectable, isArtistName}) => {
   const theme = useTheme()
   const [Size, setSize] = useState(10);
   async function getFont(){
@@ -25,6 +25,7 @@ export const SmallText = ({text, color, style, maxLine, selectable}) => {
       color:(!color) ? theme.colors.textSecondary : color,
       fontSize:Size,
       fontFamily:'roboto',
+      fontWeight: isArtistName ? '500' : '400',
       ...style,
     }}>{text}</Text>
   );

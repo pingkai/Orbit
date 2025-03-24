@@ -11,6 +11,7 @@ import { PaddingConatiner } from "../../Layout/PaddingConatiner";
 import { useNavigation, useFocusEffect, useRoute } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { PlaylistItemWrapper } from "./PlaylistItemWrapper";
+import { CommonActions } from "@react-navigation/native";
 
 // Add a utility function to truncate text
 const truncateText = (text, limit = 22) => {
@@ -109,7 +110,35 @@ export default function ShowPlaylistofType({route}) {
       } else {
         // Default to Discover (backward compatibility)
         console.log('Navigating back to Discover');
-        navigation.navigate('Discover', { screen: 'DiscoverPage' });
+        try {
+          // Use CommonActions.reset to ensure clean navigation state
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [
+                {
+                  name: 'MainRoute',
+                  state: {
+                    routes: [
+                      {
+                        name: 'Discover',
+                        state: {
+                          routes: [{ name: 'DiscoverPage' }],
+                          index: 0
+                        }
+                      }
+                    ],
+                    index: 0
+                  }
+                }
+              ]
+            })
+          );
+        } catch (error) {
+          console.error('Navigation reset failed:', error);
+          // Fallback to simple navigation
+          navigation.navigate('Discover', { screen: 'DiscoverPage' });
+        }
       }
       
       return true;

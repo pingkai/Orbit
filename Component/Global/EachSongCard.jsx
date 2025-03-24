@@ -1,4 +1,4 @@
-import { Dimensions, Pressable,View } from "react-native";
+import { Dimensions, Pressable, View } from "react-native";
 import { PlainText } from "./PlainText";
 import { SmallText } from "./SmallText";
 import FastImage from "react-native-fast-image";
@@ -129,15 +129,23 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
         paddingVertical: 4,
         justifyContent: 'space-between',
         paddingHorizontal: isFromPlaylist ? 6 : 4,
+        borderRadius: 8,
+        overflow: 'hidden',
+        marginVertical: 0
       }}>
-        <Pressable onPress={AddSongToPlayer} style={{
-          flexDirection:'row',
-          gap:10,
-          alignItems:"center",
-          maxHeight:60,
-          elevation:10,
-          flex:1,
-        }}>
+        <Pressable 
+          onPress={AddSongToPlayer}
+          android_ripple={{ color: 'rgba(255, 255, 255, 0.1)', borderless: false }}
+          style={{
+            flexDirection:'row',
+            gap:10,
+            alignItems:"center",
+            maxHeight:60,
+            elevation:10,
+            flex:1,
+            padding: 6,
+          }}
+        >
           <FastImage source={((id === currentPlaying?.id ?? "") && playerState.state === "playing") ? require("../../Images/playing.gif") : ((id === currentPlaying?.id ?? "") && playerState.state !== "playing" ) ? require("../../Images/songPaused.gif") : {
             uri:image,
           }} style={{
@@ -155,7 +163,11 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
               isSongTitle={true} 
               style={{width:titleandartistwidth ? titleandartistwidth : width1 * (isFromPlaylist ? 0.63 : 0.66)}}
             />
-            <SmallText text={formatText(artist)} style={{width:titleandartistwidth ? titleandartistwidth : width1 * (isFromPlaylist ? 0.63 : 0.66)}}/>
+            <SmallText 
+              text={formatText(artist)} 
+              isArtistName={true}
+              style={{width:titleandartistwidth ? titleandartistwidth : width1 * (isFromPlaylist ? 0.63 : 0.66)}}
+            />
           </View>
         </Pressable>
         <View style={{

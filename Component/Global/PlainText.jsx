@@ -12,9 +12,8 @@ export const PlainText = ({text, style, numberOfLine, songId, isSongTitle}) => {
   const currentPlaying = useActiveTrack();
   const playerState = usePlaybackState();
   
-  // Check if this text is for a song title that is currently playing
+  // Check if this text is for a song title that is currently active (even if paused)
   const isCurrentSong = isSongTitle && songId && currentPlaying?.id === songId;
-  const isPlaying = playerState.state === "playing";
   
   async function getFont(){
     const data = await GetFontSizeValue();
@@ -31,14 +30,15 @@ export const PlainText = ({text, style, numberOfLine, songId, isSongTitle}) => {
     getFont();
   }, []);
   
-  // Determine text color - green for playing song, default theme color otherwise
-  const textColor = (isCurrentSong && isPlaying) ? '#1DB954' : theme.colors.text;
+  // Determine text color - green for current song regardless of playing status
+  const textColor = isCurrentSong ? '#1DB954' : theme.colors.text;
   
   return (
     <Text numberOfLines={numberOfLine ? numberOfLine : 2} style={{
       color: textColor,
       fontSize: Size,
-      fontWeight: isCurrentSong ? '700' : 500, // Make current song title bolder
+      fontWeight: isCurrentSong ? '700' : isSongTitle ? '600' : '500', // Increased weight for song titles 
+      letterSpacing: isSongTitle ? 0.3 : 0, // Slight letter spacing for song titles for better readability
       paddingRight: 10,
       fontFamily: 'roboto',
       ...style,
