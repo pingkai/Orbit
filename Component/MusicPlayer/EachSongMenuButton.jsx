@@ -8,6 +8,8 @@ import TrackPlayer from 'react-native-track-player';
 import Context from "../../Context/Context";
 import { AddOneSongToPlaylist } from "../../MusicPlayerFunctions";
 import PlaylistSelectorWrapper from '../Playlist/PlaylistSelectorWrapper';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import RNFS from 'react-native-fs';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -27,7 +29,7 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
 
   // Calculate style based on context
   const getMarginRight = () => {
-    if (isFromAlbum) return 8; // Reduced margin for albums
+    if (isFromAlbum) return 2; // Reduced margin for albums (was 8)
     if (isFromPlaylist) return 15; // Increased margin for playlists
     return marginRight; // Default for other contexts
   };
@@ -133,21 +135,31 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
         artistID: song.artistID || ''
       };
       
-      // Get current index
+      // Get current track index and queue
       const currentIndex = await TrackPlayer.getCurrentTrack();
+      const queue = await TrackPlayer.getQueue();
       console.log('Current track index:', currentIndex);
+      console.log('Current queue length:', queue.length);
       
-      if (currentIndex === null) {
+      if (currentIndex === null || queue.length === 0) {
         // If no track is playing, just start playing this song
         await TrackPlayer.reset();
         await TrackPlayer.add([trackToAdd]);
-        const playerState = await TrackPlayer.getState();
-        console.log('Player state after adding track:', playerState);
         await TrackPlayer.play();
         console.log('Added song to empty queue and started playing:', trackToAdd.title);
       } else {
-        // Add right after current track
-        await TrackPlayer.add([trackToAdd], currentIndex + 1);
+        // For play next, we need to insert right after the current playing track
+        // First, remove the track if it already exists in the queue to avoid duplicates
+        const existingIndex = queue.findIndex(track => track.id === trackToAdd.id);
+        if (existingIndex !== -1) {
+          await TrackPlayer.remove(existingIndex);
+          // Need to get the updated current index in case we removed a track before it
+          const updatedCurrentIndex = await TrackPlayer.getCurrentTrack();
+          await TrackPlayer.add([trackToAdd], updatedCurrentIndex + 1);
+        } else {
+          // Insert right after current track
+          await TrackPlayer.add([trackToAdd], currentIndex + 1);
+        }
         console.log('Added song to play next at position', currentIndex + 1);
       }
       
@@ -157,7 +169,6 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
       console.error('Error setting play next:', error);
       // Try a more basic approach if the first method fails
       try {
-        // Get the actual URL from array if needed
         const songUrl = getHighestQualityUrl(song.url);
         
         if (!songUrl) {
@@ -165,15 +176,33 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
           return;
         }
         
-        // Use a simpler approach
-        await TrackPlayer.add({
-          url: songUrl,
-          title: song.title || 'Unknown',
-          artist: song.artist || 'Unknown',
-          artwork: song.artwork || song.image,
-          id: song.id || Date.now().toString()
-        });
-        ToastAndroid.show('Added to queue', ToastAndroid.SHORT);
+        const queue = await TrackPlayer.getQueue();
+        
+        // Check if any track is playing
+        const currentTrack = await TrackPlayer.getCurrentTrack();
+        
+        if (currentTrack === null || queue.length === 0) {
+          // If nothing playing, just add and play
+          await TrackPlayer.add({
+            url: songUrl,
+            title: song.title || 'Unknown',
+            artist: song.artist || 'Unknown',
+            artwork: song.artwork || song.image,
+            id: song.id || Date.now().toString()
+          });
+          await TrackPlayer.play();
+        } else {
+          // Insert at index 1 (after current track at index 0)
+          await TrackPlayer.add({
+            url: songUrl,
+            title: song.title || 'Unknown',
+            artist: song.artist || 'Unknown',
+            artwork: song.artwork || song.image,
+            id: song.id || Date.now().toString()
+          }, currentTrack + 1);
+        }
+        
+        ToastAndroid.show(`${song.title} will play next`, ToastAndroid.SHORT);
         updateTrack();
       } catch (fallbackError) {
         console.error('Fallback also failed:', fallbackError);
@@ -210,19 +239,8 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
 
     try {
       console.log('Starting download process for:', song.title);
-      console.log('URL data to process:', JSON.stringify(song.url));
       
-      // Ensure directories exist
-      const dirsExist = await StorageManager.ensureDirectoriesExist();
-      if (!dirsExist) {
-        console.error('Failed to create download directories');
-        ToastAndroid.show('Failed to create download directories', ToastAndroid.SHORT);
-        return;
-      }
-      
-      console.log('Directories created successfully');
-
-      // Get highest quality URL
+      // Get highest quality URL with proper error handling
       const downloadUrl = getHighestQualityUrl(song.url);
       if (!downloadUrl) {
         console.error('Could not determine download URL');
@@ -232,103 +250,142 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
       
       console.log('Download URL determined:', downloadUrl);
 
-      // Prepare metadata
-      const metadata = {
+      // Show download started toast immediately for better feedback
+      ToastAndroid.showWithGravity(
+        `Downloading: ${song.title}`,
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
+
+      // Ensure directories exist with proper error handling
+      try {
+        await StorageManager.ensureDirectoriesExist();
+      } catch (dirError) {
+        console.error('Error creating directories:', dirError);
+        ToastAndroid.show('Error creating download directories', ToastAndroid.SHORT);
+        return;
+      }
+
+      // Prepare safe metadata
+      const safeMetadata = {
         id: song.id || Date.now().toString(),
         title: song.title || 'Unknown Title',
         artist: song.artist || 'Unknown Artist',
         duration: song.duration || 0,
-        artwork: song.artwork || song.image, // Handle both artwork and image properties
-        originalUrl: downloadUrl,
-        language: song.language || '',
-        artistID: song.artistID || song.primary_artists_id || '',
+        artwork: song.artwork || song.image,
         downloadTime: Date.now()
       };
 
-      // Save metadata first
-      const metadataSaved = await StorageManager.saveDownloadedSongMetadata(metadata.id, metadata);
-      if (!metadataSaved) {
-        console.error('Failed to save song metadata');
-        ToastAndroid.show('Failed to save song metadata', ToastAndroid.SHORT);
-        return;
+      try {
+        // First save basic metadata
+        await StorageManager.saveDownloadedSongMetadata(safeMetadata.id, safeMetadata);
+      } catch (metadataError) {
+        console.error('Error saving basic metadata:', metadataError);
+        // Continue anyway, this isn't critical
       }
-      
-      console.log('Metadata saved successfully');
 
-      // Download artwork if available
-      const artworkUrl = song.artwork || song.image;
-      if (artworkUrl && typeof artworkUrl === 'string') {
-        try {
-          const artworkPath = await StorageManager.saveArtwork(metadata.id, artworkUrl);
+      // Download the song with minimal configuration
+      const songPath = StorageManager.getSongPath(safeMetadata.id);
+      
+      try {
+        const res = await ReactNativeBlobUtil
+          .config({
+            fileCache: false,
+            path: songPath,
+          })
+          .fetch('GET', downloadUrl);
+        
+        console.log('Song download completed successfully');
+        
+        // Now try to download artwork if available
+        if (song.artwork && typeof song.artwork === 'string') {
+          try {
+            const artworkPath = await StorageManager.saveArtwork(safeMetadata.id, song.artwork);
           if (artworkPath) {
             console.log('Artwork saved successfully at:', artworkPath);
-          } else {
-            console.warn('Failed to save artwork, but continuing with song download');
+              safeMetadata.localArtworkPath = artworkPath;
+            }
+          } catch (artworkError) {
+            console.warn('Error saving artwork, continuing anyway:', artworkError);
           }
-        } catch (artworkError) {
-          console.warn('Error saving artwork:', artworkError);
-          // Continue with download even if artwork fails
         }
-      }
-
-      // Get the song path
-      const songPath = StorageManager.getSongPath(metadata.id);
-      console.log('Song will be saved at:', songPath);
-
-      // Show download started toast
-      ToastAndroid.showWithGravity(
-        `Download Started: ${metadata.title}`,
-        ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
-      );
-
-      // Download the song
-      console.log('Starting file download from:', downloadUrl);
-      
-      const res = await ReactNativeBlobUtil
-        .config({
-          fileCache: true,
-          appendExt: 'mp3',
-          path: songPath,
-          addAndroidDownloads: {
-            useDownloadManager: true,
-            notification: true,
-            title: metadata.title,
-            description: `Downloading ${metadata.title}`,
-            mime: 'audio/mpeg',
-          },
-        })
-        .fetch('GET', downloadUrl, {});
-      
-      console.log('Download completed:', res.path());
-      ToastAndroid.showWithGravity(
-        "Download successfully completed",
-        ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
-      );
-
-    } catch (error) {
-      console.error('Download error:', error);
-      ToastAndroid.showWithGravity(
-        "Download failed: " + (error.message || 'Unknown error'),
-        ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
-      );
-
-      // Clean up metadata if download fails
-      if (song?.id) {
+        
+        // Update metadata with success
         try {
-          await StorageManager.removeDownloadedSongMetadata(song.id);
-        } catch (cleanupError) {
-          console.error('Error cleaning up metadata:', cleanupError);
+          await StorageManager.saveDownloadedSongMetadata(safeMetadata.id, {
+            ...safeMetadata,
+            localSongPath: songPath,
+            downloadComplete: true,
+            downloadCompletedTime: Date.now()
+          });
+        } catch (finalMetadataError) {
+          console.error('Error saving final metadata:', finalMetadataError);
         }
+        
+        // Show success toast
+      ToastAndroid.showWithGravity(
+          "Download complete",
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
+
+        // Also update orbit_downloaded_songs
+        try {
+          const existingData = await AsyncStorage.getItem('orbit_downloaded_songs');
+          const downloadsList = existingData ? JSON.parse(existingData) : [];
+          
+          if (!downloadsList.some(item => item.id === safeMetadata.id)) {
+            downloadsList.push({
+              id: safeMetadata.id,
+              name: safeMetadata.title,
+              artists: safeMetadata.artist,
+              image: safeMetadata.artwork,
+              duration: safeMetadata.duration
+            });
+            await AsyncStorage.setItem('orbit_downloaded_songs', JSON.stringify(downloadsList));
+          }
+        } catch (updateError) {
+          console.log('Error updating downloads list:', updateError);
+        }
+      } catch (downloadError) {
+        console.error('Download failed:', downloadError);
+        
+        // Clean up any partial downloads
+        try {
+          if (await RNFS.exists(songPath)) {
+            await RNFS.unlink(songPath);
+          }
+        } catch (cleanupError) {
+          console.error('Error cleaning up failed download:', cleanupError);
+        }
+        
+        // Show error toast
+      ToastAndroid.showWithGravity(
+          "Download failed",
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
       }
+    } catch (error) {
+      console.error('Unexpected error during download:', error);
+      ToastAndroid.showWithGravity(
+        "Download failed",
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER,
+      );
     }
   };
 
   // Helper function to get highest quality URL from an array of URL objects
   const getHighestQualityUrl = (urlData) => {
+    try {
     console.log('Processing URL data type:', typeof urlData);
+      
+      // If it's undefined or null, handle the error gracefully
+      if (urlData == null) {
+        console.error('URL data is null or undefined');
+        return null;
+      }
     
     // If it's already a string, return it
     if (typeof urlData === 'string') {
@@ -337,6 +394,12 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
     
     // If it's an array of quality objects
     if (Array.isArray(urlData)) {
+        // Safety check for empty array
+        if (urlData.length === 0) {
+          console.error('URL data array is empty');
+          return null;
+        }
+        
       try {
         // Check if the first item has a quality property (Saavn format)
         if (urlData[0] && typeof urlData[0] === 'object' && 'quality' in urlData[0]) {
@@ -359,14 +422,22 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
         else if (urlData[0] && typeof urlData[0] === 'object' && 'url' in urlData[0]) {
           return urlData[0].url;
         }
+          // Special case for local files or downloaded files
+          else if (urlData[0] && typeof urlData[0] === 'object' && (
+            urlData[0].filePath || urlData[0].localFilePath
+          )) {
+            return urlData[0].filePath || urlData[0].localFilePath;
+        }
       } catch (error) {
         console.error('Error parsing URL array:', error);
         // Fallback to first item if possible
         if (urlData[0]) {
-          return typeof urlData[0] === 'string' ? urlData[0] : 
-                 (urlData[0].url || '');
-        }
-        return '';
+            if (typeof urlData[0] === 'string') return urlData[0];
+            if (urlData[0].url) return urlData[0].url;
+            if (urlData[0].filePath) return urlData[0].filePath;
+            if (urlData[0].localFilePath) return urlData[0].localFilePath;
+          }
+          return null;
       }
     }
     
@@ -374,6 +445,8 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
     if (urlData && typeof urlData === 'object') {
       // Check for common URL properties in different formats
       if ('url' in urlData) return urlData.url;
+        if ('filePath' in urlData) return urlData.filePath;
+        if ('localFilePath' in urlData) return urlData.localFilePath;
       if ('320kbps' in urlData) return urlData['320kbps'];
       if ('160kbps' in urlData) return urlData['160kbps'];
       if ('96kbps' in urlData) return urlData['96kbps'];
@@ -389,7 +462,12 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
     }
     
     // Unknown format, return empty string
-    return '';
+      console.error('Could not determine URL from provided data');
+      return null;
+    } catch (error) {
+      console.error('Critical error in getHighestQualityUrl:', error);
+      return null;
+    }
   };
 
   return (
@@ -399,26 +477,31 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
         marginRight: getMarginRight(),
         paddingRight: paddingSize,
       }}>
-        <Pressable 
+        <Pressable
           ref={buttonRef}
           onPress={handlePress}
-          hitSlop={{ top: hitSlopSize, bottom: hitSlopSize, left: hitSlopSize, right: hitSlopSize }}
-          android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true, radius: hitSlopSize + 5 }}
-          style={({ pressed }) => ({
+          style={{
             padding: paddingSize,
-            justifyContent: 'center',
             alignItems: 'center',
-            minWidth: minWidth,
-            minHeight: minWidth,
-            backgroundColor: pressed ? 'rgba(255,255,255,0.08)' : 'transparent',
-            borderRadius: minWidth / 2,
-          })}
+            justifyContent: 'center',
+            width: 32,
+            height: 32,
+            backgroundColor: 'transparent',
+            borderRadius: 16,
+            elevation: 0,
+            marginRight: isFromAlbum ? 0 : getMarginRight(), // Reduced marginRight when in album view
+          }}
+          android_ripple={{ 
+            color: 'rgba(255, 255, 255, 0.2)', 
+            borderless: true, 
+            radius: 20 
+          }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <MaterialCommunityIcons
             name="dots-vertical"
-            size={24}
-            color="#FFFFFF"
-            style={styles.menuIcon}
+            size={22} 
+            color="#FFFFFF" 
           />
         </Pressable>
       </View>

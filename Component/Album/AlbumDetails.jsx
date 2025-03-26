@@ -7,10 +7,11 @@ import LinearGradient from "react-native-linear-gradient";
 import { useTheme } from "@react-navigation/native";
 import { AddPlaylist, getIndexQuality } from "../../MusicPlayerFunctions";
 import { PlayButton } from "../Playlist/PlayButton";
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import Context from "../../Context/Context";
 import FormatArtist from "../../Utils/FormatArtists";
 import FormatTitleAndArtist from "../../Utils/FormatTitleAndArtist";
+import TrackPlayer from "react-native-track-player";
 
 // Reduce truncate limit further to avoid layout issues
 const truncateText = (text, limit = 20) => {
@@ -19,15 +20,58 @@ const truncateText = (text, limit = 20) => {
 };
 
 export const AlbumDetails = ({name = "", releaseData = "", liked = false, Data = {}}) => {
-  const {updateTrack} = useContext(Context);
+  const {updateTrack, currentPlaying} = useContext(Context);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [loading, setLoading] = useState(false);
   const theme = useTheme();
   const width = Dimensions.get('window').width;
   const displayName = truncateText(name, 18); // Reduce to 18 characters
   
+  // Check if the album is currently playing
+  useEffect(() => {
+    const checkIfPlaying = async () => {
+      try {
+        // Check if player is playing
+        const playerState = await TrackPlayer.getState();
+        const isPlayerPlaying = playerState === TrackPlayer.STATE_PLAYING;
+        
+        // Check if current track is from this album
+        if (isPlayerPlaying && currentPlaying) {
+          const queue = await TrackPlayer.getQueue();
+          const isAlbumPlaying = queue.some(track => 
+            Data?.data?.songs?.some(song => song.id === track.id)
+          );
+          setIsPlaying(isAlbumPlaying);
+        } else {
+          setIsPlaying(false);
+        }
+      } catch (error) {
+        console.error("Error checking playback state:", error);
+        setIsPlaying(false);
+      }
+    };
+    
+    checkIfPlaying();
+    
+    // Set up listener for track changes
+    const playerStateListener = TrackPlayer.addEventListener(
+      'playback-state',
+      () => checkIfPlaying()
+    );
+    
+    return () => playerStateListener.remove();
+  }, [currentPlaying, Data]);
+  
   async function AddToPlayer(){
     try {
-      setIsPlaying(true);
+      // If already playing, pause
+      if (isPlaying) {
+        await TrackPlayer.pause();
+        return;
+      }
+      
+      // Otherwise start playing
+      setLoading(true);
       const quality = await getIndexQuality();
       const ForMusicPlayer = Data?.data?.songs?.map((e,i)=>{
         return {
@@ -47,7 +91,7 @@ export const AlbumDetails = ({name = "", releaseData = "", liked = false, Data =
     } catch (error) {
       console.error("Error adding album to player:", error);
     } finally {
-      setIsPlaying(false);
+      setLoading(false);
     }
   }
 
@@ -67,9 +111,10 @@ export const AlbumDetails = ({name = "", releaseData = "", liked = false, Data =
       </View>
       
       <PlayButton 
-        Loading={isPlaying} 
+        Loading={loading} 
         size="large"
         onPress={AddToPlayer}
+        isPlaying={isPlaying}
       />
     </LinearGradient>
   );

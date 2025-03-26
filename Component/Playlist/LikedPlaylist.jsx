@@ -1,19 +1,23 @@
-import { TouchableOpacity, StyleSheet, ToastAndroid } from "react-native";
+import { TouchableOpacity, StyleSheet, ToastAndroid, View } from "react-native";
 import AntDesign from "react-native-vector-icons/AntDesign";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useContext, useEffect, useState } from "react";
 import Context from "../../Context/Context";
 import { getPlaylistData } from "../../Api/Playlist";
+import { SetLikedPlaylist, DeleteALikedPlaylist } from "../../LocalStorage/StoreLikedPlaylists";
+import { useNavigation } from "@react-navigation/native";
 
 export const LikedPlaylist = ({
   id = "",
   image = "",
   name = "",
   follower = "",
-  size = "normal"
+  size = "normal",
+  showNavigationButton = false
 }) => {
   const [isLiked, setIsLiked] = useState(false);
   const { updateLikedPlaylist } = useContext(Context);
+  const navigation = useNavigation();
   
   // Increase icon size for better visibility
   const iconSize = size === "large" ? 36 : size === "small" ? 34 : 30;
@@ -30,18 +34,26 @@ export const LikedPlaylist = ({
         if (playlists) {
           try {
             const parsedPlaylists = JSON.parse(playlists);
-            if (Array.isArray(parsedPlaylists)) {
-              const isAlreadyLiked = parsedPlaylists.some((e) => e.id === id);
+            if (parsedPlaylists && parsedPlaylists.playlist) {
+              const isAlreadyLiked = parsedPlaylists.playlist[id] !== undefined;
               setIsLiked(isAlreadyLiked);
             } else {
-              // If not an array, reset the storage to an empty array
-              await AsyncStorage.setItem("LikedPlaylists", JSON.stringify([]));
+              // If wrong format, initialize correctly
+              const initialData = {
+                playlist: {},
+                count: 0
+              };
+              await AsyncStorage.setItem("LikedPlaylists", JSON.stringify(initialData));
               setIsLiked(false);
             }
           } catch (parseError) {
             console.error("Error parsing liked playlists:", parseError);
-            // If there's a parse error, reset the storage
-            await AsyncStorage.setItem("LikedPlaylists", JSON.stringify([]));
+            // If there's a parse error, reset the storage with proper structure
+            const initialData = {
+              playlist: {},
+              count: 0
+            };
+            await AsyncStorage.setItem("LikedPlaylists", JSON.stringify(initialData));
             setIsLiked(false);
           }
         }
@@ -59,48 +71,42 @@ export const LikedPlaylist = ({
         return;
       }
       
-      // Get existing liked playlists with proper validation
-      let parsedPlaylists = [];
-      try {
-        const playlists = await AsyncStorage.getItem("LikedPlaylists");
-        if (playlists) {
-          const parsed = JSON.parse(playlists);
-          // Ensure it's an array
-          if (Array.isArray(parsed)) {
-            parsedPlaylists = parsed;
-          } else {
-            console.log("Stored playlists is not an array, resetting to empty array");
-          }
-        }
-      } catch (parseError) {
-        console.log("Error parsing playlists, resetting to empty array:", parseError);
-      }
-      
       if (isLiked) {
-        // Remove from liked playlists
-        const filtered = parsedPlaylists.filter((e) => e.id !== id);
-        await AsyncStorage.setItem("LikedPlaylists", JSON.stringify(filtered));
+        // Remove from liked playlists using the proper function
+        await DeleteALikedPlaylist(id);
         console.log(`Removed playlist ${id} from liked playlists`);
         ToastAndroid.show("Removed from Likes", ToastAndroid.SHORT);
+        // Update state first to give immediate feedback
+        setIsLiked(false);
+        // Then trigger the playlist refresh
+        if (updateLikedPlaylist) {
+          setTimeout(() => {
+            updateLikedPlaylist();
+          }, 100);
+        }
       } else {
-        // Add to liked playlists
+        // Add to liked playlists using the proper function
         try {
           const Data = await getPlaylistData(id);
           
           if (Data?.data) {
-            // Create new playlist object
-            const newPlaylist = {
-              id,
-              image,
-              name: name || Data?.data?.name || "Playlist",
-              follower: follower || Data?.data?.follower || "",
-            };
-            
-            // Add to array and save
-            parsedPlaylists.push(newPlaylist);
-            await AsyncStorage.setItem("LikedPlaylists", JSON.stringify(parsedPlaylists));
+            // Use the proper function to add to liked playlists
+            await SetLikedPlaylist(
+              image || Data?.data?.image,
+              name || Data?.data?.name || "Playlist",
+              follower || Data?.data?.follower || "",
+              id
+            );
             console.log(`Added playlist ${id} to liked playlists`);
             ToastAndroid.show("Added to Likes", ToastAndroid.SHORT);
+            // Update state first to give immediate feedback
+            setIsLiked(true);
+            // Then trigger the playlist refresh
+            if (updateLikedPlaylist) {
+              setTimeout(() => {
+                updateLikedPlaylist();
+              }, 100);
+            }
           } else {
             console.log(`Failed to get playlist data for ${id}`);
             ToastAndroid.show("Failed to add to Likes", ToastAndroid.SHORT);
@@ -110,15 +116,44 @@ export const LikedPlaylist = ({
           ToastAndroid.show("Failed to add to Likes", ToastAndroid.SHORT);
         }
       }
-      
-      setIsLiked(!isLiked);
-      updateLikedPlaylist();
     } catch (error) {
       console.error("Error handling like/unlike:", error);
       ToastAndroid.show("Error updating likes", ToastAndroid.SHORT);
     }
   }
 
+  // Update the navigation to Playlist screen to include previousScreen parameter
+  const navigateToPlaylist = (playlistId, playlistData) => {
+    navigation.navigate("PlaylistPage", {
+      id: playlistId,
+      source: "LikedPlaylists",
+      previousScreen: "LikedPlaylists", // Add this parameter for proper back navigation
+      data: playlistData,
+      navigationSource: "Library"
+    });
+  };
+
+  // If this component is used as a navigation button to a playlist
+  if (showNavigationButton) {
+    return (
+      <TouchableOpacity
+        onPress={() => navigateToPlaylist(id, { id, image, name, follower })}
+        style={[
+          styles.container, 
+          size === "small" ? styles.smallContainer : null
+        ]}
+        activeOpacity={0.7}
+      >
+        <AntDesign
+          name="arrowright"
+          color="white"
+          size={iconSize}
+        />
+      </TouchableOpacity>
+    );
+  }
+
+  // Default behavior - like/unlike button
   return (
     <TouchableOpacity
       onPress={HandleLike}
@@ -145,14 +180,19 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
   },
   smallContainer: {
     padding: 0,
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(0,0,0,0.3)',
     marginLeft: 15,
     marginRight: 5,
   }

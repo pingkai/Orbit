@@ -10,7 +10,7 @@ import { LoadingComponent } from "../Component/Global/Loading";
 import { PlainText } from "../Component/Global/PlainText";
 import { SmallText } from "../Component/Global/SmallText";
 import FormatArtist from "../Utils/FormatArtists";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, CommonActions } from "@react-navigation/native";
 import { Spacer } from "../Component/Global/Spacer";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -232,85 +232,155 @@ export const Playlist = ({route}) => {
   
   // Function to handle back button press
   const handleBackPress = async () => {
-    console.log('Back pressed in Playlist, attempting to navigate back');
-    
+    // Clear navigation data when leaving the playlist
     try {
-      // Clear navigation data before going back
       await AsyncStorage.removeItem(CURRENT_PLAYLIST_ID_KEY);
       await AsyncStorage.removeItem(CURRENT_PLAYLIST_DATA_KEY);
-      console.log('Cleared navigation data from AsyncStorage when leaving playlist');
-      
-      // Navigate based on source and navigation source
-      if (source === 'ShowPlaylistofType' && route?.params?.searchText) {
-        console.log(`Navigating back to source: ${source}, params: ${JSON.stringify({
-          searchText: route.params.searchText,
-          language: route?.params?.language || '',
-          navigationSource: navigationSource || ''
-        })}`);
-        
-        navigation.navigate('Discover', { 
-          screen: 'ShowPlaylistofType', 
-          params: {
-            Searchtext: route.params.searchText,
-            navigationSource: navigationSource || null
-          }
-        });
-        return true;
-      } 
-      else if (source === 'LanguageDetail' && route?.params?.language) {
-        console.log(`Navigating back to language detail for: ${route.params.language}`);
-        navigation.navigate('Discover', { 
-          screen: 'LanguageDetailPage', 
-          params: { 
-            language: route.params.language,
-            navigationSource: navigationSource || null
-          } 
-        });
-        return true;
-      }
-      else if (source === 'Search') {
-        // Navigate back to Search tab with the search text if available
-        console.log('Navigating back to Search screen from Playlist with searchText:', route?.params?.searchText);
-        // Try to go back without explicit navigation first
-        if (navigation.canGoBack()) {
-          navigation.goBack();
-        } else {
-          // If that fails, force navigation to the Search screen
-          navigation.navigate('Home', {
-            screen: 'Search',
-            params: { 
-              searchText: route?.params?.searchText || '',
-              timestamp: Date.now() // Add timestamp to force refresh
-            }
-          });
+    } catch (error) {
+      console.log("Error clearing playlist navigation data:", error);
+    }
+
+    // Get the source and navigation source parameters from the route
+    const source = route.params?.source;
+    const navigationSource = route.params?.navigationSource;
+    const previousScreen = route.params?.previousScreen;
+    
+    console.log(`Back pressed in Playlist. Source: ${source}, NavigationSource: ${navigationSource}, PreviousScreen: ${previousScreen}`);
+    
+    // Priority 1: Check for previousScreen parameter (used for specific flows)
+    if (previousScreen === 'LikedPlaylists') {
+      console.log("Navigating back to LikedPlaylists from playlist view");
+      navigation.navigate("Library", {
+        screen: "LikedPlaylists",
+        params: {
+          refresh: Date.now() // Pass timestamp to ensure refresh
         }
-        return true;
-      }
-      else if (navigationSource) {
-        // Use the navigationSource to go back to the proper tab
-        console.log(`Using navigationSource to go back to: ${navigationSource}`);
-        if (navigationSource === 'HomePage') {
-          navigation.navigate('Home', { screen: 'HomePage' });
-        } else if (navigationSource === 'LibraryPage') {
-          navigation.navigate('Library', { screen: 'LibraryPage' });
-        } else {
-          navigation.navigate('Discover', { screen: 'DiscoverPage' });
-        }
-        return true;
-      }
-      else {
-        // Default fallback to home
-        console.log('No specific back navigation info, defaulting to Home');
-        navigation.navigate('Home', { screen: 'HomePage' });
-      }
-      
-      return true;
-    } catch (e) {
-      console.error('Error during back navigation:', e);
-      // Default fallback
-      navigation.navigate('Home', { screen: 'HomePage' });
+      });
       return true;
     }
+    
+    // Priority 2: Check if we came from a Home screen
+    if (previousScreen === 'Home' || previousScreen === 'HomePage' || navigationSource === 'Home') {
+      console.log("Forcefully resetting navigation to Home screen");
+      
+      // Use CommonActions.reset to clear the navigation stack and force navigation to Home
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [
+            { name: 'Home' },
+          ],
+        })
+      );
+      return true;
+    }
+    
+    // Priority 3: Check specific source screens
+    if (source === "ShowPlaylistofType") {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [
+            { 
+              name: "ShowPlaylistofType",
+              params: {
+                language: route.params?.language,
+                name: route.params?.name,
+              }
+            },
+          ],
+        })
+      );
+      return true;
+    }
+    
+    if (source === "LanguageDetail") {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [
+            { 
+              name: "LanguageDetail",
+              params: {
+                language: route.params?.language,
+              }
+            },
+          ],
+        })
+      );
+      return true;
+    }
+    
+    if (source === "Search") {
+      try {
+        navigation.goBack();
+      } catch {
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [
+              { 
+                name: "Search",
+                params: {
+                  searchText: route.params?.searchText,
+                }
+              },
+            ],
+          })
+        );
+      }
+      return true;
+    }
+    
+    // Priority 4: Handle navigation based on navigationSource
+    if (navigationSource) {
+      try {
+        // Reset navigation to appropriate tab
+        if (navigationSource === "Home") {
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [{ name: "Home" }],
+            })
+          );
+        } else if (navigationSource === "Library") {
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [{ name: "Library" }],
+            })
+          );
+        } else if (navigationSource === "Search") {
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [{ name: "Search" }],
+            })
+          );
+        } else {
+          // For other cases, reset to home as fallback
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [{ name: "Home" }],
+            })
+          );
+        }
+        return true;
+      } catch (error) {
+        console.log("Error navigating based on navigationSource:", error);
+      }
+    }
+    
+    // Default fallback: just reset to Home
+    console.log("Using fallback reset to Home");
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: "Home" }],
+      })
+    );
+    return true;
   };
   
   // If no ID is provided, show an error message

@@ -4,10 +4,12 @@ import { LikedDetails } from "../../Component/Library/LikedDetails";
 import { useEffect, useState } from "react";
 import { GetLikedPlaylist } from "../../LocalStorage/StoreLikedPlaylists";
 import { EachPlaylistCard } from "../../Component/Global/EachPlaylistCard";
-import { View, BackHandler } from "react-native";
-import { useTheme, useNavigation } from "@react-navigation/native";
+import { View, BackHandler, Dimensions, StyleSheet } from "react-native";
+import { useTheme, useNavigation, useFocusEffect } from "@react-navigation/native";
 import { PaddingConatiner } from "../../Layout/PaddingConatiner";
+import React from "react";
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export const LikedPlaylistPage = () => {
   const theme = useTheme()
@@ -19,7 +21,7 @@ export const LikedPlaylistPage = () => {
   useEffect(() => {
     const handleBackPress = () => {
       console.log('Back pressed in LikedPlaylistPage, navigating to LibraryPage');
-      navigation.navigate('LibraryPage');
+      navigation.navigate('Library', { screen: 'LibraryPage' });
       return true; // Prevent default back action
     };
 
@@ -36,44 +38,78 @@ export const LikedPlaylistPage = () => {
     for (const [key, value] of Object.entries(Playlists.playlist)) {
       Temp[value.count] = value
     }
-    setLikedPlaylist(Temp)
-   }
+    setLikedPlaylist(Temp.filter(Boolean)) // Filter out any empty entries
+    console.log('Liked playlists loaded:', Temp.filter(Boolean).length);
+  }
+  
+  // Use a focus effect to refresh the data whenever the screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('LikedPlaylistPage focused, refreshing playlists');
+      getAllLikedSongs();
+      return () => {};
+    }, [])
+  );
+  
+  // Initial load
   useEffect(() => {
-    getAllLikedSongs()
+    getAllLikedSongs();
   }, []);
+
   return (
     <Animated.ScrollView 
       scrollEventThrottle={16} 
       ref={AnimatedRef} 
       contentContainerStyle={{
         paddingBottom: 65,
-        backgroundColor: "rgba(0,0,0)",
+        backgroundColor: theme.colors.background,
       }}
     >
       <LikedPagesTopHeader AnimatedRef={AnimatedRef} url={require("../../Images/LikedPlaylist.png")} />
       <LikedDetails name={"Liked Playlists"} dontShowPlayButton={true}/>
       <PaddingConatiner>
-        <View style={{backgroundColor: theme.colors.background, flexDirection: 'row', alignItems: "center", justifyContent: "space-between", flexWrap: "wrap"}}>
+        <View style={styles.playlistContainer}>
           {LikedPlaylist.map((e, i) => {
             if (e) {
               return (
-                <EachPlaylistCard 
-                  key={e.id || `playlist-${i}`} // Added unique key
-                  name={e.name}
-                  image={e.image}
-                  id={e.id}
-                  follower={e.follower}
-                  MainContainerStyle={{
-                    width: "48%",
-                  }}
-                />
+                <View key={e.id || `playlist-${i}`} style={styles.cardWrapper}>
+                  <EachPlaylistCard 
+                    name={e.name}
+                    image={e.image}
+                    id={e.id}
+                    follower={e.follower}
+                    MainContainerStyle={styles.playlistCard}
+                  />
+                </View>
               );
             }
-            return null; // Added explicit return for when e is falsy
+            return null;
           })}
-          <View/>
         </View>
       </PaddingConatiner>
     </Animated.ScrollView>
   );
 };
+
+// Add responsive styles
+const styles = StyleSheet.create({
+  playlistContainer: {
+    backgroundColor: 'transparent',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 5,
+    paddingTop: 5,
+  },
+  cardWrapper: {
+    width: SCREEN_WIDTH <= 360 ? '48%' : '48%', // Adjust based on screen size
+    marginBottom: 14,
+    paddingHorizontal: 6,
+  },
+  playlistCard: {
+    width: '100%',
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
+  }
+});

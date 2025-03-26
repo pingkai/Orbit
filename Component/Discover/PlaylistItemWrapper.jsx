@@ -50,6 +50,7 @@ export const PlaylistItemWrapper = ({ item, cardWidth, source, searchText, navig
           marginHorizontal: 8,
           marginVertical: 4,
           height: cardWidth * 1.3,
+          backgroundColor: 'transparent',
         }}
         ImageStyle={{
           height: cardWidth - 12,

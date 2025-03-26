@@ -13,6 +13,7 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import FormatArtist from "../../Utils/FormatArtists";
 import FormatTitleAndArtist from "../../Utils/FormatTitleAndArtist";
 import { CacheManager } from '../../Utils/CacheManager';
+import TrackPlayer from "react-native-track-player";
 
 // Reduce truncate limit further to avoid layout issues
 const truncateText = (text, limit = 20) => {
@@ -67,20 +68,67 @@ const getSongUrl = (song, quality) => {
 };
 
 export const PlaylistDetails = ({name = "", listener = "", notReleased = false, Data = {}, Loading = true, id = "", image = "", follower = "", playlistId = ""}) => {
-  const {updateTrack} = useContext(Context);
+  const {updateTrack, currentPlaying} = useContext(Context);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [loading, setLoading] = useState(Loading);
   const theme = useTheme();
   const width = Dimensions.get('window').width;
   const displayName = truncateText(name, 18); // Reduce to 18 characters
   const [playlistData, setPlaylistData] = useState(Data);
-  const [loading, setLoading] = useState(Loading);
   
   // Reset isPlaying when Loading changes to false
   useEffect(() => {
     if (!Loading) {
-      setIsPlaying(false);
+      checkPlaybackState();
     }
   }, [Loading]);
+  
+  // Check if this playlist is currently playing
+  const checkPlaybackState = async () => {
+    try {
+      // Check if player is playing
+      const playerState = await TrackPlayer.getState();
+      const isPlayerPlaying = playerState === TrackPlayer.STATE_PLAYING;
+      
+      // Check if current track is from this playlist
+      if (isPlayerPlaying && currentPlaying) {
+        const queue = await TrackPlayer.getQueue();
+        const playlistSongs = Data?.data?.songs || [];
+        
+        // Create a set of playlist song IDs for faster lookup
+        const playlistSongIds = new Set();
+        playlistSongs.forEach(song => {
+          if (song && song.id) {
+            playlistSongIds.add(song.id);
+          }
+        });
+        
+        // Check if any queue item is from this playlist
+        const isPlaylistPlaying = queue.some(track => 
+          playlistSongIds.has(track.id)
+        );
+        
+        setIsPlaying(isPlaylistPlaying);
+      } else {
+        setIsPlaying(false);
+      }
+    } catch (error) {
+      console.error("Error checking playback state:", error);
+      setIsPlaying(false);
+    }
+  };
+  
+  // Setup listener for track changes
+  useEffect(() => {
+    checkPlaybackState();
+    
+    const playerStateListener = TrackPlayer.addEventListener(
+      'playback-state',
+      () => checkPlaybackState()
+    );
+    
+    return () => playerStateListener.remove();
+  }, [currentPlaying, Data]);
   
   useEffect(() => {
     const loadPlaylistData = async () => {
@@ -138,7 +186,15 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
     }
     
     try {
-      setIsPlaying(true);
+      // If already playing, pause playback
+      if (isPlaying) {
+        await TrackPlayer.pause();
+        return;
+      }
+      
+      // Start loading indicator
+      setLoading(true);
+      
       const quality = await getIndexQuality();
       
       const ForMusicPlayer = [];
@@ -179,7 +235,6 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
       
       if (ForMusicPlayer.length === 0) {
         console.log("No valid tracks to play");
-        setIsPlaying(false);
         return;
       }
       
@@ -190,7 +245,7 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
     } catch (error) {
       console.error("Error adding songs to player:", error);
     } finally {
-      setIsPlaying(false);
+      setLoading(false);
     }
   }
   
@@ -222,14 +277,10 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
         />
         <Spacer width={20} />
         <PlayButton 
-          Loading={isPlaying} 
+          Loading={loading} 
           size="large"
-          onPress={() => {
-            if (!Loading && !isPlaying) {
-              console.log("Play button pressed - attempting to play all songs");
-              AddToPlayer();
-            }
-          }}
+          isPlaying={isPlaying}
+          onPress={AddToPlayer}
         />
       </View>
     </LinearGradient>
@@ -263,6 +314,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingRight: 10,
     paddingVertical: 5,
-    marginLeft: 20, // Increase left margin for more space
   }
 });

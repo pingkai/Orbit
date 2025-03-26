@@ -167,8 +167,26 @@ async function PlayPreviousSong(){
   PlaySong()
 }
 async function SkipToTrack(trackIndex){
-  await TrackPlayer.skip(trackIndex);
-  await PlaySong()
+  try {
+    // Ensure trackIndex is a valid number
+    const validIndex = Number(trackIndex);
+    if (isNaN(validIndex)) {
+      console.error('Invalid trackIndex provided to SkipToTrack:', trackIndex);
+      return;
+    }
+    
+    // Get the queue to verify index is within bounds
+    const queue = await TrackPlayer.getQueue();
+    if (validIndex < 0 || validIndex >= queue.length) {
+      console.error('Track index out of bounds:', validIndex, 'Queue length:', queue.length);
+      return;
+    }
+    
+    await TrackPlayer.skip(validIndex);
+    await PlaySong();
+  } catch (error) {
+    console.error('Error in SkipToTrack:', error);
+  }
 }
 async function SetRepeatMode(mode){
   await setRepeatMode(mode)

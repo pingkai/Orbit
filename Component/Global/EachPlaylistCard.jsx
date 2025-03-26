@@ -84,6 +84,38 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
         timestamp: Date.now() // Add timestamp to ensure fresh navigation and prevent caching issues
       };
       
+      // Store the current screen information to handle proper back navigation
+      try {
+        // Safer way to get current route name from navigation state
+        const navState = navigation.getState();
+        let currentRouteName = 'Unknown';
+        
+        if (navState && navState.routes && navState.routes.length > 0) {
+          // Get the current active route index
+          const currentRouteIndex = navState.index;
+          currentRouteName = navState.routes[currentRouteIndex]?.name || 'Unknown';
+        }
+        
+        console.log(`Current screen before navigation: ${currentRouteName}`);
+        
+        // Always set previousScreen parameter to ensure proper back navigation
+        params.previousScreen = currentRouteName;
+        
+        // If coming from LikedPlaylists, save that specifically
+        if (currentRouteName === 'LikedPlaylists' || currentRouteName === 'LikedPlaylistPage') {
+          params.previousScreen = 'LikedPlaylists';
+          // Also save to AsyncStorage as backup
+          await AsyncStorage.setItem('NAVIGATION_SOURCE', 'Library');
+        } else {
+          await AsyncStorage.setItem('NAVIGATION_SOURCE', currentRouteName);
+        }
+      } catch (navError) {
+        console.log('Could not determine current screen:', navError);
+        // Use fallback navigation source to ensure we can navigate back somewhere
+        params.previousScreen = 'Home';
+        await AsyncStorage.setItem('NAVIGATION_SOURCE', 'Home');
+      }
+      
       if (source) {
         params.source = source;
         
@@ -97,15 +129,31 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
       // Pass along the navigation source if available
       if (navigationSource) {
         params.navigationSource = navigationSource;
-        console.log(`Including navigation source in params: ${navigationSource}`);
+      } else {
+        // If navigationSource not provided, derive it from navState
+        const navState = navigation.getState();
+        const routeName = navState && navState.routes && navState.routes.length > 0 
+          ? navState.routes[navState.index]?.name || '' 
+          : '';
+          
+        if (routeName.includes('Home')) {
+          params.navigationSource = 'Home';
+        } else if (routeName.includes('Library')) {
+          params.navigationSource = 'Library';
+        } else if (routeName.includes('Search')) {
+          params.navigationSource = 'Search';
+        } else {
+          // Default to Home if we can't determine
+          params.navigationSource = 'Home';
+        }
       }
       
-      console.log(`Navigating to Playlist with params:`, JSON.stringify(params));
+      console.log(`Navigating to PlaylistPage with params:`, JSON.stringify(params));
       navigation.navigate("Playlist", params);
     } catch (error) {
       console.error('Error navigating to Playlist:', error);
       // Fallback navigation to prevent dead-end
-      navigation.navigate("Home", { screen: "HomePage" });
+      navigation.navigate("Home");
     }
   };
   
@@ -122,6 +170,7 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
       overflow: 'hidden',
       ...responsiveStyles.container,
       ...MainContainerStyle,
+      backgroundColor: 'transparent', // Ensure no background color is applied
     }}>
       <View style={{ position: 'relative' }}>
         <FastImage source={imageSource} style={{
@@ -133,7 +182,8 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
       </View>
       <SpaceBetween style={{
         ...responsiveStyles.textContainer,
-        paddingHorizontal: 5, // Add horizontal padding
+        paddingHorizontal: 5, // Even padding on both sides
+        backgroundColor: 'transparent', // Ensure no background color is applied
       }}>
         <View style={{
           width:"85%",

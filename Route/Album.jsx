@@ -259,7 +259,7 @@ export const Album = ({route}) => {
           <PlaylistTopHeader AnimatedRef={AnimatedRef} url={getValidImageUrl(Data?.data?.image[2]?.url ?? "")} />
           <AlbumDetails name={Data?.data?.name ?? ""} liked={false} releaseData={Data?.data?.year ?? ""}  Data={Data}/>
           {<View style={{
-            paddingHorizontal: 15,
+            paddingHorizontal: 8,
             backgroundColor: "#101010",
             gap: 7,
           }}>
@@ -280,9 +280,10 @@ export const Album = ({route}) => {
                 title={e?.name}  
                 url={e?.downloadUrl} 
                 style={{
-                  marginBottom: 15,
+                  marginBottom: 12,
                   borderRadius: 8,
                   elevation: 2,
+                  marginRight: 0
                 }}
               />
             )}

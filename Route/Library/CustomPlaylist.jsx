@@ -10,7 +10,7 @@ import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityI
 import FastImage from "react-native-fast-image";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getUserPlaylists, createPlaylist } from "../../Utils/PlaylistManager";
+import { getUserPlaylists, createPlaylist, clearPlaylistCache } from "../../Utils/PlaylistManager";
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -212,16 +212,26 @@ export const CustomPlaylist = () => {
       // Filter out the playlist to delete
       const updatedPlaylists = allPlaylists.filter(p => p.id !== playlistId);
       
-      // Save the updated playlists
+      // Save the updated playlists - await to ensure operation completes
       await AsyncStorage.setItem('userPlaylists', JSON.stringify(updatedPlaylists));
       
-      // Reload playlists
-      loadPlaylists();
+      // Clear playlist cache to ensure fresh data
+      clearPlaylistCache();
+      
+      // Close modal first
       setMenuVisible(false);
+      
+      // Show feedback
       ToastAndroid.show('Playlist deleted', ToastAndroid.SHORT);
+      
+      // Reload playlists after a short delay to ensure AsyncStorage is updated
+      setTimeout(() => {
+        loadPlaylists();
+      }, 300);
     } catch (error) {
       console.error('Error deleting user playlist:', error);
       ToastAndroid.show('Failed to delete playlist', ToastAndroid.SHORT);
+      setMenuVisible(false);
     }
   };
 
@@ -632,19 +642,22 @@ export const CustomPlaylist = () => {
               value={newPlaylistName}
               onChangeText={setNewPlaylistName}
               style={styles.input}
+              autoFocus
             />
-            <Pressable 
-              style={styles.createPlaylistButton}
-              onPress={handleUpdatePlaylistName}
-            >
-              <Text style={styles.createButtonText}>Update</Text>
-            </Pressable>
-            <Pressable 
-              style={styles.cancelButton}
-              onPress={() => setEditModalVisible(false)}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </Pressable>
+            <View style={styles.modalButtonContainer}>
+              <Pressable 
+                style={styles.cancelButton}
+                onPress={() => setEditModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable 
+                style={styles.createPlaylistButton}
+                onPress={handleUpdatePlaylistName}
+              >
+                <Text style={styles.createButtonText}>Update</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>

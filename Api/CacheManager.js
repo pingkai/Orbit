@@ -38,18 +38,47 @@ const MAX_MEMORY_ITEMS = {
   ALBUMS: 10
 };
 
+// Add a global offline mode flag that can be checked anywhere
+let _isOfflineMode = false;
+let _lastNetworkCheck = 0;
+const NETWORK_CHECK_INTERVAL = 10000; // 10 seconds
+
 /**
  * Check if the network is available
  * @returns {Promise<boolean>} Whether network is available
  */
 const isNetworkAvailable = async () => {
   try {
+    // Use cached result if checked recently to avoid too many NetInfo calls
+    const now = Date.now();
+    if (now - _lastNetworkCheck < NETWORK_CHECK_INTERVAL) {
+      return !_isOfflineMode;
+    }
+    
+    _lastNetworkCheck = now;
     const state = await NetInfo.fetch();
-    return state.isConnected && state.isInternetReachable;
+    const isConnected = state.isConnected && state.isInternetReachable;
+    
+    // Update the global offline mode flag
+    _isOfflineMode = !isConnected;
+    
+    return isConnected;
   } catch (error) {
-    console.error('Error checking network status:', error);
+    console.warn('Error checking network status:', error);
+    // Assume offline if there's an error
+    _isOfflineMode = true;
     return false;
   }
+};
+
+// Add a function to explicitly set offline mode
+const setOfflineMode = (isOffline) => {
+  _isOfflineMode = isOffline;
+};
+
+// Add a function to check if we're in offline mode without a network check
+const isOfflineMode = () => {
+  return _isOfflineMode;
 };
 
 /**
@@ -298,72 +327,88 @@ const clearCache = async (group = null) => {
 };
 
 /**
- * Get data with cache support
+ * Get cached data or fetch from API with better offline handling
  * @param {string} key Cache key
- * @param {Function} fetchFunction Function to call if cache miss
- * @param {number} expiration Cache expiration in minutes
- * @param {string|null} group Cache group
+ * @param {Function} fetchFunction Function to fetch data if not cached
+ * @param {number} expiration Expiration time in minutes
+ * @param {string|null} group Cache group for batch invalidation
  * @param {boolean} forceRefresh Force refresh from API
  * @returns {Promise<Object>} Data from cache or API
  */
 const getCachedData = async (key, fetchFunction, expiration = DEFAULT_CACHE_EXPIRATION, group = null, forceRefresh = false) => {
   try {
-    // Prefix all keys for API cache
-    const cacheKey = `api_cache_${key}`;
+    // First check if we're in offline mode
+    const networkAvailable = await isNetworkAvailable();
     
-    // Adjust expiration based on content type
-    if (key.includes('search_') || group === CACHE_GROUPS.SEARCH) {
-      expiration = 2; // 2 minutes for search results
-    } else if (key.includes('playlist_') || group === CACHE_GROUPS.PLAYLISTS) {
-      expiration = 30; // 30 minutes for playlists
-    } else if (key.includes('album_') || group === CACHE_GROUPS.ALBUMS) {
-      expiration = 60; // 60 minutes for albums
-    }
-    
-    // Check network status
-    const isOnline = await isNetworkAvailable();
-    
-    // If not online, always try to get from cache
-    if (!isOnline) {
-      const cachedData = await getFromCache(cacheKey);
+    // In offline mode, don't even attempt network requests
+    if (!networkAvailable) {
+      // Try to get from cache first
+      const cachedData = await getFromCache(key);
+      
       if (cachedData) {
-        return { ...cachedData, fromCache: true, offline: true };
-      } else {
-        throw new Error('No network connection and no cached data available');
+        // Add a flag to indicate this came from cache during offline mode
+        return { ...cachedData, fromCache: true, offlineMode: true };
       }
+      
+      // If there's no cached data and we're offline, return a standard offline response
+      return { 
+        success: false, 
+        error: 'Offline mode - data not available',
+        offlineMode: true
+      };
     }
     
-    // If online and not forcing refresh, try cache first
+    // For online mode, proceed as before - check cache first unless force refresh
     if (!forceRefresh) {
-      const cachedData = await getFromCache(cacheKey);
+      const cachedData = await getFromCache(key);
+      
       if (cachedData) {
+        // Add a flag to indicate this came from cache
         return { ...cachedData, fromCache: true };
       }
     }
     
-    // Fetch fresh data
-    const freshData = await fetchFunction();
-    
-    // Save to cache
-    await saveToCache(cacheKey, freshData, expiration, group);
-    
-    return { ...freshData, fromCache: false };
-  } catch (error) {
-    // If it's a storage error, log it and return the fresh data if available
-    if (error.message && (error.message.includes('SQLITE_FULL') || error.message.includes('storage_full'))) {
-      console.warn(`Storage full when accessing ${key}, attempting to return raw data`);
-      try {
-        // Try to fetch data directly and bypass caching
-        const freshData = await fetchFunction();
-        return { ...freshData, fromCache: false, cacheBypass: true };
-      } catch (fetchError) {
-        console.error(`Failed to get data for ${key} after cache error:`, fetchError);
-        throw fetchError;
+    // Nothing in cache or force refresh, so fetch from API
+    try {
+      const data = await fetchFunction();
+      
+      // Only cache successful responses
+      if (data && !data.error) {
+        await saveToCache(key, data, expiration, group);
       }
+      
+      return data;
+      } catch (fetchError) {
+      // Handle network errors more gracefully
+      console.error(`Error fetching data for key ${key}:`, fetchError);
+      
+      // Check if we've gone offline during this request
+      const stillOnline = await isNetworkAvailable();
+      if (!stillOnline) {
+        // We're offline now, try cache again as last resort
+        const cachedData = await getFromCache(key);
+        
+        if (cachedData) {
+          return { ...cachedData, fromCache: true, offlineMode: true };
+        }
+      }
+      
+      // Return a standardized error response
+      return {
+        success: false,
+        error: fetchError.message || 'Network error occurred',
+        offlineMode: !stillOnline
+      };
     }
-    
+  } catch (error) {
     console.error(`Error in getCachedData for key ${key}:`, error);
-    throw error;
+    
+    // Last resort - return a generic error
+    return {
+      success: false,
+      error: 'Cache operation failed',
+      offlineMode: _isOfflineMode
+    };
   }
 };
 
@@ -371,6 +416,8 @@ export {
   getCachedData,
   clearCache,
   isNetworkAvailable,
+  isOfflineMode,
+  setOfflineMode,
   CACHE_GROUPS,
   DEFAULT_CACHE_EXPIRATION
 }; 

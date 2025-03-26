@@ -1,4 +1,4 @@
-import { Dimensions, ImageBackground, View, Pressable, BackHandler, Text, FlatList, TouchableOpacity, Image } from "react-native";
+import { Dimensions, ImageBackground, View, Pressable, BackHandler, Text, FlatList, TouchableOpacity, Image, ActivityIndicator, Alert } from "react-native";
 import FastImage from "react-native-fast-image";
 import React, { useState, useEffect, useCallback, useRef, useContext, memo } from "react";
 import LinearGradient from "react-native-linear-gradient";
@@ -21,7 +21,7 @@ import { useActiveTrack, usePlaybackState, State, useProgress } from "react-nati
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { PlayNextSong, PlayPreviousSong } from "../../MusicPlayerFunctions";
 import ReactNativeBlobUtil from "react-native-blob-util";
-import { PermissionsAndroid, Platform, ToastAndroid } from "react-native";
+import { PermissionsAndroid, Platform, ToastAndroid, DeviceEventEmitter } from "react-native";
 import DeviceInfo from "react-native-device-info";
 import { GetDownloadPath } from "../../LocalStorage/AppSettings";
 import TrackPlayer from 'react-native-track-player';
@@ -33,9 +33,90 @@ import { Event } from "react-native-track-player";
 import Context from "../../Context/Context";
 import { useNavigation, CommonActions } from "@react-navigation/native";
 import { StorageManager } from '../../Utils/StorageManager';
+import RNFS from "react-native-fs";
+import MaterialIcons from "react-native-vector-icons/MaterialIcons";
+import { safePath, safeExists, safeDownloadFile, ensureDirectoryExists, safeUnlink } from '../../Utils/FileUtils';
+import { safeMkdir } from '../../Utils/FileUtils';
+import EventRegister from '../../Utils/EventRegister';
+import { isOfflineMode, setOfflineMode } from '../../Api/CacheManager';
 
 // Import SleepTimerButton from its dedicated component file
 import { SleepTimerButton } from './SleepTimer';
+
+// Custom Circular Progress Component
+const CircularProgress = ({ progress, size = 24, thickness = 2, color = '#1DB954' }) => {
+  // Calculate how much of the circle to fill based on progress (0-100)
+  const rotation = progress * 3.6; // 360 degrees / 100 = 3.6
+  
+  return (
+    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+      {/* Background Circle */}
+      <View style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        borderWidth: thickness,
+        borderColor: 'rgba(255,255,255,0.2)',
+        position: 'absolute'
+      }} />
+      
+      {/* Progress Circle - Using border trick for quarter segments */}
+      <View style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        position: 'absolute',
+        borderWidth: thickness,
+        borderTopColor: progress > 12.5 ? color : 'transparent',
+        borderRightColor: progress > 37.5 ? color : 'transparent',
+        borderBottomColor: progress > 62.5 ? color : 'transparent',
+        borderLeftColor: progress > 87.5 ? color : 'transparent',
+        transform: [{ rotate: `${rotation}deg` }]
+      }} />
+      
+      {/* Center Text */}
+      <Text style={{
+        color: 'white',
+        fontSize: size / 3,
+        fontWeight: 'bold'
+      }}>{Math.round(progress)}%</Text>
+    </View>
+  );
+};
+
+// Define LocalMusicCard component with the function properly in scope
+const LocalMusicCard = ({ song, index, allSongs, onPress }) => {
+  return (
+    <TouchableOpacity
+      onPress={() => onPress(song)}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderBottomWidth: 0.5,
+        borderBottomColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: 'rgba(0,0,0,0.2)',
+        borderRadius: 8,
+        marginBottom: 8
+      }}
+    >
+      <FastImage
+        source={song.artwork ? { uri: song.artwork } : require('../../Images/a.gif')}
+        style={{ width: 50, height: 50, borderRadius: 4 }}
+        resizeMode={FastImage.resizeMode.cover}
+      />
+      <View style={{ marginLeft: 15, flex: 1 }}>
+        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>
+          {song.title || 'Unknown Title'}
+        </Text>
+        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, marginTop: 4 }}>
+          {song.artist || 'Unknown Artist'}
+        </Text>
+      </View>
+      <Ionicons name="play-circle-outline" size={28} color="white" />
+    </TouchableOpacity>
+  );
+};
 
 export const FullScreenMusic = ({ color, Index, setIndex }) => {
   const width = Dimensions.get("window").width;
@@ -49,6 +130,8 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
   const [cachedTracks, setCachedTracks] = useState([]);
   const [localTracks, setLocalTracks] = useState([]);
   const [showLocalTracks, setShowLocalTracks] = useState(false);
+  const [blur, setBlur] = useState(10); // Add blur state for the background image
+  const [isDownloadedState, setIsDownloaded] = useState(false); // Track if current song is downloaded
   const { currentPlaylistData, musicPreviousScreen } = useContext(Context);
   const navigation = useNavigation();
 
@@ -61,6 +144,8 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
   const touchEndTime = useSharedValue(0); // Track when touch ended
   const isVolumeAdjustmentActive = useSharedValue(false); // Explicit flag for volume adjustment
   const volumeChangeRef = useRef(null); // Add missing ref for volume change timeout
+  const isFullScreenRef = useRef(false); // Reference to track fullscreen mode
+  const prevSongIdRef = useRef(null); // Reference to track previous song ID for local tracks
 
   // Add state to track the current GIF
   const [currentGif, setCurrentGif] = useState('a');
@@ -168,18 +253,73 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     const checkInitialConnection = async () => {
       try {
         const networkState = await NetInfo.fetch();
-        setIsOffline(!networkState.isConnected);
-        if (!networkState.isConnected) {
+        const isConnected = networkState.isConnected && networkState.isInternetReachable;
+        
+        // Use our improved offline detection by updating the global flag
+        setOfflineMode(!isConnected);
+        setIsOffline(!isConnected);
+        
+        if (!isConnected) {
+          console.log('Device is offline - loading local tracks');
           await loadCachedData();
-          await loadLocalTracks();
+          
+          // Automatically add all downloaded songs to the player queue in offline mode
+          try {
+            const localTracksLoaded = await loadLocalTracks();
+            
+            // Only update the queue if we have local tracks and there's nothing currently playing
+            if (localTracksLoaded && localTracksLoaded.length > 0) {
+              const state = await TrackPlayer.getState();
+              const currentTrack = await TrackPlayer.getActiveTrack();
+              
+              // If nothing is playing or the player isn't initialized
+              if (!currentTrack || state === State.None || state === State.Ready) {
+                console.log(`Adding ${localTracksLoaded.length} downloaded tracks to queue in offline mode`);
+                
+                try {
+                  await TrackPlayer.reset();
+                  await TrackPlayer.add(localTracksLoaded);
+                  console.log('Offline queue initialized with downloaded tracks');
+                } catch (queueError) {
+                  console.error('Error setting up offline queue:', queueError);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error loading local tracks into queue:', error);
+          }
         }
       } catch (error) {
         console.error('Error checking network status:', error);
         // Assume offline if there's an error
+        setOfflineMode(true);
         setIsOffline(true);
         await loadCachedData();
         await loadLocalTracks();
       }
+    };
+    
+    // Global error handler for network errors
+    const originalConsoleError = console.error;
+    console.error = (...args) => {
+      // Filter out common network errors and playlist errors
+      if (args.some(arg => 
+        typeof arg === 'string' && (
+          arg.includes('Network Error') || 
+          arg.includes('Network request failed') ||
+          arg.includes('Unable to resolve host') ||
+          arg.includes('Error getting playlist') ||
+          arg.includes('ENOTFOUND') ||
+          arg.includes('ETIMEDOUT')
+        )
+      )) {
+        // Just log a simple message instead
+        console.log('Suppressed network/playlist error in offline mode');
+        return;
+      }
+      
+      // Pass through all other errors
+      originalConsoleError.apply(console, args);
     };
     
     checkInitialConnection();
@@ -187,10 +327,123 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     // Subscribe to network state updates with error handling
     const unsubscribe = NetInfo.addEventListener(state => {
       try {
-        setIsOffline(!state.isConnected);
-        if (!state.isConnected) {
+        const isConnected = state.isConnected && state.isInternetReachable;
+        const previousOfflineState = isOffline;
+        
+        // Update both our local and global offline state
+        setOfflineMode(!isConnected);
+        setIsOffline(!isConnected);
+        
+        console.log(`Network state changed. Connected: ${isConnected}, Internet reachable: ${state.isInternetReachable}`);
+        
+        // When going from offline to online
+        if (isConnected && previousOfflineState) {
+          console.log('Switched from offline to online mode');
+          
+          // Keep playing the current track, but update UI
+          const updateActiveTrack = async () => {
+            try {
+              const currentTrack = await TrackPlayer.getActiveTrack();
+              if (currentTrack && currentTrack.isLocal) {
+                // Mark downloaded regardless of network state when playing local track
+                setIsDownloaded(true);
+                
+                // If we're playing a local track, rebuild queue with all downloaded tracks
+                const localTracks = await loadLocalTracks();
+                if (localTracks.length > 0) {
+                  // Find the current playing track in downloaded tracks
+                  const currentTrackIndex = localTracks.findIndex(t => t.id === currentTrack.id);
+                  if (currentTrackIndex !== -1) {
+                    // Keep playing, but rebuild queue if needed
+                    const queue = await TrackPlayer.getQueue();
+                    if (queue.length <= 1) {
+                      const wasPlaying = await TrackPlayer.getState() === State.Playing;
+                      const position = await TrackPlayer.getPosition();
+                      
+                      console.log('Rebuilding queue with downloaded tracks in online mode');
+                      await TrackPlayer.reset();
+                      
+                      // Reorder tracks with current track first
+                      const orderedTracks = [
+                        localTracks[currentTrackIndex],
+                        ...localTracks.filter((_, i) => i !== currentTrackIndex)
+                      ];
+                      
+                      await TrackPlayer.add(orderedTracks);
+                      
+                      // Restore position and playback state
+                      if (position > 0) {
+                        try {
+                          await TrackPlayer.seekTo(position);
+                        } catch (seekError) {
+                          console.error('Error seeking to position:', seekError);
+                        }
+                      }
+                      
+                      if (wasPlaying) {
+                        try {
+                          await TrackPlayer.play();
+                        } catch (playError) {
+                          console.error('Error resuming playback:', playError);
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('Error updating active track for online mode:', error);
+            }
+          };
+          
+          updateActiveTrack();
+        }
+        
+        // When going from online to offline
+        if (!isConnected && !previousOfflineState) {
+          console.log('Switched to offline mode - loading local data');
           loadCachedData();
-          loadLocalTracks();
+          loadLocalTracks().then(async (tracks) => {
+            // Auto-build queue when going offline
+            if (tracks && tracks.length > 0) {
+              try {
+                // Check if something is already playing locally
+                const currentTrack = await TrackPlayer.getActiveTrack();
+                
+                // If current track isn't local, replace queue with downloaded songs
+                if (!currentTrack || !(currentTrack.isLocal || currentTrack.isDownloaded)) {
+                  await TrackPlayer.reset();
+                  await TrackPlayer.add(tracks);
+                  console.log('Offline queue built with downloaded tracks');
+                } else {
+                  // Already playing a local track, just make sure the queue is complete
+                  const wasPlaying = await TrackPlayer.getState() === State.Playing;
+                  const position = await TrackPlayer.getPosition();
+                  
+                  // Find current track in downloaded tracks
+                  const currentIndex = tracks.findIndex(t => t.id === currentTrack.id);
+                  if (currentIndex !== -1) {
+                    // Rebuild queue with current track first
+                    const orderedTracks = [
+                      tracks[currentIndex],
+                      ...tracks.filter((_, i) => i !== currentIndex)
+                    ];
+                    
+                    await TrackPlayer.reset();
+                    await TrackPlayer.add(orderedTracks);
+                    
+                    // Restore position and playback
+                    if (position > 0) await TrackPlayer.seekTo(position);
+                    if (wasPlaying) await TrackPlayer.play();
+                    
+                    console.log('Rebuilt queue with current track first in offline mode');
+                  }
+                }
+              } catch (error) {
+                console.error('Error setting up queue for offline mode:', error);
+              }
+            }
+          });
         }
       } catch (error) {
         console.error('Error handling network change:', error);
@@ -206,9 +459,28 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
       }
     }
 
-    // Cleanup subscription
-    return () => unsubscribe();
-  }, [currentPlaying]);
+    // Register a global event to notify other components about network state changes
+    const publishOfflineStateChange = (isOffline) => {
+      try {
+        DeviceEventEmitter.emit('offlineStateChanged', { isOffline });
+      } catch (error) {
+        console.error('Error publishing offline state change:', error);
+      }
+    };
+
+    // Update when our local offline state changes
+    const offlineStateEffect = () => {
+      publishOfflineStateChange(isOffline);
+    };
+    
+    offlineStateEffect();
+
+    // Cleanup subscription and error handler
+    return () => {
+      unsubscribe();
+      console.error = originalConsoleError;
+    };
+  }, [isOffline]);
 
   // Function to cache the current track
   const cacheCurrentTrack = async (track) => {
@@ -242,11 +514,16 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     }
   };
 
-  // Function to load local tracks with improved error handling
-  const loadLocalTracks = async () => {
+  // Add this function near the top of the component
+  const buildOfflineQueue = async (currentTrack) => {
     try {
       // Get all downloaded songs metadata
       const allMetadata = await StorageManager.getAllDownloadedSongsMetadata();
+      
+      if (!allMetadata || Object.keys(allMetadata).length === 0) {
+        console.log('No downloaded songs found for offline queue');
+        return [currentTrack];
+      }
       
       // Format tracks with metadata
       const formattedTracks = Object.values(allMetadata).map(metadata => {
@@ -256,37 +533,74 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
         return {
           id: metadata.id,
           url: `file://${songPath}`,
-          title: metadata.title,
-          artist: metadata.artist,
+          title: metadata.title || 'Unknown',
+          artist: metadata.artist || 'Unknown',
           artwork: `file://${artworkPath}`,
-          duration: metadata.duration,
+          localArtworkPath: artworkPath,
+          duration: metadata.duration || 0,
           isLocal: true,
-          language: metadata.language,
-          artistID: metadata.artistID
+          isDownloaded: true
+        };
+      });
+
+      // Put current track first, then add other tracks
+      const queue = [
+        currentTrack,
+        ...formattedTracks.filter(track => track.id !== currentTrack.id)
+      ];
+
+      console.log(`Built offline queue with ${queue.length} tracks`);
+      return queue;
+    } catch (error) {
+      console.error('Error building offline queue:', error);
+      return [currentTrack];
+    }
+  };
+
+  // Function to load local tracks with better error handling for artwork
+  const loadLocalTracks = async () => {
+    try {
+          // Get all downloaded songs metadata
+      const allMetadata = await StorageManager.getAllDownloadedSongsMetadata();
+          
+      if (!allMetadata || Object.keys(allMetadata).length === 0) {
+            console.log('No downloaded songs metadata found');
+        setLocalTracks([]);
+        return [];
+      }
+      
+      // Format tracks with metadata
+      const formattedTracks = Object.values(allMetadata).map(metadata => {
+        const artworkPath = StorageManager.getArtworkPath(metadata.id);
+        const songPath = StorageManager.getSongPath(metadata.id);
+        
+        return {
+          id: metadata.id,
+          url: `file://${songPath}`,
+          title: metadata.title || 'Unknown',
+          artist: metadata.artist || 'Unknown',
+          artwork: `file://${artworkPath}`,
+          localArtworkPath: artworkPath,
+          duration: metadata.duration || 0,
+          isLocal: true,
+          isDownloaded: true
         };
       });
 
       setLocalTracks(formattedTracks);
       console.log('Loaded local tracks with metadata:', formattedTracks.length);
+      
+      // Force update of download status for current song
+      if (currentPlaying?.id) {
+        setIsDownloaded(true);
+      }
+      
       return formattedTracks;
     } catch (error) {
       console.error('Error loading local tracks:', error);
       return [];
-    }
-  };
-
-  // Make sure queue is set up for auto-play
-  useTrackPlayerEvents([Event.PlaybackQueueEnded, Event.PlaybackTrackChanged], async (event) => {
-    try {
-      if (event.type === Event.PlaybackQueueEnded && localTracks.length > 0) {
-        // When queue ends, restart from beginning
-        await TrackPlayer.skip(0);
-        await TrackPlayer.play();
       }
-    } catch (error) {
-      console.error('Error in track player event handler:', error);
-    }
-  });
+    };
 
   // Create animated style for the volume overlay with immediate response
   const volumeOverlayStyle = useAnimatedStyle(() => ({
@@ -708,6 +1022,13 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
         setLoading(false);
         return;
       }
+      
+      // Skip network requests when in offline mode
+      if (isOffline) {
+        setLyric({ lyrics: "You are offline. Lyrics are not available in offline mode." });
+        setLoading(false);
+        return;
+      }
 
       try {
         // Instead of using our own caching logic, use the cached version from API
@@ -760,105 +1081,318 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     }
   }
 
+  // Remove the duplicate state declaration
+  // const [isDownloaded, setIsDownloaded] = useState(false);
+  const [downloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [isDownloadComplete, setIsDownloadComplete] = useState(false);
+
+  // Add error handler for offline network errors at the component level
+  useEffect(() => {
+    // Simple error handler for offline mode
+    const handleNetworkErrors = () => {
+      if (isOffline) {
+        console.log('Network errors suppressed in offline mode');
+      }
+    };
+    
+    // Add listener to suppress network errors in offline mode
+    if (isOffline) {
+      console.log('Setting up offline error suppression');
+      // We don't need complex error handling, just acknowledge offline mode
+    }
+    
+    return () => {
+      // Clean up if needed
+    };
+  }, [isOffline]);
+
+  // Make the renderDownloadControl function more robust against null values
+  const renderDownloadControl = () => {
+    // Always show checkmark in offline mode
+    if (isOffline) {
+      return (
+        <TouchableOpacity style={styles.controlIcon} disabled={true}>
+          <MaterialIcons name="check-circle" size={28} color="#4CAF50" />
+        </TouchableOpacity>
+      );
+    }
+    
+    // For online mode, check download status safely
+    const isDownloaded = !!(currentPlaying?.isLocal || isDownloadedState);
+    
+    // Check if we're currently downloading safely
+    const showProgress = downloading && downloadProgress > 0;
+    
+    if (isDownloaded) {
+      // Show checkmark for downloaded songs
+      return (
+        <TouchableOpacity style={styles.controlIcon} disabled={true}>
+          <MaterialIcons name="check-circle" size={28} color="#4CAF50" />
+        </TouchableOpacity>
+      );
+    } else if (showProgress) {
+      // Show only circular progress indicator with percentage - no song name
+      return (
+        <View style={styles.controlIcon}>
+          <CircularProgress progress={downloadProgress} size={32} thickness={3} />
+        </View>
+      );
+    } else {
+      // Regular download button - disabled in offline mode
+      return (
+        <TouchableOpacity 
+          style={styles.controlIcon} 
+          onPress={getPermission}
+          disabled={isOffline}
+        >
+          <MaterialIcons 
+            name="file-download" 
+            size={28} 
+            color={isOffline ? "#888888" : "#ffffff"} 
+          />
+        </TouchableOpacity>
+      );
+    }
+  };
+
   const actualDownload = async () => {
-    if (!currentPlaying?.url) {
-      ToastAndroid.show('No song URL available', ToastAndroid.SHORT);
+    try {
+      // Prevent multiple simultaneous downloads
+    if (downloading) {
+        console.log("Already downloading, please wait...");
       return;
     }
+    
+      const songId = currentPlaying?.id;
+      const songUrl = currentPlaying?.url;
 
-    try {
-      // Ensure directories exist
-      await StorageManager.ensureDirectoriesExist();
-
-      // Prepare metadata
-      const metadata = {
-        id: currentPlaying.id,
-        title: currentPlaying.title,
-        artist: currentPlaying.artist,
-        duration: currentPlaying.duration,
-        artwork: currentPlaying.artwork,
-        originalUrl: currentPlaying.url,
-        language: currentPlaying.language,
-        artistID: currentPlaying.artistID,
-        downloadTime: Date.now()
-      };
-
-      // Save metadata first
-      await StorageManager.saveDownloadedSongMetadata(currentPlaying.id, metadata);
-
-      // Download artwork if available
-      if (currentPlaying.artwork && typeof currentPlaying.artwork === 'string') {
-        await StorageManager.saveArtwork(currentPlaying.id, currentPlaying.artwork);
+      if (!songUrl || typeof songUrl !== 'string') {
+        console.error("Invalid song URL:", songUrl);
+        Alert.alert("Download Failed", "Invalid song URL");
+      return;
+    }
+    
+      // Check if song is already downloaded
+      try {
+        const isDownloaded = await checkIfDownloaded(songId);
+        if (isDownloaded) {
+          console.log("Song already downloaded:", songId);
+          Alert.alert("Already Downloaded", "This song is already in your library");
+      return;
+        }
+      } catch (error) {
+        console.error("Error checking if song is downloaded:", error);
+        // Continue with download attempt
+    }
+    
+      // Initialize download progress and notification
+      setIsDownloading(true);
+      setDownloadProgress(0);
+      console.log("Starting download process for:", currentPlaying?.title);
+      
+      // Ensure directories exist using our new utility
+      try {
+        const baseDir = RNFS.DocumentDirectoryPath + '/orbit_music';
+        await ensureDirectoryExists(baseDir);
+        await ensureDirectoryExists(baseDir + '/songs');
+        await ensureDirectoryExists(baseDir + '/artwork');
+        await ensureDirectoryExists(baseDir + '/metadata');
+      } catch (dirError) {
+        console.error("Error creating directories:", dirError);
+        // Continue with download attempt - ReactNativeBlobUtil might handle this
       }
 
-      // Get the song path
-      const songPath = StorageManager.getSongPath(currentPlaying.id);
+      // Prepare download path with safe path handling - ensure it's a string
+      const songFileName = `${songId}.mp3`;
+      // Make absolutely sure the path is a string
+      let basePath = typeof RNFS.DocumentDirectoryPath === 'string' ? 
+                    RNFS.DocumentDirectoryPath : 
+                    String(RNFS.DocumentDirectoryPath || '');
+      
+      if (!basePath) {
+        console.error("Invalid DocumentDirectoryPath");
+        throw new Error("Invalid path");
+      }
+      
+      // Construct full path with explicit string concatenation
+      const fullPath = basePath + '/orbit_music/songs/' + songFileName;
+      const downloadPath = safePath(fullPath);
+      console.log("Download path:", downloadPath);
 
-      // Show download started toast
-      ToastAndroid.showWithGravity(
-        `Download Started`,
-        ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
-      );
+      // Prepare download config with improved error handling
+      const downloadConfig = {
+        fileCache: false, // Don't use file cache
+        path: downloadPath,
+        overwrite: true,
+        indicator: false, // Disable built-in indicator
+        timeout: 60000
+      };
 
-      // Download the song
-      await ReactNativeBlobUtil
-        .config({
-          fileCache: true,
-          appendExt: 'mp3',
-          path: songPath,
-          addAndroidDownloads: {
-            useDownloadManager: true,
-            notification: true,
-            title: currentPlaying.title,
-            description: `Downloading ${currentPlaying.title}`,
-            mime: 'audio/mpeg',
-          },
-        })
-        .fetch('GET', currentPlaying.url, {})
-        .then((res) => {
-          console.log('Download completed:', res.path());
-          ToastAndroid.showWithGravity(
-            "Download successfully completed",
-            ToastAndroid.SHORT,
-            ToastAndroid.CENTER,
-          );
-        });
+      // Start download with a simplified approach
+      try {
+        console.log("Starting download using simplified config");
+        const res = await ReactNativeBlobUtil.config(downloadConfig)
+          .fetch('GET', songUrl, {
+            // Add some basic headers
+            'Accept': 'audio/mpeg, application/octet-stream',
+            'Cache-Control': 'no-store'
+          })
+          .progress((received, total) => {
+            if (total <= 0) return; // Avoid division by zero
+            const percentage = Math.floor((received / total) * 100);
+            setDownloadProgress(percentage);
+            console.log(`Download progress event received: ${percentage}% for ${currentPlaying?.title}`);
+          });
 
-      // After successful download, update local tracks list
-      await loadLocalTracks();
-    } catch (error) {
-      console.error('Download error:', error);
-      ToastAndroid.showWithGravity(
-        "Download failed",
-        ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
-      );
+        console.log("Download completed with status:", res.info().status);
+        
+        if (res.info().status !== 200) {
+          throw new Error(`Download failed with status: ${res.info().status}`);
+        }
 
-      // Clean up metadata if download fails
-      await StorageManager.removeDownloadedSongMetadata(currentPlaying.id);
+        // Save metadata after successful download
+        try {
+          if (currentPlaying) {
+            await StorageManager.saveDownloadedSongMetadata(songId, {
+              id: songId,
+              title: currentPlaying.title || 'Unknown',
+              artist: currentPlaying.artist || 'Unknown',
+              album: currentPlaying.album || 'Unknown',
+              url: songUrl,
+              artwork: currentPlaying.artwork || null,
+              duration: currentPlaying.duration || 0,
+              downloadedAt: new Date().toISOString()
+            });
+            console.log("Metadata saved successfully for:", songId);
+          }
+        } catch (metadataError) {
+          console.error("Error saving metadata:", metadataError);
+          // Continue - song is still downloaded even if metadata fails
+        }
+
+        // Download artwork if available
+        if (currentPlaying?.artwork && typeof currentPlaying.artwork === 'string') {
+          try {
+            // First try using StorageManager
+            await StorageManager.saveArtwork(songId, currentPlaying.artwork);
+            console.log("Artwork saved successfully via StorageManager");
+        } catch (artworkError) {
+            console.error("Error saving artwork via StorageManager:", artworkError);
+            
+            // Fallback to direct download
+            try {
+              const artworkPath = safePath(`${RNFS.DocumentDirectoryPath}/orbit_music/artwork/${songId}.jpg`);
+              await safeDownloadFile(currentPlaying.artwork, artworkPath);
+              console.log("Artwork saved successfully via direct download");
+            } catch (directArtworkError) {
+              console.error("Error saving artwork via direct download:", directArtworkError);
+              // Continue - song is still downloaded even if artwork fails
+            }
+          }
+        }
+        
+        // Emit events for download completion - no alert needed
+        EventRegister.emit('download-complete', songId);
+        setIsDownloadComplete(true);
+      setIsDownloaded(true);
+        setIsDownloading(false);
+        setDownloadProgress(100);
+        
+      } catch (downloadError) {
+        console.error("Download failed:", downloadError);
+        setIsDownloading(false);
+        setDownloadProgress(0);
+        Alert.alert("Download Failed", "There was an error downloading the song. Please try again.");
+        
+        // Clean up partial downloads
+        try {
+          await safeUnlink(downloadPath);
+        } catch (unlinkError) {
+          console.error("Error cleaning up partial download:", unlinkError);
+        }
+      }
+      
+    } catch (mainError) {
+      console.error("Unexpected error in download process:", mainError);
+      setIsDownloading(false);
+        setDownloadProgress(0);
+      Alert.alert("Download Failed", "An unexpected error occurred. Please try again.");
     }
   };
 
   const getPermission = async () => {
+    try {
+      // Prevent multiple downloads
+      if (downloading) {
+        console.log("Already downloading, please wait");
+        return;
+      }
+      
+      // First check if we have a valid song
+      if (!currentPlaying?.url || !currentPlaying?.id) {
+        console.log("No valid song to download");
+        Alert.alert("Download Failed", "No valid song to download");
+        return;
+      }
+      
+      console.log("Starting download process for song:", currentPlaying?.title);
+      
+      // Different handling based on platform
     if (Platform.OS === 'ios') {
+        // iOS doesn't need explicit permissions for app-specific storage
+        console.log("iOS platform detected, proceeding with download");
       actualDownload();
-    } else {
-      try {
-        let deviceVersion = DeviceInfo.getSystemVersion();
-        let granted = PermissionsAndroid.RESULTS.DENIED;
-        if (deviceVersion >= 13) {
-          granted = PermissionsAndroid.RESULTS.GRANTED;
+      return;
+    }
+    
+      // For Android, check version
+    try {
+      const deviceVersion = DeviceInfo.getSystemVersion();
+        console.log(`Android version detected: ${deviceVersion}`);
+      
+      if (parseInt(deviceVersion) >= 13) {
+          // Android 13+ uses scoped storage, no need for permissions
+          console.log("Using app-specific directory for Android 13+:", `${RNFS.DocumentDirectoryPath}/orbit_music`);
+        actualDownload();
         } else {
-          granted = await PermissionsAndroid.request(
+          // For older Android, request storage permission
+          console.log("Requesting storage permission for older Android");
+        const granted = await PermissionsAndroid.request(
             PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-          );
-        }
+          {
+            title: "Storage Permission",
+            message: "Orbit needs storage access to save music for offline playback",
+            buttonPositive: "Allow",
+            buttonNegative: "Cancel"
+          }
+        );
+        
         if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+            console.log("Storage permission granted");
           actualDownload();
+        } else {
+            console.log("Storage permission denied");
+            Alert.alert(
+              "Permission Denied",
+              "Storage permission is required to download songs. Please enable it in app settings."
+            );
+          }
         }
-      } catch (err) {
-        console.log("Permission error", err);
+      } catch (versionError) {
+        console.error("Error detecting device version:", versionError);
+        // Fallback - try download anyway, it might work with app-specific storage
+        console.log("Falling back to default download path");
+        actualDownload();
+      }
+    } catch (mainError) {
+      console.error("Permission handling error:", mainError);
+      // Try download anyway as last resort
+      try {
+        actualDownload();
+      } catch (downloadError) {
+        console.error("Final download attempt failed:", downloadError);
+        Alert.alert("Download Failed", "Unable to start download process");
       }
     }
   };
@@ -889,25 +1423,6 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
       );
     }
     return null;
-  };
-
-  // Function to play a specific local track
-  const playLocalTrack = async (track) => {
-    try {
-      // Find the index of the track in the localTracks array
-      const trackIndex = localTracks.findIndex(t => t.id === track.id);
-      if (trackIndex === -1) return;
-
-      // Reset player and add all tracks starting from the selected one
-      await TrackPlayer.reset();
-      await TrackPlayer.add([...localTracks.slice(trackIndex), ...localTracks.slice(0, trackIndex)]);
-      await TrackPlayer.play();
-      
-      // Hide the local tracks list after selection
-      setShowLocalTracks(false);
-    } catch (error) {
-      console.error('Error playing local track:', error);
-    }
   };
 
   // Component to render local tracks list
@@ -946,6 +1461,7 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
                 song={item} 
                 index={index} 
                 allSongs={localTracks} 
+                onPress={playLocalTrack}
               />
             )}
           />
@@ -961,6 +1477,304 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     );
   };
 
+  // Function to check if a song is already downloaded
+  const checkIfDownloaded = async (songId) => {
+    try {
+      if (!songId) {
+        console.log('No songId provided to checkIfDownloaded');
+        setIsDownloaded(false);
+        return false;
+      }
+      
+      // If offline and the current song is playing, it must be downloaded
+      if (isOffline && currentPlaying?.id === songId && currentPlaying?.isLocal) {
+        console.log('Song is playing in offline mode, marking as downloaded');
+        setIsDownloaded(true);
+        return true;
+      }
+      
+      // First try using the StorageManager method
+      try {
+        const isDownloaded = await StorageManager.isSongDownloaded(songId);
+      setIsDownloaded(isDownloaded);
+      return isDownloaded;
+      } catch (metadataError) {
+        console.error('Error checking metadata:', metadataError);
+        
+        // Fallback - try to check if the song file exists directly using safe functions
+        try {
+          // Get the path safely with explicit string handling
+          const songPath = StorageManager.getSongPath(songId);
+          if (!songPath) {
+            console.error('Invalid song path returned from StorageManager');
+            setIsDownloaded(false);
+            return false;
+          }
+          
+          // Use the safe file existence check from FileUtils
+          console.log('Checking if song exists at path:', songPath);
+          const exists = await safeExists(songPath);
+          console.log('Song exists check result:', exists);
+          
+          setIsDownloaded(exists);
+          return exists;
+        } catch (fileError) {
+          console.error('Error checking song file:', fileError);
+          setIsDownloaded(false);
+          return false;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking download status:', error);
+      setIsDownloaded(false);
+      return false;
+    }
+  };
+
+  // Check if current song is downloaded when song changes
+  useEffect(() => {
+    try {
+      if (currentPlaying?.id) {
+        // In offline mode, all playing tracks must be downloaded
+        if (isOffline) {
+          console.log('In offline mode with a playing track - marking as downloaded');
+          setIsDownloaded(true);
+        } else {
+        checkIfDownloaded(currentPlaying.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error in download check effect:', error);
+    }
+  }, [currentPlaying?.id, isOffline]);
+
+  // Add an effect to handle offline mode changes
+  useEffect(() => {
+    // When entering offline mode, force update download status for current song
+    if (isOffline && currentPlaying) {
+      console.log('Entered offline mode with playing song - marking as downloaded');
+      setIsDownloaded(true);
+    }
+  }, [isOffline, currentPlaying]);
+
+  // Define styles object to fix remaining style references
+  const styles = {
+    controlIcon: {
+      padding: 8,
+      borderRadius: 20,
+      justifyContent: 'center',
+      alignItems: 'center'
+    }
+  };
+
+  // Add an effect to handle fullscreen transitions
+  useEffect(() => {
+    try {
+      // Track when we enter fullscreen mode
+      if (Index === 1) {
+        isFullScreenRef.current = true;
+        console.log('Entered fullscreen mode');
+        
+        // Check if playback is paused unexpectedly
+        const checkPlaybackState = async () => {
+          try {
+            // Wait a moment for any transitions to complete
+            setTimeout(async () => {
+              try {
+                const playerState = await TrackPlayer.getState();
+                
+                // If player is stopped or paused unexpectedly when entering fullscreen
+                if (playerState === State.Paused || playerState === State.Ready) {
+                  console.log('Detected paused state in fullscreen, attempting to resume');
+                  TrackPlayer.play().catch(e => {
+                    console.error('Error resuming playback in fullscreen:', e);
+                  });
+                }
+              } catch (stateError) {
+                console.error('Error checking player state:', stateError);
+              }
+            }, 300);
+          } catch (error) {
+            console.error('Error checking playback state in fullscreen:', error);
+          }
+        };
+        
+        checkPlaybackState();
+      } else {
+        isFullScreenRef.current = false;
+      }
+    } catch (error) {
+      console.error('Error in fullscreen transition effect:', error);
+    }
+  }, [Index]);
+
+  // Now create a simple SafeImage component that handles null sources properly
+  const SafeImage = memo(({ source, style, resizeMode = FastImage.resizeMode.cover }) => {
+    const [imageError, setImageError] = useState(false);
+    
+    // Handle null source or source without uri
+    if (!source || imageError || (typeof source === 'object' && !source.uri)) {
+      return (
+        <FastImage
+          source={require('../../Images/a.gif')} // Fallback image
+          style={style}
+          resizeMode={resizeMode}
+        />
+      );
+    }
+    
+    return (
+      <FastImage
+        source={source}
+        style={style}
+        resizeMode={resizeMode}
+        onError={() => setImageError(true)}
+      />
+    );
+  });
+
+  // Function to safely extract artwork based on track information
+  const getArtworkSource = useCallback((track) => {
+    if (!track) return null;
+    
+    try {
+      // Case 1: Track has localArtworkPath - direct file path
+      if (track.localArtworkPath) {
+        return { uri: `file://${track.localArtworkPath}` };
+      }
+      
+      // Case 2: Track has artwork field that's already a file URI
+      if (track.artwork && typeof track.artwork === 'string') {
+        if (track.artwork.startsWith('file://')) {
+          return { uri: track.artwork };
+        }
+        
+        // Case 3: Track has artwork path that needs file:// prefix
+        if (track.artwork.startsWith('/')) {
+          return { uri: `file://${track.artwork}` };
+        }
+        
+        // Case 4: Track has remote artwork URL
+        return { uri: track.artwork };
+      }
+    } catch (error) {
+      console.log('Error getting artwork source:', error);
+    }
+    
+    // Fallback: Use a GIF
+    return getGifSource();
+  }, [getGifSource]);
+
+  // Function to play a specific local track
+  const playLocalTrack = async (track) => {
+    try {
+      console.log(`Playing local track: ${track.title}`);
+      
+      // Check if player is already initialized
+      let playerState = null;
+      try {
+        playerState = await TrackPlayer.getState();
+      } catch (stateError) {
+        console.log('Error getting player state:', stateError);
+      }
+      
+      const isReady = playerState !== null;
+      let wasPlaying = playerState === State.Playing;
+
+      try {
+        // Setup player if needed
+        if (!isReady) {
+          console.log('Setting up player for local playback');
+          try {
+            await TrackPlayer.setupPlayer({
+              maxCacheSize: 50000
+            });
+          } catch (setupError) {
+            console.error('Player setup error:', setupError);
+          }
+        }
+        
+        // Build queue based on offline status
+        let queue;
+        if (isOffline) {
+          queue = await buildOfflineQueue(track);
+        } else {
+          queue = [
+            track,
+            ...localTracks.filter(t => t.id !== track.id)
+          ];
+        }
+        
+        console.log(`Adding ${queue.length} tracks to queue`);
+        
+        // Reset and add tracks to queue with proper error handling
+        try {
+          await TrackPlayer.reset();
+          await TrackPlayer.add(queue);
+          
+          // Play the track
+          console.log('Starting playback');
+          await TrackPlayer.play().catch(playError => {
+            console.error('Play error:', playError);
+            // Try again after a short delay
+            setTimeout(() => {
+              TrackPlayer.play().catch(e => console.log('Second play attempt failed:', e));
+            }, 500);
+          });
+        } catch (queueError) {
+          console.error('Queue setup error:', queueError);
+          
+          // Last resort - try just the one track
+          try {
+            await TrackPlayer.reset();
+            await TrackPlayer.add([track]);
+            await TrackPlayer.play();
+          } catch (finalError) {
+            console.error('Final playback attempt failed:', finalError);
+            Alert.alert(
+              'Playback Error',
+              'Unable to play this track. Please try another one.'
+            );
+          }
+        }
+      } catch (error) {
+        console.error('Track player error:', error);
+      }
+      
+      // Close the tracks list
+      setShowLocalTracks(false);
+    } catch (error) {
+      console.error('Error in playLocalTrack function:', error);
+      Alert.alert(
+        'Playback Error',
+        'There was a problem playing this track. Please try again.'
+      );
+    }
+  };
+
+  // Add this effect to handle network errors in offline mode
+  useEffect(() => {
+    if (isOffline) {
+      // Suppress network errors in offline mode
+      const originalConsoleError = console.error;
+      console.error = (...args) => {
+        // Only log errors that aren't network-related
+        if (!args.some(arg => 
+          typeof arg === 'string' && 
+          (arg.includes('Network Error') || 
+           arg.includes('Network request failed') ||
+           arg.includes('Unable to resolve host'))
+        )) {
+          originalConsoleError.apply(console, args);
+        }
+      };
+
+      return () => {
+        console.error = originalConsoleError;
+      };
+    }
+  }, [isOffline]);
+
   return (
     <Animated.View entering={FadeInDown.delay(200)} style={{ backgroundColor: "rgb(0,0,0)", flex: 1 }}>
       {/* Show GIF when offline or playing local music */}
@@ -975,14 +1789,19 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
       <ShowLyrics Loading={Loading} Lyric={Lyric} setShowDailog={setShowDailog} ShowDailog={ShowDailog} />
       {renderLocalTracksList()}
       <ImageBackground 
-        blurRadius={20} 
-        source={{ 
-          uri: currentPlaying?.artwork ?? 
-               (isOffline && cachedTracks.length > 0 ? 
-                 cachedTracks[0].artwork : 
-                 "https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png") 
-        }} 
+        source={
+          // Prevent null sources with explicit fallback
+          isOffline ? getGifSource() :
+          (currentPlaying?.isLocal && currentPlaying?.localArtworkPath) 
+            ? { uri: `file://${currentPlaying.localArtworkPath}` }
+            : currentPlaying?.artwork
+              ? { uri: currentPlaying.artwork }
+              : require('../../Images/loading.gif')
+        }
         style={{ flex: 1 }}
+        resizeMode="cover"
+        blurRadius={blur}
+        onError={() => console.log('Background image failed to load')}
       >
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.44)" }}>
         {renderOfflineBanner()}
@@ -1007,22 +1826,16 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
            <Spacer height={5} />
             <GestureDetector gesture={combinedGestures}>
               <View>
-                {(isOffline || (currentPlaying && currentPlaying.isLocal)) ? (
-                  <FastImage
-                    source={getGifSource()}
+                {/* Replace SafeImage with more robust implementation */}
+                <SafeImage
+                  source={
+                    currentPlaying?.artwork 
+                      ? { uri: currentPlaying.artwork } 
+                      : require('../../Images/loading.gif')
+                  }
                     style={{ height: width * 0.9, width: width * 0.9, borderRadius: 10 }}
                     resizeMode={FastImage.resizeMode.contain}
-                    key={`gif-${currentGif}`}
                   />
-                ) : (
-                  <FastImage
-                    source={{ 
-                      uri: currentPlaying?.artwork ?? 
-                        "https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png"
-                    }}
-                    style={{ height: width * 0.9, width: width * 0.9, borderRadius: 10 }}
-                  />
-                )}
                 <Animated.View style={volumeOverlayStyle}>
                   <Ionicons name={getVolumeIconName()} size={24} color="white" style={{ marginBottom: 10 }} />
                   <View style={volumeBarContainerStyle}>
@@ -1085,14 +1898,13 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
             <Spacer height={10} />
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "80%" }}>
               <SleepTimerButton size={25} />
-              {!isOffline && (
+              {isOffline ? (
+                <TouchableOpacity style={styles.controlIcon} disabled={true}>
+                  <MaterialIcons name="check-circle" size={28} color="#4CAF50" />
+                </TouchableOpacity>
+              ) : (
                 <Pressable onPress={getPermission}>
-                  <Ionicons name="download-outline" size={25} color="white" />
-                </Pressable>
-              )}
-              {isOffline && (
-                <Pressable onPress={loadLocalTracks}>
-                  <Ionicons name="refresh-outline" size={25} color="white" />
+                  {renderDownloadControl()}
                 </Pressable>
               )}
             </View>

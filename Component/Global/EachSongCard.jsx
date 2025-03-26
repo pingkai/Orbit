@@ -22,7 +22,7 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
     return formattedText?.length > 20 ? formattedText.substring(0, 20) + "..." : formattedText
   }
 
-  async function AddSongToPlayer (){
+  async function AddSongToPlayer(){
     if (isFromPlaylist){
       const ForMusicPlayer = []
       const quality = await getIndexQuality()
@@ -151,7 +151,7 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
           }} style={{
             height:50,
             width:50,
-            borderRadius:10,
+            borderRadius:4,
           }}/>
           <View style={{
             flex:1,
@@ -175,7 +175,7 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
           alignItems: 'center',
           minWidth: isFromPlaylist ? 40 : 36,
           paddingLeft: isFromPlaylist ? 3 : 2,
-          marginRight: isFromPlaylist ? 8 : 6,
+          marginRight: isFromPlaylist ? 8 : 2,
         }}>
           <EachSongMenuButton 
             song={{

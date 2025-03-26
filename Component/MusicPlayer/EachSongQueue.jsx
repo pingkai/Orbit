@@ -3,14 +3,13 @@ import FastImage from "react-native-fast-image";
 import { PlainText } from "../Global/PlainText";
 import { SmallText } from "../Global/SmallText";
 import { memo } from "react";
-import { SkipToTrack } from "../../MusicPlayerFunctions";
 import { useActiveTrack, usePlaybackState } from "react-native-track-player";
 import FontAwesome6 from "react-native-vector-icons/FontAwesome6";
 
 // Get screen dimensions for responsive layout
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-export const EachSongQueue = memo(function EachSongQueue({ title, artist, index, artwork, id, drag, isActive }) {
+export const EachSongQueue = memo(function EachSongQueue({ title, artist, index, artwork, id, drag, isActive, onPress }) {
   const playerState = usePlaybackState();
   const currentPlaying = useActiveTrack();
   
@@ -19,35 +18,55 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
   
   // Determine the image source
   const getImageSource = () => {
-    // Check if this is the current track and get appropriate animation
-    if (isCurrentTrack) {
-      return playerState.state === "playing" 
-        ? require("../../Images/playing.gif") 
-        : require("../../Images/songPaused.gif");
-    }
-    
-    // For other tracks, handle different artwork formats
-    if (!artwork) {
+    try {
+      // Check if this is the current track and get appropriate animation
+      if (isCurrentTrack) {
+        return playerState.state === "playing" 
+          ? require("../../Images/playing.gif") 
+          : require("../../Images/songPaused.gif");
+      }
+      
+      // For other tracks, handle different artwork formats
+      if (!artwork) {
+        return require("../../Images/default.jpg");
+      }
+      
+      // Handle numeric artwork values (which come from local files)
+      if (typeof artwork === 'number') {
+        return artwork; // If it's a require() result, return it directly
+      }
+      
+      // Handle artwork as object with URI
+      if (typeof artwork === 'object' && artwork.uri) {
+        // Ensure URI is not null or undefined
+        if (!artwork.uri) {
+          return require("../../Images/default.jpg");
+        }
+        return artwork;
+      }
+      
+      // Handle local file paths for downloaded songs
+      if (typeof artwork === 'string') {
+        // Check if it's a local file path that needs file:// prefix
+        if (artwork.startsWith('/') && !artwork.startsWith('file://')) {
+          return { uri: `file://${artwork}` };
+        }
+        
+        // Handle file:// paths
+        if (artwork.startsWith('file://')) {
+          return { uri: artwork };
+        }
+        
+        // Handle remote URLs
+        return { uri: artwork };
+      }
+      
+      // Default fallback
       return require("../../Images/default.jpg");
+    } catch (error) {
+      console.log('Error getting image source:', error);
+      return require("../../Images/default.jpg"); // Fail-safe fallback
     }
-    
-    // Handle numeric artwork values (which come from local files)
-    if (typeof artwork === 'number') {
-      return require("../../Images/default.jpg");
-    }
-    
-    // Handle artwork as object with URI
-    if (typeof artwork === 'object' && artwork.uri) {
-      return artwork;
-    }
-    
-    // Handle artwork as string
-    if (typeof artwork === 'string') {
-      return { uri: artwork };
-    }
-    
-    // Default fallback
-    return require("../../Images/default.jpg");
   };
   
   // Handle special characters in text
@@ -92,9 +111,23 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
     delayLongPress: 100
   } : {};
   
+  // Handle track selection with safer approach
+  const handlePress = () => {
+    try {
+      if (typeof onPress === 'function') {
+        console.log(`Queue item pressed: ${title} (${id})`);
+        onPress();
+      } else {
+        console.warn('Song press handler not available');
+      }
+    } catch (error) {
+      console.error('Error in song press handler:', error);
+    }
+  };
+  
   return (
     <Pressable 
-      onPress={() => SkipToTrack(index)} 
+      onPress={handlePress}
       {...dragHandlers}
       android_ripple={{ color: 'rgba(255, 255, 255, 0.05)' }} // Very subtle ripple effect for Android
       style={{

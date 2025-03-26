@@ -1,6 +1,6 @@
-import React, { useContext, useState, useEffect, useRef } from 'react';
+import React, { useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { View, ScrollView, Pressable, ToastAndroid, Text, StatusBar, Image, BackHandler } from 'react-native';
+import { View, ScrollView, Pressable, ToastAndroid, Text, StatusBar, Image, BackHandler, InteractionManager, ActivityIndicator, FlatList } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import TrackPlayer from 'react-native-track-player';
@@ -9,108 +9,398 @@ import Context from '../../Context/Context';
 import Modal from "react-native-modal";
 import { GetCustomPlaylists, AddSongToCustomPlaylist, CreateCustomPlaylist } from '../../LocalStorage/CustomPlaylists';
 import { StyleSheet } from 'react-native';
-import { useNavigation, CommonActions } from "@react-navigation/native";
+import { useNavigation, CommonActions, useFocusEffect } from "@react-navigation/native";
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { PlainText } from '../Global/PlainText';
-import { getUserPlaylists } from '../../Utils/PlaylistManager';
+import { getUserPlaylists, clearPlaylistCache } from '../../Utils/PlaylistManager';
 import { Animated } from 'react';
 import { SmallText } from '../Global/SmallText';
+import { CustomPlaylistPlay } from './CustomPlaylistPlay';
+
+// Default image constant moved outside component to prevent re-creation
+const DEFAULT_MUSIC_IMAGE = require('../../Images/default.jpg');
+
+// Performance optimization: Create memoized styles outside component
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#121212',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    paddingTop: StatusBar.currentHeight + 10,
+  },
+  backButton: {
+    padding: 8,
+  },
+  title: {
+    fontSize: 20,
+    marginLeft: 16,
+    color: '#FFFFFF',
+    flex: 1,
+  },
+  coverContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  playlistInfoSection: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  coverImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 4,
+  },
+  playlistInfoContainer: {
+    flex: 1,
+    marginLeft: 16,
+    justifyContent: 'center',
+  },
+  playlistTitle: {
+    fontSize: 24,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  songCount: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.7)',
+    marginBottom: 20,
+  },
+  playButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 30,
+    alignSelf: 'flex-start',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+  },
+  playButtonText: {
+    color: '#000000',
+    fontSize: 15,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  songCard: {
+    flexDirection: 'row',
+    padding: 12,
+    alignItems: 'center',
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  activeSongCard: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  thumbnail: {
+    width: 50,
+    height: 50,
+    borderRadius: 4,
+    marginRight: 12,
+  },
+  songInfo: {
+    flex: 1,
+  },
+  songTitle: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  songArtist: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  menuButton: {
+    padding: 8,
+    backgroundColor: 'transparent',
+    borderRadius: 16,
+    marginHorizontal: 4,
+  },
+  menuModal: {
+    margin: 0,
+    justifyContent: 'flex-end',
+  },
+  menuContainer: {
+    backgroundColor: '#1E1E1E',
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    padding: 16,
+  },
+  menuOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  menuText: {
+    marginLeft: 16,
+    color: '#FFFFFF',
+    fontSize: 16,
+  },
+  menuCancel: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+    marginTop: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#121212',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#121212',
+    padding: 20,
+  },
+  emptyText: {
+    color: '#FFFFFF',
+    marginTop: 20,
+    textAlign: 'center',
+  },
+});
 
 export const CustomPlaylistView = (props) => {
   const [Songs, setSongs] = useState([]);
   const [playlistName, setPlaylistName] = useState("");
   const [playlistId, setPlaylistId] = useState(null);
   const [isUserPlaylist, setIsUserPlaylist] = useState(false);
-  const navigation = useNavigation();
-  const { Queue, setQueue, setCurrentPlaying, currentPlaying } = useContext(Context);
+  const [isLoading, setIsLoading] = useState(true);
   const [menuVisible, setMenuVisible] = useState(false);
   const [selectedSong, setSelectedSong] = useState(null);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [availablePlaylists, setAvailablePlaylists] = useState({});
   const [newPlaylistName, setNewPlaylistName] = useState('');
-
-  useEffect(() => {
-    // Safely extract params with error handling
-    try {
-      console.log('CustomPlaylistView rendering with route params:', props.route?.params);
-      
-      // First check navigation state for params
-      const state = navigation.getState();
-      let paramsFromState = null;
-      
-      if (state?.routes?.[0]?.params?.params?.screen === 'CustomPlaylistView') {
-        paramsFromState = state.routes[0].params.params.params;
-        console.log('Found params in navigation state:', paramsFromState);
-      }
-      
-      // Check if route and params exist
-      if ((props.route && props.route.params) || paramsFromState) {
-        // Get songs data - prioritize route params, then navigation state
-        const songs = props.route?.params?.songs || paramsFromState?.songs || [];
-        setSongs(songs);
-        
-        // Get playlist name - properly prioritize all possible sources
-        const name = props.route?.params?.playlistName || 
-                     props.route?.params?.name || 
-                     paramsFromState?.playlistName || 
-                     paramsFromState?.name || 
-                     "Custom Playlist";
-        
-        setPlaylistName(name);
-        
-        // Get and store playlist ID if available
-        const id = props.route?.params?.playlistId || paramsFromState?.playlistId || null;
-        setPlaylistId(id);
-        
-        // Check if this is a user playlist from the PlaylistManager
-        const userPlaylist = (id && id.startsWith('playlist_'));
-        setIsUserPlaylist(userPlaylist);
-        
-        console.log(`CustomPlaylistView loaded with ${songs.length} songs and name: ${name}, ID: ${id}, isUserPlaylist: ${userPlaylist}`);
-        
-        // Store the current playlist data for recovery
-        storeCurrentPlaylist(name, songs, id);
-      } else {
-        console.log('No route params available, using default values');
-        setSongs([]);
-        setPlaylistName("Custom Playlist");
-        
-        // Try to recover from AsyncStorage as fallback
-        recoverPlaylistDataFromStorage();
-      }
-    } catch (error) {
-      console.error('Error initializing CustomPlaylistView:', error);
-      // Set defaults on error
-      setSongs([]);
-      setPlaylistName("Custom Playlist");
-      recoverPlaylistDataFromStorage();
-    }
-  }, [props.route, navigation]);
+  const [chunkLoading, setChunkLoading] = useState(true);
+  const [visibleSongs, setVisibleSongs] = useState([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
   
-  // Helper for storing playlist data
+  const navigation = useNavigation();
+  const { Queue, setQueue, setCurrentPlaying, currentPlaying, updateTrack } = useContext(Context);
+  const initializationComplete = useRef(false);
+  const chunkedRefs = useRef({});
+  const flatListRef = useRef(null);
+  const isMounted = useRef(true);
+  
+  // Constants for chunking - only load 20 songs at a time
+  const CHUNK_SIZE = 20;
+  
+  // Clean up when component unmounts
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+      chunkedRefs.current = {};
+      // Clear any images that might be preloaded
+      FastImage.clearMemoryCache();
+      // Clear playlist cache to ensure fresh data next time
+      clearPlaylistCache();
+    };
+  }, []);
+  
+  // Focus effect to reload component when it comes back into focus
+  useFocusEffect(
+    useCallback(() => {
+      InteractionManager.runAfterInteractions(() => {
+        if (isMounted.current) {
+          if (!initializationComplete.current) {
+            initializePlaylist();
+          }
+        }
+      });
+      
+      return () => {
+        // No cleanup needed
+      };
+    }, [])
+  );
+  
+  // Initialize playlist with optimized loading
+  const initializePlaylist = async () => {
+    if (!isMounted.current) return;
+    
+    setIsLoading(true);
+    setChunkLoading(true);
+    
+    // Use a timeout to prevent blocking UI
+    setTimeout(async () => {
+      try {
+        if (!isMounted.current) return;
+        
+        console.log('CustomPlaylistView initializing with route params:', props.route?.params);
+        
+        // First check navigation state for params
+        const state = navigation.getState();
+        let paramsFromState = null;
+        
+        if (state?.routes?.[0]?.params?.params?.screen === 'CustomPlaylistView') {
+          paramsFromState = state.routes[0].params.params.params;
+        }
+        
+        // Check if route and params exist
+        if ((props.route && props.route.params) || paramsFromState) {
+          // Get songs data - prioritize route params, then navigation state
+          const songs = props.route?.params?.songs || paramsFromState?.songs || [];
+          
+          // Get playlist name
+          const name = props.route?.params?.playlistName || 
+                       props.route?.params?.name || 
+                       paramsFromState?.playlistName || 
+                       paramsFromState?.name || 
+                       "Custom Playlist";
+          
+          // Get and store playlist ID if available
+          const id = props.route?.params?.playlistId || paramsFromState?.playlistId || null;
+          
+          // Check if this is a user playlist from the PlaylistManager
+          const userPlaylist = (id && id.startsWith('playlist_'));
+          
+          if (!isMounted.current) return;
+          
+          // Use batched updates
+          setSongs(songs);
+          setPlaylistName(name);
+          setPlaylistId(id);
+          setIsUserPlaylist(userPlaylist);
+          
+          console.log(`CustomPlaylistView loaded with ${songs.length} songs and name: ${name}, ID: ${id}`);
+          
+          // Load first chunk of songs
+          loadSongChunk(songs, 0);
+          
+          // Store playlist data for recovery in background
+          setTimeout(() => {
+            if (isMounted.current) {
+              storeCurrentPlaylist(name, songs, id).catch(err => 
+                console.error('Error storing playlist:', err)
+              );
+            }
+          }, 500);
+        } else {
+          console.log('No route params available, using default values');
+          setSongs([]);
+          setPlaylistName("Custom Playlist");
+          
+          // Try to recover from AsyncStorage
+          setTimeout(() => {
+            if (isMounted.current) {
+              recoverPlaylistDataFromStorage().catch(err => 
+                console.error('Error recovering playlist data:', err)
+              );
+            }
+          }, 500);
+        }
+      } catch (error) {
+        console.error('Error initializing CustomPlaylistView:', error);
+        
+        if (isMounted.current) {
+          // Set defaults on error
+          setSongs([]);
+          setPlaylistName("Custom Playlist");
+          setVisibleSongs([]);
+          
+          // Try to recover from AsyncStorage
+          setTimeout(() => {
+            if (isMounted.current) {
+              recoverPlaylistDataFromStorage().catch(err => 
+                console.error('Error recovering playlist data:', err)
+              );
+            }
+          }, 500);
+        }
+      } finally {
+        if (isMounted.current) {
+          // Mark initialization as complete and set loading to false
+          initializationComplete.current = true;
+          setIsLoading(false);
+        }
+      }
+    }, 200);
+  };
+  
+  // Load songs in chunks to prevent UI freezing
+  const loadSongChunk = (allSongs, page) => {
+    if (!isMounted.current || !allSongs) return;
+    
+    setChunkLoading(true);
+    
+    // Calculate chunk boundaries
+    const start = page * CHUNK_SIZE;
+    const end = Math.min(start + CHUNK_SIZE, allSongs.length);
+    const chunk = allSongs.slice(start, end);
+    
+    // Update current page and visible songs
+    setTimeout(() => {
+      if (isMounted.current) {
+        setCurrentPage(page);
+        setVisibleSongs(prev => {
+          // If it's the first page, replace entirely
+          if (page === 0) return chunk;
+          // Otherwise append to existing songs
+          return [...prev, ...chunk];
+        });
+        setChunkLoading(false);
+      }
+    }, 50);
+  };
+  
+  // Handler for reaching end of list to load more songs
+  const handleLoadMore = () => {
+    if (chunkLoading || !Songs) return;
+    
+    const nextPage = currentPage + 1;
+    const totalPages = Math.ceil(Songs.length / CHUNK_SIZE);
+    
+    if (nextPage < totalPages) {
+      loadSongChunk(Songs, nextPage);
+    }
+  };
+  
+  // Helper for storing playlist data - optimized
   const storeCurrentPlaylist = async (name, songs, id = null) => {
+    if (!isMounted.current || !songs) return;
+    
     try {
       // Only store if we have valid data
       if (name && songs && songs.length > 0) {
         const playlistData = { name, songs, id };
         await AsyncStorage.setItem('last_viewed_custom_playlist', JSON.stringify(playlistData));
-        console.log(`Stored playlist "${name}" with ${songs.length} songs for recovery, ID: ${id}`);
+        console.log(`Stored playlist "${name}" with ${songs.length} songs for recovery`);
       }
     } catch (err) {
       console.error('Failed to save playlist data:', err);
     }
   };
   
-  // Function to try recovering playlist data from storage
+  // Function to try recovering playlist data from storage - optimized
   const recoverPlaylistDataFromStorage = async () => {
+    if (!isMounted.current) return;
+    
     try {
       // Try to get the last viewed playlist
       const storedPlaylist = await AsyncStorage.getItem('last_viewed_custom_playlist');
       if (storedPlaylist) {
         const playlistData = JSON.parse(storedPlaylist);
         if (playlistData.songs && playlistData.songs.length > 0) {
-          // Ensure we use the actual playlist name from storage
+          // Check if component is still mounted
+          if (!isMounted.current) return;
+          
+          // Set state in batches
           setPlaylistName(playlistData.name || "Custom Playlist");
           setSongs(playlistData.songs || []);
           
@@ -120,30 +410,47 @@ export const CustomPlaylistView = (props) => {
             setIsUserPlaylist(playlistData.id.startsWith('playlist_'));
           }
           
-          console.log(`Recovered playlist data: ${playlistData.name} with ${playlistData.songs.length} songs, ID: ${playlistData.id}`);
+          console.log(`Recovered playlist data: ${playlistData.name} with ${playlistData.songs.length} songs`);
+          
+          // Load first chunk of songs
+          loadSongChunk(playlistData.songs, 0);
           
           // Update navigation params to reflect recovered data
-          navigation.setParams({
-            playlistName: playlistData.name,
-            name: playlistData.name,
-            songs: playlistData.songs,
-            playlistId: playlistData.id
-          });
+          setTimeout(() => {
+            if (isMounted.current) {
+              navigation.setParams({
+                playlistName: playlistData.name,
+                name: playlistData.name,
+                songs: playlistData.songs,
+                playlistId: playlistData.id
+              });
+            }
+          }, 300);
         } else {
           console.log('Recovered playlist had no songs, not using it');
+          setVisibleSongs([]);
         }
       } else {
         console.log('No stored playlist found for recovery');
+        setVisibleSongs([]);
       }
     } catch (error) {
       console.error('Error recovering playlist data:', error);
+      setVisibleSongs([]);
+    } finally {
+      if (isMounted.current) {
+        setIsLoading(false);
+        setChunkLoading(false);
+      }
     }
   };
   
-  // Improved back handler to ensure we go back to CustomPlaylist first
+  // Improved back handler
   useEffect(() => {
     const handleBack = () => {
       try {
+        if (!isMounted.current) return true;
+        
         console.log('Back pressed in CustomPlaylistView');
         
         // Check if we were navigated from CustomPlaylist
@@ -152,11 +459,9 @@ export const CustomPlaylistView = (props) => {
         // Always try to navigate to the playlist list first
         if (previousScreen === "CustomPlaylist") {
           console.log('Navigating back to CustomPlaylist');
-          // Go back to CustomPlaylist screen
           navigation.goBack();
         } else {
           console.log('Navigating to Library/CustomPlaylist screen');
-          // Navigate to CustomPlaylist explicitly
           navigation.navigate('Library', { 
             screen: 'CustomPlaylist',
             params: { fromCustomPlaylistView: true }
@@ -167,7 +472,7 @@ export const CustomPlaylistView = (props) => {
         console.error('Error in CustomPlaylistView back handler:', error);
         // Fallback if something goes wrong
         navigation.navigate('Library');
-      return true;
+        return true;
       }
     };
     
@@ -177,7 +482,7 @@ export const CustomPlaylistView = (props) => {
   }, [navigation, props.route]);
   
   // Handle back button press with improved navigation
-  const handleGoBack = () => {
+  const handleGoBack = useCallback(() => {
     try {
       // Check if we were navigated from CustomPlaylist
       const previousScreen = props.route?.params?.previousScreen;
@@ -185,11 +490,9 @@ export const CustomPlaylistView = (props) => {
       // Always try to navigate to the playlist list first
       if (previousScreen === "CustomPlaylist") {
         console.log('Navigating back to CustomPlaylist');
-        // Go back to CustomPlaylist screen
         navigation.goBack();
       } else {
         console.log('Navigating to Library/CustomPlaylist screen');
-        // Navigate to CustomPlaylist explicitly
         navigation.navigate('Library', { 
           screen: 'CustomPlaylist',
           params: { fromCustomPlaylistView: true }
@@ -200,116 +503,172 @@ export const CustomPlaylistView = (props) => {
       // Fallback if something goes wrong
       navigation.navigate('Library');
     }
-  };
-
-  const { updateTrack } = useContext(Context);
-
-  // Function to add all songs to the queue
-  const AddAllSongsToQueue = async () => {
+  }, [navigation, props.route]);
+  
+  // Add this after other useEffects
+  useEffect(() => {
+    // Check if any track is playing
+    const checkPlaybackState = async () => {
+      try {
+        const state = await TrackPlayer.getState();
+        setIsPlaying(state === TrackPlayer.STATE_PLAYING);
+      } catch (err) {
+        console.error('Error checking playback state:', err);
+      }
+    };
+    
+    // Set up interval to check regularly
+    const interval = setInterval(checkPlaybackState, 1000);
+    checkPlaybackState();
+    
+    return () => clearInterval(interval);
+  }, []);
+  
+  // Listen for track player events
+  useEffect(() => {
+    const playerStateListener = TrackPlayer.addEventListener(
+      'playback-state',
+      (state) => {
+        setIsPlaying(state.state === TrackPlayer.STATE_PLAYING);
+      }
+    );
+    
+    return () => playerStateListener.remove();
+  }, []);
+  
+  // Function to add all songs to the queue (optimized version)
+  const AddAllSongsToQueue = useCallback(async () => {
     try {
       if (!Songs || Songs.length === 0) {
         console.log('No songs to play');
         return;
       }
       
-      // Default music image to use when artwork is missing
-      const DEFAULT_MUSIC_IMAGE = require('../../Images/default.jpg');
+      // Show toast first for quick feedback
+      ToastAndroid.show('Adding songs to queue...', ToastAndroid.SHORT);
       
-      // Format all tracks for playback
-      const formattedTracks = Songs.map(track => {
-        // Check if this is a local song
-        const isLocalFile = track.isLocalMusic || track.path || 
-           (track.url && typeof track.url === 'string' && track.url.startsWith('file://'));
-        
-        // Format local song
-        if (isLocalFile) {
-          const formattedTrack = {
-            id: track.id || `local-${Date.now()}`,
-            url: track.url && typeof track.url === 'string' && track.url.startsWith('file://') 
-                 ? track.url : `file://${track.path || track.url}`,
-            title: track.title || 'Unknown',
-            artist: track.artist || 'Unknown Artist',
-            artwork: (typeof track.artwork === 'number' || !track.artwork) 
-                     ? DEFAULT_MUSIC_IMAGE : { uri: track.artwork },
-            // Ensure duration is a number
-            duration: typeof track.duration === 'string' ? parseFloat(track.duration) || 0 : track.duration || 0,
-            isLocalMusic: true
-          };
-          console.log('Formatted local track for queue:', formattedTrack);
-          return formattedTrack;
-        } 
-        
-        // Format online song - handle multiple URL formats
-        let url = '';
-        
-        // Case 1: Direct URL string
-        if (typeof track.url === 'string') {
-          url = track.url;
-        }
-        // Case 2: URL is an array
-        else if (Array.isArray(track.url)) {
-          // Try to get highest quality URL from array
-          const highestQualityUrl = getHighestQualityUrl(track.url);
-          url = highestQualityUrl || '';
-        }
-        // Case 3: downloadUrl array
-        else if (track.downloadUrl) {
-          if (Array.isArray(track.downloadUrl) && track.downloadUrl.length > 0) {
-            // Find the best quality URL from downloadUrl array
-            const quality = track.downloadUrl.length - 1; // Default to highest quality
-            url = track.downloadUrl[quality]?.url || '';
-          } else if (typeof track.downloadUrl === 'string') {
-            url = track.downloadUrl;
-          }
-        }
-        
-        // If we still don't have a URL, check if track.url is an object with properties
-        if (!url && typeof track.url === 'object' && track.url !== null) {
-          // Try various quality options
-          url = track.url['320kbps'] || track.url['160kbps'] || track.url['96kbps'] || track.url['48kbps'] || '';
-        }
-        
-        if (!url) {
-          console.warn('Could not determine URL for track:', track.id || track.title);
-        }
-        
-        return {
-          id: track.id || `online-${Date.now()}`,
-          url: url,
-          title: track.title || 'Unknown',
-          artist: track.artist || 'Unknown Artist',
-          artwork: track.image || track.artwork || DEFAULT_MUSIC_IMAGE,
-          duration: typeof track.duration === 'string' ? parseFloat(track.duration) || 0 : track.duration || 0,
-          language: track.language,
-          artistID: track.artistID || track.primary_artists_id
-        };
-      });
-      
-      console.log('Playing all tracks, first track:', JSON.stringify(formattedTracks[0]));
-      
-      // Reset queue
-      await TrackPlayer.reset();
-      
-      // Add all songs to queue
-      await TrackPlayer.add(formattedTracks);
-      
-      // Start playback
-      await TrackPlayer.play();
-      
-      // Update context if needed
-      if (updateTrack) {
-        updateTrack();
+      if (isPlaying) {
+        // If already playing, pause playback
+        await TrackPlayer.pause();
+        return;
       }
       
-      ToastAndroid.show('Playing all songs', ToastAndroid.SHORT);
+      // Process tracks in a separate task
+      setTimeout(async () => {
+        try {
+          // Check if queue is empty
+          const queue = await TrackPlayer.getQueue();
+          
+          if (queue.length === 0) {
+            // Format all tracks in chunks for better performance
+            let allFormattedTracks = [];
+            const chunkSize = 50; // Process 50 songs at a time
+            
+            for (let i = 0; i < Songs.length; i += chunkSize) {
+              const chunk = Songs.slice(i, i + chunkSize);
+              const formattedChunk = chunk.map(formatTrack);
+              allFormattedTracks = [...allFormattedTracks, ...formattedChunk];
+              
+              // Small pause between chunks to keep UI responsive
+              if (i + chunkSize < Songs.length) {
+                await new Promise(resolve => setTimeout(resolve, 50));
+              }
+            }
+            
+            console.log(`Adding ${allFormattedTracks.length} tracks to queue`);
+            
+            // Reset queue and add all songs
+            await TrackPlayer.reset();
+            await TrackPlayer.add(allFormattedTracks);
+            await TrackPlayer.play();
+          } else {
+            // Resume playback if there are tracks in queue
+            await TrackPlayer.play();
+          }
+          
+          // Update context if needed
+          if (updateTrack) {
+            updateTrack();
+          }
+          
+          ToastAndroid.show('Playing all songs', ToastAndroid.SHORT);
+        } catch (innerError) {
+          console.error('Error processing songs:', innerError);
+          ToastAndroid.show('Failed to play all songs', ToastAndroid.SHORT);
+        }
+      }, 100);
     } catch (error) {
       console.error('Error playing songs:', error);
       ToastAndroid.show('Failed to play songs: ' + error.message, ToastAndroid.SHORT);
     }
-  };
-
-  // Helper function to get highest quality URL from an array
-  const getHighestQualityUrl = (urlArray) => {
+  }, [Songs, updateTrack, isPlaying]);
+  
+  // Memoized function to format a track for playback
+  const formatTrack = useCallback((track) => {
+    if (!track) return null;
+    
+    // Check if this is a local song
+    const isLocalFile = track.isLocalMusic || track.path || 
+      (track.url && typeof track.url === 'string' && track.url.startsWith('file://'));
+    
+    // Format local song
+    if (isLocalFile) {
+      return {
+        id: track.id || `local-${Date.now()}`,
+        url: track.url && typeof track.url === 'string' && track.url.startsWith('file://') 
+              ? track.url : `file://${track.path || track.url}`,
+        title: track.title || 'Unknown',
+        artist: track.artist || 'Unknown Artist',
+        artwork: (typeof track.artwork === 'number' || !track.artwork) 
+                  ? DEFAULT_MUSIC_IMAGE : { uri: track.artwork },
+        duration: typeof track.duration === 'string' ? parseFloat(track.duration) || 0 : track.duration || 0,
+        isLocalMusic: true
+      };
+    }
+    
+    // Format online song - handle multiple URL formats
+    let url = '';
+    
+    // Case 1: Direct URL string
+    if (typeof track.url === 'string') {
+      url = track.url;
+    }
+    // Case 2: URL is an array
+    else if (Array.isArray(track.url)) {
+      // Try to get highest quality URL from array
+      url = getHighestQualityUrl(track.url) || '';
+    }
+    // Case 3: downloadUrl array
+    else if (track.downloadUrl) {
+      if (Array.isArray(track.downloadUrl) && track.downloadUrl.length > 0) {
+        // Find the best quality URL from downloadUrl array
+        const quality = track.downloadUrl.length - 1; // Default to highest quality
+        url = track.downloadUrl[quality]?.url || '';
+      } else if (typeof track.downloadUrl === 'string') {
+        url = track.downloadUrl;
+      }
+    }
+    
+    // If we still don't have a URL, check if track.url is an object with properties
+    if (!url && typeof track.url === 'object' && track.url !== null) {
+      // Try various quality options
+      url = track.url['320kbps'] || track.url['160kbps'] || track.url['96kbps'] || track.url['48kbps'] || '';
+    }
+    
+    return {
+      id: track.id || `online-${Date.now()}`,
+      url: url,
+      title: track.title || 'Unknown',
+      artist: track.artist || 'Unknown Artist',
+      artwork: track.image || track.artwork || DEFAULT_MUSIC_IMAGE,
+      duration: typeof track.duration === 'string' ? parseFloat(track.duration) || 0 : track.duration || 0,
+      language: track.language,
+      artistID: track.artistID || track.primary_artists_id
+    };
+  }, []);
+  
+  // Helper function to get highest quality URL from an array (memoized)
+  const getHighestQualityUrl = useCallback((urlArray) => {
     if (!Array.isArray(urlArray) || urlArray.length === 0) {
       return '';
     }
@@ -340,647 +699,284 @@ export const CustomPlaylistView = (props) => {
     
     // Fallback to first item if possible
     return typeof urlArray[0] === 'string' ? urlArray[0] : 
-           (urlArray[0]?.url || '');
-  };
-
-  // Add a custom SongCard component to replace AlbumSongCard
-  const SongCard = ({ e, allSongs, index }) => {
-    const { updateTrack } = useContext(Context);
-    const [menuVisible, setMenuVisible] = useState(false);
+            (urlArray[0]?.url || '');
+  }, []);
+  
+  // Safe image source getter function (memoized)
+  const getSafeImageSource = useCallback((item) => {
+    // For local songs that have numeric cover or missing artwork
+    if (item.isLocalMusic || item.path || 
+        (typeof item.artwork === 'number') || 
+        (typeof item.image === 'number') || 
+        !item.image && !item.artwork) {
+      return DEFAULT_MUSIC_IMAGE;
+    }
     
-    // Default music image to use when artwork is missing
-    const DEFAULT_MUSIC_IMAGE = require('../../Images/default.jpg');
+    // For invalid URI values
+    if ((item.image && typeof item.image === 'string' && 
+        !item.image.startsWith('http') && !item.image.startsWith('file://')) ||
+        (item.artwork && typeof item.artwork === 'string' && 
+        !item.artwork.startsWith('http') && !item.artwork.startsWith('file://'))) {
+      return DEFAULT_MUSIC_IMAGE;
+    }
     
-    // Function to get proper image source
-    const getImageSource = () => {
-      // For local songs that have numeric cover or missing artwork
-      if (e.isLocalMusic || e.path || (typeof e.artwork === 'number') || 
-          (typeof e.image === 'number') || !e.image && !e.artwork) {
-        return DEFAULT_MUSIC_IMAGE;
-      }
-      
-      // For invalid URI values
-      if (e.image && typeof e.image === 'string' && !e.image.startsWith('http') && !e.image.startsWith('file://')) {
-        return DEFAULT_MUSIC_IMAGE;
-      }
-      
-      if (e.artwork && typeof e.artwork === 'string' && !e.artwork.startsWith('http') && !e.artwork.startsWith('file://')) {
-        return DEFAULT_MUSIC_IMAGE;
-      }
-      
-      // For normal songs with artwork
-      return { uri: e.image || e.artwork };
-    };
+    // For normal songs with artwork
+    return { uri: item.image || item.artwork };
+  }, []);
+  
+  // Function to render a song item in the FlatList (memoized)
+  const renderSongItem = useCallback(({ item, index }) => {
+    const isCurrentPlaying = currentPlaying && currentPlaying.id === item.id;
     
-    // Format track for playback
-    const formatTrack = (track) => {
-      // Check if this is a local song
-      const isLocalFile = track.isLocalMusic || track.path || (track.url && typeof track.url === 'string' && track.url.startsWith('file://'));
-      
-      // Format local song
-      if (isLocalFile) {
-        const formattedTrack = {
-          id: track.id || `local-${Date.now()}`,
-          url: track.url && typeof track.url === 'string' && track.url.startsWith('file://') ? track.url : `file://${track.path || track.url}`,
-          title: track.title || 'Unknown',
-          artist: track.artist || 'Unknown Artist',
-          artwork: (typeof track.artwork === 'number' || !track.artwork) ? DEFAULT_MUSIC_IMAGE : { uri: track.artwork },
-          // Ensure duration is a number
-          duration: typeof track.duration === 'string' ? parseFloat(track.duration) || 0 : track.duration || 0,
-          isLocalMusic: true
-        };
-        console.log('Formatted local track:', formattedTrack);
-        return formattedTrack;
-      } 
-      
-      // Format online song - handle multiple URL formats
-      let url = '';
-      
-      // Case 1: Direct URL string
-      if (typeof track.url === 'string') {
-        url = track.url;
-      }
-      // Case 2: URL is an array
-      else if (Array.isArray(track.url)) {
-        // Try to get highest quality URL from array
-        const highestQualityUrl = getHighestQualityUrl(track.url);
-        url = highestQualityUrl || '';
-      }
-      // Case 3: downloadUrl array
-      else if (track.downloadUrl) {
-        if (Array.isArray(track.downloadUrl) && track.downloadUrl.length > 0) {
-          // Find the best quality URL from downloadUrl array
-          const quality = track.downloadUrl.length - 1; // Default to highest quality
-          url = track.downloadUrl[quality]?.url || '';
-        } else if (typeof track.downloadUrl === 'string') {
-          url = track.downloadUrl;
-        }
-      }
-      
-      // If we still don't have a URL, check if track.url is an object with properties
-      if (!url && typeof track.url === 'object' && track.url !== null) {
-        // Try various quality options
-        url = track.url['320kbps'] || track.url['160kbps'] || track.url['96kbps'] || track.url['48kbps'] || '';
-      }
-      
-      if (!url) {
-        console.warn('Could not determine URL for track:', track.id || track.title);
-      }
-      
-      return {
-        id: track.id || `online-${Date.now()}`,
-        url: url,
-        title: track.title || 'Unknown',
-        artist: track.artist || 'Unknown Artist',
-        artwork: track.image || track.artwork || DEFAULT_MUSIC_IMAGE,
-        duration: typeof track.duration === 'string' ? parseFloat(track.duration) || 0 : track.duration || 0,
-        language: track.language,
-        artistID: track.artistID || track.primary_artists_id
-      };
-    };
+    // Check if the data is actually a valid song item
+    if (!item || !item.id) {
+      return null;
+    }
     
-    // Play this song
-    const playSong = async () => {
+    // Play this song when pressed
+    const handlePress = async () => {
       try {
-        // Format all tracks starting from the current one
-        const tracksToPlay = allSongs.slice(index).map(track => {
-          // Check if this is a local song
-          const isLocalFile = track.isLocalMusic || track.path || (track.url && typeof track.url === 'string' && track.url.startsWith('file://'));
-          
-          // Format local song
-          if (isLocalFile) {
-            const formattedTrack = {
-              id: track.id || `local-${Date.now()}`,
-              url: track.url && typeof track.url === 'string' && track.url.startsWith('file://') ? track.url : `file://${track.path || track.url}`,
-              title: track.title || 'Unknown',
-              artist: track.artist || 'Unknown Artist',
-              artwork: (typeof track.artwork === 'number' || !track.artwork) ? DEFAULT_MUSIC_IMAGE : { uri: track.artwork },
-              // Ensure duration is a number
-              duration: typeof track.duration === 'string' ? parseFloat(track.duration) || 0 : track.duration || 0,
-              isLocalMusic: true
-            };
-            console.log('Formatted local track:', formattedTrack);
-            return formattedTrack;
-          } 
-          
-          // Format online song - handle multiple URL formats
-          let url = '';
-          
-          // Case 1: Direct URL string
-          if (typeof track.url === 'string') {
-            url = track.url;
-          }
-          // Case 2: URL is an array
-          else if (Array.isArray(track.url)) {
-            // Try to get highest quality URL from array
-            const highestQualityUrl = getHighestQualityUrl(track.url);
-            url = highestQualityUrl || '';
-          }
-          // Case 3: downloadUrl array
-          else if (track.downloadUrl) {
-            if (Array.isArray(track.downloadUrl) && track.downloadUrl.length > 0) {
-              // Find the best quality URL from downloadUrl array
-              const quality = track.downloadUrl.length - 1; // Default to highest quality
-              url = track.downloadUrl[quality]?.url || '';
-            } else if (typeof track.downloadUrl === 'string') {
-              url = track.downloadUrl;
+        // Show toast first for immediate feedback
+        ToastAndroid.show(`Playing "${item.title}"`, ToastAndroid.SHORT);
+        
+        // Process tracks in background
+        setTimeout(async () => {
+          try {
+            // Format all tracks starting from the current one
+            const tracksToPlay = Songs.slice(index).map(formatTrack).filter(Boolean);
+            
+            if (tracksToPlay.length === 0) {
+              ToastAndroid.show('No playable tracks found', ToastAndroid.SHORT);
+              return;
             }
+            
+            await TrackPlayer.reset();
+            await TrackPlayer.add(tracksToPlay);
+            await TrackPlayer.play();
+            if (updateTrack) updateTrack();
+          } catch (innerError) {
+            console.error('Error playing song in background:', innerError);
+            ToastAndroid.show('Failed to play song', ToastAndroid.SHORT);
           }
-          
-          // If we still don't have a URL, check if track.url is an object with properties
-          if (!url && typeof track.url === 'object' && track.url !== null) {
-            // Try various quality options
-            url = track.url['320kbps'] || track.url['160kbps'] || track.url['96kbps'] || track.url['48kbps'] || '';
-          }
-          
-          if (!url) {
-            console.warn('Could not determine URL for track:', track.id || track.title);
-          }
-          
-          return {
-            id: track.id || `online-${Date.now()}`,
-            url: url,
-            title: track.title || 'Unknown',
-            artist: track.artist || 'Unknown Artist',
-            artwork: track.image || track.artwork || DEFAULT_MUSIC_IMAGE,
-            duration: typeof track.duration === 'string' ? parseFloat(track.duration) || 0 : track.duration || 0,
-            language: track.language,
-            artistID: track.artistID || track.primary_artists_id
-          };
-        });
-        
-        console.log('Playing track:', JSON.stringify(tracksToPlay[0]));
-        
-        await TrackPlayer.reset();
-        await TrackPlayer.add(tracksToPlay);
-        await TrackPlayer.play();
-        if (updateTrack) updateTrack();
+        }, 100);
       } catch (error) {
         console.error('Error playing song:', error);
         ToastAndroid.show('Failed to play song: ' + error.message, ToastAndroid.SHORT);
       }
     };
     
-    // Handle options menu
-    const handleMoreOptions = () => {
+    // Handle options button press
+    const handleOptions = () => {
+      setSelectedSong(item);
       setMenuVisible(true);
     };
     
-    const handlePlayNext = async () => {
-      try {
-        const queue = await TrackPlayer.getQueue();
-        const currentIndex = await TrackPlayer.getCurrentTrack();
-        await TrackPlayer.add([e], currentIndex + 1);
-        ToastAndroid.show('Added to play next', ToastAndroid.SHORT);
-        setMenuVisible(false);
-      } catch (error) {
-        console.error('Play next error:', error);
-      }
-    };
+    // Use a stable key that doesn't change across re-renders
+    const songKey = `song-${item.id}-${index}`;
     
-    const handleDeleteFromPlaylist = async () => {
-    try {
-      // Check if this is a modern playlist (has playlistId and isUserPlaylist flag)
-      if (playlistId && isUserPlaylist) {
-        // Import our new function
-        const { removeSongFromPlaylist } = require('../../Utils/PlaylistManager');
-        
-        // Use modern playlist removal function
-        const success = await removeSongFromPlaylist(playlistId, e.id);
-        
-        if (success) {
-          // Update the local state to remove the song (don't rely on filter directly)
-          const updatedSongs = Songs.filter(song => song.id !== e.id);
-          setSongs(updatedSongs);
-          ToastAndroid.show('Song removed from playlist', ToastAndroid.SHORT);
-        }
-      } else {
-        // Legacy playlist handling
-      const playlists = await GetCustomPlaylists();
-        
-        // Validate the playlist exists to avoid "filter of undefined" error
-        if (!playlists || !playlists[playlistName] || !Array.isArray(playlists[playlistName])) {
-          console.error('Invalid playlist data:', { playlists, playlistName });
-          ToastAndroid.show('Error: Playlist data is invalid', ToastAndroid.SHORT);
-          setMenuVisible(false);
-          return;
-        }
-      
-      // Filter out the song to be deleted
-        const updatedSongs = playlists[playlistName].filter(s => s.id !== e.id);
-      
-      // Update the playlist with filtered songs
-      playlists[playlistName] = updatedSongs;
-      
-        // Save to AsyncStorage
-      await AsyncStorage.setItem('CustomPlaylists', JSON.stringify(playlists));
-      
-        // Update local state
-        setSongs(updatedSongs);
-      
-      ToastAndroid.show('Song removed from playlist', ToastAndroid.SHORT);
-      }
-      
-      setMenuVisible(false);
-    } catch (error) {
-      console.log('Delete error:', error);
-      ToastAndroid.show('Failed to remove song', ToastAndroid.SHORT);
-      setMenuVisible(false);
-    }
-  };
-    
-  const handleAddToPlaylist = async (song) => {
-    try {
-      // Import the function to add song to playlist
-      const { AddOneSongToPlaylist } = require('../../MusicPlayerFunctions');
-      
-      // Call the function to add song to playlist
-      const result = await AddOneSongToPlaylist(song);
-      if (!result) {
-        ToastAndroid.show('Failed to open playlist selector', ToastAndroid.SHORT);
-      }
-    } catch (error) {
-      console.error('Error adding to playlist:', error);
-      ToastAndroid.show('Failed to add to playlist', ToastAndroid.SHORT);
-    }
-  };
-    
-  return (
-      <>
-        <Pressable
-          onPress={playSong}
-          style={styles.songCard}
-          android_ripple={{ color: 'rgba(255, 255, 255, 0.1)', borderless: false }}
-        >
-          {/* Song image with default fallback */}
-          <FastImage
-            source={getImageSource()}
-            style={styles.songImage}
-          />
-          
-          {/* Song details */}
-          <View style={styles.songInfo}>
-            <PlainText 
-              text={e.title.length > 20 ? e.title.substring(0, 20) + '...' : e.title} 
-              songId={e.id}
-              isSongTitle={true}
-              style={styles.songTitle}
-              numberOfLine={1}
-            />
-            <SmallText 
-              text={e.artist.length > 20 ? e.artist.substring(0, 20) + '...' : e.artist} 
-              isArtistName={true}
-              style={styles.artistName}
-              maxLine={1}
-            />
-          </View>
-
-          {/* Options button */}
-          <Pressable
-            style={styles.optionsButton}
-            onPress={handleMoreOptions}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <MaterialCommunityIcons name="dots-vertical" size={22} color="rgba(255,255,255,0.8)" />
-          </Pressable>
-        </Pressable>
-        
-        {/* Options Modal */}
-        <Modal
-          isVisible={menuVisible}
-          onBackdropPress={() => setMenuVisible(false)}
-          onBackButtonPress={() => setMenuVisible(false)}
-          backdropOpacity={0.5}
-          animationIn="slideInUp"
-          animationOut="slideOutDown"
-          style={styles.modal}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <FastImage 
-                source={getImageSource()} 
-                style={styles.modalImage} 
-              />
-              <View style={styles.modalHeaderText}>
-                <Text style={styles.modalTitle} numberOfLines={1}>{e.title}</Text>
-                <Text style={styles.modalSubtitle} numberOfLines={1}>{e.artist}</Text>
-              </View>
-            </View>
-            
-            <Pressable
-              style={styles.modalOption}
-              onPress={() => {
-                setMenuVisible(false);
-                handleAddToPlaylist(e);
-              }}
-              android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
-            >
-              <MaterialCommunityIcons name="playlist-plus" size={22} color="white" />
-              <Text style={styles.modalOptionText}>Add to Playlist</Text>
-            </Pressable>
-            
-            <Pressable
-              style={styles.modalOption}
-              onPress={handlePlayNext}
-              android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
-            >
-              <MaterialCommunityIcons name="play-next" size={22} color="white" />
-              <Text style={styles.modalOptionText}>Play Next</Text>
-            </Pressable>
-            
-            <Pressable
-              style={styles.modalOption}
-              onPress={handleDeleteFromPlaylist}
-              android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
-            >
-              <MaterialCommunityIcons name="playlist-remove" size={22} color="white" />
-              <Text style={styles.modalOptionText}>Remove from Playlist</Text>
-            </Pressable>
+    return (
+      <Pressable
+        key={songKey}
+        style={[
+          styles.songCard,
+          isCurrentPlaying && styles.activeSongCard
+        ]}
+        onPress={handlePress}
+        android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
+      >
+        <FastImage
+          source={getSafeImageSource(item)}
+          style={styles.thumbnail}
+          resizeMode={FastImage.resizeMode.cover}
+          defaultSource={DEFAULT_MUSIC_IMAGE}
+        />
+        <View style={styles.songInfo}>
+          <Text style={styles.songTitle} numberOfLines={1}>
+            {item.title || 'Unknown'}
+          </Text>
+          <Text style={styles.songArtist} numberOfLines={1}>
+            {item.artist || 'Unknown Artist'}
+          </Text>
         </View>
-      </Modal>
-      </>
-    );
-  };
-
-  return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#121212" />
-      
-      {/* Background gradient */}
-      <LinearGradient
-        colors={['#383838', '#282828', '#181818', '#121212']}
-        style={styles.backgroundGradient}
-      />
-      
-      {/* Header */}
-      <View style={styles.header}>
         <Pressable
-          onPress={handleGoBack}
-          style={styles.backButton}
+          onPress={handleOptions}
+          style={styles.menuButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="arrow-back" size={24} color="white" />
+          <MaterialCommunityIcons name="dots-vertical" size={24} color="#FFFFFF" />
         </Pressable>
-        
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {playlistName || "Custom Playlist"}
-        </Text>
+      </Pressable>
+    );
+  }, [currentPlaying, Songs, getSafeImageSource, updateTrack, formatTrack]);
+  
+  // Memoized function to get a key extractor for the FlatList
+  const keyExtractor = useCallback((item, index) => `song-${item.id || index}-${index}`, []);
+  
+  // Render loading state when needed
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#1DB954" />
+        <Text style={{ color: '#FFFFFF', marginTop: 16 }}>Loading playlist...</Text>
+      </View>
+    );
+  }
+  
+  // Show a placeholder when there are no songs
+  if (!Songs || Songs.length === 0) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Pressable onPress={handleGoBack} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          </Pressable>
+          <PlainText text={playlistName} style={styles.title} />
+        </View>
+        <View style={styles.emptyContainer}>
+          <Ionicons name="musical-notes-outline" size={50} color="rgba(255,255,255,0.5)" />
+          <Text style={styles.emptyText}>
+            No songs in this playlist
+          </Text>
+        </View>
+      </View>
+    );
+  }
+  
+  // Main render of the component
+  return (
+    <View style={styles.container}>
+      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+      
+      <View style={styles.header}>
+        <Pressable onPress={handleGoBack} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+        </Pressable>
+        <PlainText text={playlistName} style={styles.title} />
       </View>
       
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Playlist header section */}
-        <View style={styles.playlistHeader}>
-          <FastImage
-            source={Songs.length > 0 ? 
-              (() => {
-                const firstSong = Songs[0];
-                // Handle local songs or songs with numeric/invalid artwork
-                if (firstSong.isLocalMusic || firstSong.path || 
-                    (typeof firstSong.artwork === 'number') || 
-                    (typeof firstSong.image === 'number') || 
-                    (!firstSong.image && !firstSong.artwork) ||
-                    (firstSong.image && typeof firstSong.image === 'string' && 
-                     !firstSong.image.startsWith('http') && !firstSong.image.startsWith('file://')) ||
-                    (firstSong.artwork && typeof firstSong.artwork === 'string' && 
-                     !firstSong.artwork.startsWith('http') && !firstSong.artwork.startsWith('file://'))) {
-                  return require('../../Images/default.jpg');
-                }
-                // Normal songs with valid image
-                return { uri: firstSong.image || firstSong.artwork };
-              })() : 
-              require('../../Images/wav.png')}
-            style={styles.playlistCover}
-          />
-          
-          <View style={styles.playlistInfo}>
-            <Text style={styles.playlistTitle}>{playlistName || "Custom Playlist"}</Text>
-            <Text style={styles.songCount}>{Songs.length} {Songs.length === 1 ? 'song' : 'songs'}</Text>
-            
-            {/* Play buttons */}
-            {Songs.length > 0 && (
-              <View style={styles.playlistControls}>
-                <Pressable
-                  onPress={AddAllSongsToQueue}
-                  style={styles.playButton}
-                  android_ripple={{ color: 'rgba(0,0,0,0.1)' }}
-                >
-                  <Ionicons name="play" size={22} color="black" />
-                  <Text style={styles.playButtonText}>Play</Text>
-                </Pressable>
-              </View>
-            )}
-          </View>
-        </View>
-        
-        {/* Divider */}
-        <View style={styles.divider} />
-        
-        {/* Songs list */}
-        {Songs.length > 0 ? (
-          <View style={styles.songsList}>
-            {Songs.map((e, i) => (
-              <SongCard
-                key={i}
-                e={e}
-                allSongs={Songs}
-                index={i}
+      <FlatList
+        ref={flatListRef}
+        data={visibleSongs}
+        renderItem={renderSongItem}
+        keyExtractor={keyExtractor}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
+        maxToRenderPerBatch={10}
+        initialNumToRender={15}
+        windowSize={11}
+        removeClippedSubviews={true}
+        ListHeaderComponent={
+          <View style={styles.coverContainer}>
+            <View style={styles.playlistInfoSection}>
+              <FastImage
+                source={getSafeImageSource(Songs[0] || {})}
+                style={styles.coverImage}
+                defaultSource={DEFAULT_MUSIC_IMAGE}
               />
-            ))}
+              <View style={styles.playlistInfoContainer}>
+                <Text style={styles.playlistTitle}>{playlistName}</Text>
+                <Text style={styles.songCount}>{Songs.length} {Songs.length === 1 ? 'song' : 'songs'}</Text>
+                <CustomPlaylistPlay 
+                  onPress={AddAllSongsToQueue} 
+                  songs={Songs}
+                  playlistId={playlistId || ""}
+                />
+              </View>
+            </View>
           </View>
-        ) : (
-          <View style={styles.emptySongs}>
-            <Ionicons name="musical-notes-outline" size={50} color="rgba(255,255,255,0.5)" />
-            <Text style={styles.emptyText}>No songs in this playlist</Text>
-          </View>
-        )}
-      </ScrollView>
+        }
+        ListFooterComponent={
+          chunkLoading && visibleSongs.length < Songs.length ? (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <ActivityIndicator size="small" color="#1DB954" />
+              <Text style={{ color: '#FFFFFF', marginTop: 8 }}>
+                Loading more songs...
+              </Text>
+            </View>
+          ) : null
+        }
+      />
+      
+      {/* Song options modal */}
+      <Modal
+        isVisible={menuVisible}
+        onBackdropPress={() => setMenuVisible(false)}
+        style={styles.menuModal}
+        backdropTransitionOutTiming={0}
+        animationIn="slideInUp"
+        animationOut="slideOutDown"
+      >
+        <View style={styles.menuContainer}>
+          {selectedSong && (
+            <>
+              <Text style={{ color: '#FFFFFF', fontSize: 18, marginBottom: 16 }}>
+                {selectedSong.title}
+              </Text>
+              
+              <Pressable
+                style={styles.menuOption}
+                onPress={async () => {
+                  setMenuVisible(false);
+                  try {
+                    const queue = await TrackPlayer.getQueue();
+                    const currentIndex = await TrackPlayer.getCurrentTrack();
+                    await TrackPlayer.add([formatTrack(selectedSong)], currentIndex + 1);
+                    ToastAndroid.show('Added to play next', ToastAndroid.SHORT);
+                  } catch (error) {
+                    console.error('Error adding song to play next:', error);
+                    ToastAndroid.show('Failed to add song', ToastAndroid.SHORT);
+                  }
+                }}
+              >
+                <MaterialCommunityIcons name="playlist-play" size={24} color="#FFFFFF" />
+                <Text style={styles.menuText}>Play Next</Text>
+              </Pressable>
+              
+              {isUserPlaylist && (
+                <Pressable
+                  style={styles.menuOption}
+                  onPress={async () => {
+                    setMenuVisible(false);
+                    try {
+                      const songId = selectedSong.id;
+                      const currentUserPlaylists = await getUserPlaylists();
+                      const playlistIndex = currentUserPlaylists.findIndex(p => p.id === playlistId);
+                      
+                      if (playlistIndex !== -1) {
+                        const updatedSongs = currentUserPlaylists[playlistIndex].songs.filter(
+                          s => s.id !== songId
+                        );
+                        
+                        currentUserPlaylists[playlistIndex].songs = updatedSongs;
+                        await AsyncStorage.setItem('userPlaylists', JSON.stringify(currentUserPlaylists));
+                        
+                        // Update the local state to reflect the deletion
+                        setSongs(prevSongs => prevSongs.filter(s => s.id !== songId));
+                        setVisibleSongs(prevSongs => prevSongs.filter(s => s.id !== songId));
+                        
+                        ToastAndroid.show('Song removed from playlist', ToastAndroid.SHORT);
+                      }
+                    } catch (error) {
+                      console.error('Error removing song from playlist:', error);
+                      ToastAndroid.show('Failed to remove song', ToastAndroid.SHORT);
+                    }
+                  }}
+                >
+                  <MaterialCommunityIcons name="playlist-remove" size={24} color="#FFFFFF" />
+                  <Text style={styles.menuText}>Remove from Playlist</Text>
+                </Pressable>
+              )}
+              
+              <Pressable
+                style={styles.menuCancel}
+                onPress={() => setMenuVisible(false)}
+              >
+                <Text style={{ color: '#1DB954', fontSize: 16 }}>Cancel</Text>
+              </Pressable>
+            </>
+          )}
+        </View>
+      </Modal>
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#121212',
-  },
-  backgroundGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 300,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
-    zIndex: 10,
-  },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
-    marginLeft: 12,
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 100,
-  },
-  playlistHeader: {
-    paddingHorizontal: 16,
-    paddingTop: 20,
-    paddingBottom: 24,
-    flexDirection: 'row',
-  },
-  playlistCover: {
-    width: 140,
-    height: 140,
-    borderRadius: 8,
-    backgroundColor: '#333',
-  },
-  playlistInfo: {
-    marginLeft: 16,
-    flex: 1,
-    justifyContent: 'center',
-  },
-  playlistTitle: {
-    color: 'white',
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  songCount: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    marginBottom: 20,
-  },
-  playlistControls: {
-    marginTop: 8,
-  },
-  playButton: {
-    backgroundColor: 'white',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 24,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-  },
-  playButtonText: {
-    color: 'black',
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    marginHorizontal: 16,
-    marginBottom: 16,
-  },
-  songsList: {
-    paddingHorizontal: 16,
-  },
-  songCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    marginBottom: 8,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-  },
-  songImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 4,
-    backgroundColor: '#333',
-  },
-  songInfo: {
-    marginLeft: 12,
-    flex: 1,
-    justifyContent: 'center',
-  },
-  songTitle: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  artistName: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    marginTop: 2,
-  },
-  optionsButton: {
-    padding: 8,
-  },
-  modal: {
-    margin: 0,
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#282828',
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    paddingBottom: 24,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-  modalImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 4,
-    backgroundColor: '#333',
-  },
-  modalHeaderText: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  modalTitle: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalSubtitle: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-  },
-  modalOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    paddingVertical: 14,
-  },
-  modalOptionText: {
-    color: 'white',
-    marginLeft: 16,
-    fontSize: 16,
-  },
-  emptySongs: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 40,
-  },
-  emptyText: {
-    color: 'rgba(255,255,255,0.7)',
-    marginTop: 16,
-    fontSize: 16,
-  },
-});

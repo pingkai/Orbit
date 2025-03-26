@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState, memo, useCallback, useRef } from "react";
-import { View, Text, Platform } from "react-native";
+import { View, Text, Platform, ToastAndroid } from "react-native";
 import { EachSongQueue } from "./EachSongQueue";
 import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import Context from "../../Context/Context";
@@ -7,6 +7,9 @@ import { useActiveTrack, useTrackPlayerEvents, Event } from "react-native-track-
 import TrackPlayer from "react-native-track-player";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import DraggableFlatList, { ScaleDecorator } from "react-native-draggable-flatlist";
+import { SkipToTrack } from "../../MusicPlayerFunctions";
+import NetInfo from "@react-native-community/netinfo";
+import { StorageManager } from '../../Utils/StorageManager';
 
 const QueueRenderSongs = memo(() => {
   // Context and state
@@ -17,8 +20,32 @@ const QueueRenderSongs = memo(() => {
   const [isLocalSource, setIsLocalSource] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [lastDraggedSongId, setLastDraggedSongId] = useState(null);
+  const [isOffline, setIsOffline] = useState(false);
   const flatListRef = useRef(null);
   const operationInProgressRef = useRef(false);
+  
+  // Check network status on component mount
+  useEffect(() => {
+    const checkNetworkStatus = async () => {
+      try {
+        const networkState = await NetInfo.fetch();
+        setIsOffline(!(networkState.isConnected && networkState.isInternetReachable));
+      } catch (error) {
+        console.error('Error checking network status:', error);
+        // Default to online if we can't determine
+        setIsOffline(false);
+      }
+    };
+    
+    checkNetworkStatus();
+    
+    // Subscribe to network changes
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOffline(!(state.isConnected && state.isInternetReachable));
+    });
+    
+    return () => unsubscribe();
+  }, []);
   
   // More robust check for local tracks
   const isLocalTrack = (track) => {
@@ -26,6 +53,7 @@ const QueueRenderSongs = memo(() => {
     return Boolean(
       track.isLocalMusic || 
       track.isLocal || 
+      track.isDownloaded ||
       track.path || 
       (track.url && (
         track.url.startsWith('file://') || 
@@ -35,29 +63,99 @@ const QueueRenderSongs = memo(() => {
     );
   };
 
-  // Function to filter queue based on track source
-  const filterQueueBySource = async (currentTrack) => {
+  // Function to get all downloaded tracks
+  const getDownloadedTracks = async () => {
     try {
-      if (!currentTrack) {
+      // Get all downloaded song metadata
+      const allMetadata = await StorageManager.getAllDownloadedSongsMetadata();
+      
+      if (!allMetadata || Object.keys(allMetadata).length === 0) {
+        console.log('No downloaded songs metadata found in queue');
         return [];
       }
       
-      // Check if current track is local
-      const isOfflineTrack = isLocalTrack(currentTrack);
-      setIsLocalSource(isOfflineTrack);
-      
-      // Always get the latest queue directly from TrackPlayer for accuracy
-      const latestQueue = await TrackPlayer.getQueue();
-      
-      // Filter to match source type (local vs online)
-      const filteredTracks = latestQueue.filter(track => isLocalTrack(track) === isOfflineTrack);
-      
-      return filteredTracks;
+      // Format tracks with metadata
+      return Object.values(allMetadata).map(metadata => {
+        const artworkPath = StorageManager.getArtworkPath(metadata.id);
+        const songPath = StorageManager.getSongPath(metadata.id);
+        
+        return {
+          id: metadata.id,
+          url: `file://${songPath}`,
+          title: metadata.title || 'Unknown',
+          artist: metadata.artist || 'Unknown',
+          artwork: `file://${artworkPath}`,
+          localArtworkPath: artworkPath,
+          duration: metadata.duration || 0,
+          isLocal: true,
+          isDownloaded: true
+        };
+      });
     } catch (error) {
-      console.error('Error filtering queue by source:', error);
+      console.error('Error getting downloaded tracks:', error);
       return [];
     }
   };
+
+  // Function to filter queue based on track source with offline support
+  const filterQueueBySource = useCallback(async (currentTrack) => {
+    try {
+      if (!currentTrack) return [];
+      
+      // Always get downloaded tracks to have ready (regardless of offline status)
+      const downloadedTracks = await getDownloadedTracks();
+      console.log(`Found ${downloadedTracks.length} downloaded tracks for queue`);
+      
+      // If playing a downloaded track (either in offline mode or online mode)
+      if (isLocalTrack(currentTrack)) {
+        console.log('Playing local/downloaded track - showing all downloaded tracks in queue');
+        
+        // Put current track first, then other downloaded tracks
+        const rearrangedTracks = [
+          currentTrack,
+          ...downloadedTracks.filter(track => track.id !== currentTrack.id)
+        ];
+        
+        setIsLocalSource(true);
+        return rearrangedTracks;
+      }
+      
+      // For online tracks in online mode - normal behavior
+      if (!isOffline) {
+      // Determine if current track is local
+      const currentIsLocal = isLocalTrack(currentTrack);
+      
+      // Update state to reflect current source type
+      setIsLocalSource(currentIsLocal);
+      
+      // Get the full queue from TrackPlayer
+      const fullQueue = await TrackPlayer.getQueue();
+      
+        if (fullQueue.length === 0) {
+          console.log('TrackPlayer queue is empty, using current track');
+          return [currentTrack];
+        }
+        
+        // Filter to only include online tracks
+      const filtered = fullQueue.filter(track => 
+        isLocalTrack(track) === currentIsLocal
+      );
+      
+      return filtered;
+      }
+      
+      // Fallback for any other scenario - just return current track
+      return [currentTrack];
+    } catch (error) {
+      console.error('Error filtering queue by source:', error);
+      
+      // If error occurs and we have a current track, at least show that
+      if (currentTrack) {
+        return [currentTrack];
+      }
+      return [];
+    }
+  }, [isLocalTrack, isOffline, getDownloadedTracks]);
 
   // Track change listener to update the queue
   useTrackPlayerEvents([Event.PlaybackTrackChanged], async (event) => {
@@ -76,10 +174,26 @@ const QueueRenderSongs = memo(() => {
           // Filter out duplicate songs based on ID
           const uniqueIds = new Set();
           const uniqueFiltered = filtered.filter(track => {
-            if (!track.id || uniqueIds.has(track.id)) return false;
+            if (!track || !track.id || uniqueIds.has(track.id)) return false;
             uniqueIds.add(track.id);
             return true;
           });
+          
+          // Ensure current track is always first
+          if (track.id && uniqueFiltered.length > 0) {
+            const currentTrackIndex = uniqueFiltered.findIndex(t => t.id === track.id);
+            
+            // If current track isn't first and exists in the queue
+            if (currentTrackIndex > 0) {
+              // Move current track to the beginning
+              const currentTrack = uniqueFiltered.splice(currentTrackIndex, 1)[0];
+              uniqueFiltered.unshift(currentTrack);
+            } 
+            // If current track isn't in the queue at all
+            else if (currentTrackIndex === -1) {
+              uniqueFiltered.unshift(track);
+            }
+          }
           
           setUpcomingQueue(uniqueFiltered);
         } else {
@@ -99,16 +213,35 @@ const QueueRenderSongs = memo(() => {
       
       try {
         if (currentPlaying) {
+          // Always ensure we have the latest downloaded tracks
+          await getDownloadedTracks();
+          
           // Filter queue based on current track
           const filtered = await filterQueueBySource(currentPlaying);
           
           // Filter out duplicate songs based on ID
           const uniqueIds = new Set();
           const uniqueFiltered = filtered.filter(track => {
-            if (!track.id || uniqueIds.has(track.id)) return false;
+            if (!track || !track.id || uniqueIds.has(track.id)) return false;
             uniqueIds.add(track.id);
             return true;
           });
+          
+          // Ensure current track is always first
+          if (currentPlaying.id && uniqueFiltered.length > 0) {
+            const currentTrackIndex = uniqueFiltered.findIndex(t => t.id === currentPlaying.id);
+            
+            // If current track isn't first and exists in the queue
+            if (currentTrackIndex > 0) {
+              // Move current track to the beginning
+              const currentTrack = uniqueFiltered.splice(currentTrackIndex, 1)[0];
+              uniqueFiltered.unshift(currentTrack);
+            } 
+            // If current track isn't in the queue at all
+            else if (currentTrackIndex === -1) {
+              uniqueFiltered.unshift(currentPlaying);
+            }
+          }
           
           setUpcomingQueue(uniqueFiltered);
           
@@ -120,12 +253,181 @@ const QueueRenderSongs = memo(() => {
         }
       } catch (error) {
         console.error('Error initializing queue:', error);
+        // In case of error, at least show the current track
+        if (currentPlaying) {
+          setUpcomingQueue([currentPlaying]);
+        } else {
         setUpcomingQueue([]);
+        }
       }
     };
 
+    // Try to suppress playlist errors
+    const suppressPlaylistErrors = () => {
+      const originalConsoleError = console.error;
+      
+      // Replace console.error with our filtered version
+      console.error = (...args) => {
+        // Filter out playlist errors
+        if (args.some(arg => 
+          typeof arg === 'string' && (
+            arg.includes('Error getting playlist') || 
+            arg.includes('Network Error') || 
+            arg.includes('Network request failed')
+          )
+        )) {
+          // Just log a simpler message instead
+          console.log('Suppressed playlist/network error');
+          return;
+        }
+        
+        // Pass through all other errors
+        originalConsoleError.apply(console, args);
+      };
+      
+      // Return function to restore original behavior
+      return () => {
+        console.error = originalConsoleError;
+      };
+    };
+    
+    // Suppress playlist errors when using the component
+    const restoreConsole = suppressPlaylistErrors();
+    
+    // Initialize the queue
     initializeQueue();
-  }, [currentPlaying, isDragging]);
+    
+    // Cleanup
+    return () => {
+      restoreConsole();
+    };
+  }, [currentPlaying, isDragging, isOffline]);
+
+  // NEW FUNCTION: Handle track selection with improved error handling
+  const handleTrackSelect = async (item, displayIndex) => {
+    try {
+      if (!item || !item.id) {
+        console.warn('Cannot select track: Invalid track data');
+        return;
+      }
+
+      console.log(`Attempting to play track "${item.title}" with ID ${item.id}`);
+
+      // Check if the item is a local/downloaded track
+      if (isLocalTrack(item)) {
+        console.log('Selected local/downloaded track, playing directly');
+        
+        try {
+          // For local tracks, get the full queue of local tracks
+          const localTracks = await getDownloadedTracks();
+          
+          // Find the selected track in the local tracks
+          const localTrackIndex = localTracks.findIndex(track => track.id === item.id);
+          
+          if (localTrackIndex === -1) {
+            console.log('Local track not found in downloaded tracks, using direct play');
+            
+            // If not found, try to play it directly by building a queue with it
+            await TrackPlayer.reset();
+            await TrackPlayer.add([item, ...localTracks.filter(t => t.id !== item.id)]);
+            await TrackPlayer.play();
+            return;
+          }
+          
+          // Otherwise, play it from the local tracks collection
+          await TrackPlayer.reset();
+          await TrackPlayer.add([
+            localTracks[localTrackIndex],
+            ...localTracks.filter((_, index) => index !== localTrackIndex)
+          ]);
+          await TrackPlayer.play();
+          return;
+        } catch (error) {
+          console.error('Error playing local track directly:', error);
+        }
+      }
+      
+      // For non-local tracks or if local track direct play failed
+      try {
+        // Get the full TrackPlayer queue to find the actual index
+        const queue = await TrackPlayer.getQueue();
+        
+        // Find the track in the actual queue by ID
+        const actualIndex = queue.findIndex(track => track.id === item.id);
+        
+        if (actualIndex === -1) {
+          console.warn(`Track with ID ${item.id} not found in player queue`);
+          
+          // If the track isn't in the queue but we want to play it anyway
+          if (item.url) {
+            console.log('Track has URL but not in queue, adding it to queue');
+            
+            // Try to add it to the queue and play it
+            try {
+              // Keep existing queue if possible
+              if (queue.length > 0) {
+                await TrackPlayer.add([item], 0); // Add at beginning
+                await TrackPlayer.skip(0); // Skip to our new track
+              } else {
+                await TrackPlayer.reset();
+                await TrackPlayer.add([item]);
+              }
+              await TrackPlayer.play();
+              return;
+            } catch (err) {
+              console.error('Error adding track to queue:', err);
+              if (Platform.OS === 'android') {
+                ToastAndroid.show('Could not play this track', ToastAndroid.SHORT);
+              }
+              return;
+            }
+          }
+          
+          // Final fallback - just try to add and play the current track
+          try {
+            await TrackPlayer.reset();
+            await TrackPlayer.add([item]);
+            await TrackPlayer.play();
+            return;
+          } catch (finalError) {
+            console.error('Final attempt to play track failed:', finalError);
+            if (Platform.OS === 'android') {
+              ToastAndroid.show('Cannot play this track', ToastAndroid.SHORT);
+            }
+            return;
+          }
+        }
+        
+        console.log(`Selected track "${item.title}" at queue index ${actualIndex}`);
+        
+        // Skip to the actual index in the queue
+        await SkipToTrack(actualIndex);
+        
+      } catch (error) {
+        console.error('Error selecting track:', error);
+        
+        // Last resort - try direct play
+        try {
+          if (item.url) {
+            await TrackPlayer.reset();
+            await TrackPlayer.add([item]);
+            await TrackPlayer.play();
+            console.log('Using emergency direct play method');
+          }
+        } catch (directPlayError) {
+          console.error('Direct play failed:', directPlayError);
+          if (Platform.OS === 'android') {
+            ToastAndroid.show('Failed to play track', ToastAndroid.SHORT);
+          }
+        }
+      }
+    } catch (outerError) {
+      console.error('Outer error in handleTrackSelect:', outerError);
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('Failed to play selected track', ToastAndroid.SHORT);
+      }
+    }
+  };
 
   // Handle drag start
   const handleDragStart = useCallback((params) => {
@@ -383,6 +685,7 @@ const QueueRenderSongs = memo(() => {
             index={index}
             artwork={item.artwork}
             isActive={false}
+            onPress={() => handleTrackSelect(item, index)}
           />
         )}
         contentContainerStyle={{ 
@@ -427,6 +730,7 @@ const QueueRenderSongs = memo(() => {
             artwork={item.artwork}
             drag={drag}
             isActive={isActive}
+            onPress={() => handleTrackSelect(item, index)}
           />
         </ScaleDecorator>
       )}

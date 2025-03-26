@@ -168,45 +168,137 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
     }
   };
 
+  // Format song title and artist
+  const formatTitle = (title) => {
+    if (!title) return "Unknown Title";
+    
+    // Remove file extensions if they exist
+    let formatted = title.replace(/\.(mp3|m4a|wav|ogg|flac)$/i, '');
+    
+    // Limit to 20 characters
+    if (formatted.length > 20) {
+      return formatted.substring(0, 20) + "...";
+    }
+    
+    return formatted;
+  };
+  
+  const formatArtist = (artistName) => {
+    if (!artistName) return "Unknown Artist";
+    
+    // Remove file extensions if they exist
+    let formatted = artistName.replace(/\.(mp3|m4a|wav|ogg|flac)$/i, '');
+    
+    // Limit to 20 characters
+    if (formatted.length > 20) {
+      return formatted.substring(0, 20) + "...";
+    }
+    
+    return formatted;
+  };
+
   // Helper function to prepare and play tracks
   const prepareAndPlayTracks = async () => {
-    // Format all tracks for the queue
-    const formattedTracks = allSongs.map(track => {
-      // Ensure we have a valid artwork that won't cause type issues
-      let artwork;
-      if (track.cover && typeof track.cover === 'string' && track.cover.trim() !== '') {
-        artwork = { uri: track.cover };
-      } else {
-        // Use default local image
-        artwork = DEFAULT_MUSIC_IMAGE;
+    try {
+      // Ensure we have allSongs before proceeding
+      if (!allSongs || !Array.isArray(allSongs) || allSongs.length === 0) {
+        console.log('No songs available for queue');
+        
+        // Play just the current song if we don't have a valid array
+        const singleTrack = {
+          id: song.id || String(Math.random()),
+          url: song.url || (song.path ? `file://${song.path}` : null),
+          title: formatTitle(song.title),
+          artist: formatArtist(song.artist),
+          artwork: getArtworkForTrack(song),
+          isLocal: true
+        };
+        
+        if (!singleTrack.url) {
+          console.error('Cannot play track: Missing file path');
+          return;
+        }
+        
+        await TrackPlayer.reset();
+        await TrackPlayer.add(singleTrack);
+        await TrackPlayer.play();
+        setIndex(1);
+        return;
       }
       
-      return {
-        id: track.id,
-        url: track.url || `file://${track.path}`,
-        title: track.title,
-        artist: track.artist,
-        artwork: artwork,
-        isLocal: true
-      };
-    });
-    
-    // Reset player and add all tracks
-    await TrackPlayer.reset();
-    
-    // Add all tracks to queue, starting with the selected one
-    const tracksToAdd = [
-      ...formattedTracks.slice(index),
-      ...formattedTracks.slice(0, index)
-    ];
-    
-    await TrackPlayer.add(tracksToAdd);
-    
-    // Start playback
-    await TrackPlayer.play();
-    
-    // Open the fullscreen player
-    setIndex(1);
+      // Format all tracks for the queue
+      const formattedTracks = allSongs.map(track => {
+        if (!track) return null;
+        
+        return {
+          id: track.id || String(Math.random()),
+          url: track.url || (track.path ? `file://${track.path}` : null),
+          title: formatTitle(track.title),
+          artist: formatArtist(track.artist),
+          artwork: getArtworkForTrack(track),
+          isLocal: true
+        };
+      }).filter(track => track && track.url); // Remove any invalid tracks
+      
+      if (formattedTracks.length === 0) {
+        console.error('No valid tracks to play');
+        return;
+      }
+      
+      // Reset player and add all tracks
+      await TrackPlayer.reset();
+      
+      // Make sure the index is valid for the filtered array
+      const validIndex = Math.min(index || 0, formattedTracks.length - 1);
+      
+      // Add all tracks to queue, starting with the selected one
+      const tracksToAdd = [
+        ...formattedTracks.slice(validIndex),
+        ...formattedTracks.slice(0, validIndex)
+      ];
+      
+      await TrackPlayer.add(tracksToAdd);
+      
+      // Start playback
+      await TrackPlayer.play();
+      
+      // Open the fullscreen player
+      setIndex(1);
+    } catch (error) {
+      console.error('Error in prepareAndPlayTracks:', error);
+      
+      // Fallback to playing just this song on error
+      try {
+        const singleTrack = {
+          id: song.id || String(Math.random()),
+          url: song.url || (song.path ? `file://${song.path}` : null),
+          title: formatTitle(song.title),
+          artist: formatArtist(song.artist),
+          artwork: getArtworkForTrack(song),
+          isLocal: true
+        };
+        
+        if (singleTrack.url) {
+          await TrackPlayer.reset();
+          await TrackPlayer.add(singleTrack);
+          await TrackPlayer.play();
+          setIndex(1);
+        }
+      } catch (fallbackError) {
+        console.error('Even fallback playback failed:', fallbackError);
+      }
+    }
+  };
+  
+  // Helper function to get artwork for a track
+  const getArtworkForTrack = (track) => {
+    // Ensure we have a valid artwork that won't cause type issues
+    if (track.cover && typeof track.cover === 'string' && track.cover.trim() !== '') {
+      return { uri: track.cover };
+    } else {
+      // Use default local image
+      return DEFAULT_MUSIC_IMAGE;
+    }
   };
 
   const isCurrentlyPlaying = currentPlaying?.id === song.id && playerState.state === 'playing';
@@ -237,13 +329,13 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
         </View>
         <View style={styles.textContainer}>
           <PlainText 
-            text={song.title} 
+            text={formatTitle(song.title)} 
             style={styles.title} 
             numberOfLines={1} 
             ellipsizeMode="tail"
           />
           <SmallText 
-            text={song.artist} 
+            text={formatArtist(song.artist)} 
             style={styles.artist} 
             numberOfLines={1} 
             ellipsizeMode="tail"
@@ -313,5 +405,9 @@ const styles = StyleSheet.create({
   menuButton: {
     padding: 8,
     justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderRadius: 16,
+    marginLeft: 4,
+    elevation: 0,
   },
 });

@@ -1,9 +1,45 @@
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import Entypo from "react-native-vector-icons/Entypo";
 import { useTheme } from "@react-navigation/native";
+import { useContext, useEffect, useState } from "react";
+import TrackPlayer, { State } from "react-native-track-player";
+import Context from "../../Context/Context";
 
-export const PlayButton = ({onPress, Loading, size = "normal"}) => {
+export const PlayButton = ({onPress, Loading, size = "normal", isPlaying: externalIsPlaying = null}) => {
   const theme = useTheme();
+  const [isPlaying, setIsPlaying] = useState(false);
+  const { currentPlaying } = useContext(Context);
+  
+  // Effect to check if currently playing
+  useEffect(() => {
+    // If external isPlaying prop is provided, use that
+    if (externalIsPlaying !== null) {
+      setIsPlaying(externalIsPlaying);
+      return;
+    }
+    
+    // Otherwise, check player state
+    const checkPlaybackState = async () => {
+      try {
+        const state = await TrackPlayer.getState();
+        setIsPlaying(state === State.Playing);
+      } catch (err) {
+        console.error('Error checking playback state:', err);
+      }
+    };
+    
+    checkPlaybackState();
+    
+    // Set up event listener for track player
+    const playerStateListener = TrackPlayer.addEventListener(
+      'playback-state',
+      (event) => {
+        setIsPlaying(event.state === State.Playing);
+      }
+    );
+    
+    return () => playerStateListener.remove();
+  }, [externalIsPlaying, currentPlaying]);
   
   // Determine size based on prop - reduce large size to be less dominant
   const buttonSize = size === "large" ? 56 : size === "small" ? 40 : 50;
@@ -38,10 +74,13 @@ export const PlayButton = ({onPress, Loading, size = "normal"}) => {
       >
         {!Loading && (
           <Entypo 
-            name="controller-play" 
+            name={isPlaying ? "controller-paus" : "controller-play"} 
             color="#000000" // Black icon for better contrast on green
             size={iconSize} 
-            style={styles.icon}
+            style={[
+              styles.icon,
+              isPlaying ? {} : { marginLeft: 4 } // Only adjust position for play icon
+            ]}
           />
         )}
         {Loading && (
@@ -72,6 +111,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   icon: {
-    marginLeft: 4, // Adjust position of play icon
+    // Removed default marginLeft - we'll handle it conditionally
   }
 });

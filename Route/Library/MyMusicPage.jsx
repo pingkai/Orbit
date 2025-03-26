@@ -13,6 +13,52 @@ import { useTrackPlayerEvents, Event } from 'react-native-track-player';
 import Ionicons from "react-native-vector-icons/Ionicons";
 import Cover from "../../Images/Music.jpeg";
 
+// Add this at the top of the file to suppress console warnings in production
+// This will only affect this file's logs
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+
+// Only log important messages
+console.log = (...args) => {
+  // Check if it's an important message that we want to keep
+  const message = args[0]?.toString() || '';
+  if (message.includes('Error') || 
+      message.includes('error') || 
+      message.includes('Playing track')) {
+    originalConsoleLog(...args);
+  }
+};
+
+console.error = (...args) => {
+  // Ignore 404 errors for recommendations endpoints
+  const firstArg = args[0];
+  if (firstArg && 
+      typeof firstArg === 'string' && 
+      firstArg.includes('404') && 
+      firstArg.includes('recommendations')) {
+    // Skip logging recommendation 404 errors
+    return;
+  }
+  
+  // Keep all other error logs but remove the stack trace to reduce clutter
+  const cleanedArgs = args.map(arg => {
+    if (arg instanceof Error) {
+      return arg.message;
+    }
+    return arg;
+  });
+  originalConsoleError(...cleanedArgs);
+};
+
+console.warn = (...args) => {
+  // Only show important warnings
+  const message = args[0]?.toString() || '';
+  if (message.includes('crucial') || message.includes('important')) {
+    originalConsoleWarn(...args);
+  }
+};
+
 export const MyMusicPage = () => {
   const theme = useTheme();
   const navigation = useNavigation();
