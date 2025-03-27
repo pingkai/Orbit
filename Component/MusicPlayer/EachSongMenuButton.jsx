@@ -54,22 +54,36 @@ const CircularProgress = ({ progress, size = 30, thickness = 2, color = '#1DB954
   );
 };
 
-export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingSize = 4, minWidth = 28, marginRight = 10, isFromAlbum = false, isFromPlaylist = false }) => {
+export const EachSongMenuButton = ({ 
+  song, 
+  size = 18, 
+  hitSlopSize = 18, 
+  paddingSize = 4, 
+  minWidth = 28, 
+  marginRight = 10, 
+  isFromAlbum = false, 
+  isFromPlaylist = false,
+  isDownloaded: propIsDownloaded = null // Accept isDownloaded as a prop
+}) => {
   const buttonRef = useRef(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 20 });
   const { updateTrack } = useContext(Context);
   const [showPlaylistSelector, setShowPlaylistSelector] = useState(false);
-  const [isDownloaded, setIsDownloaded] = useState(false);
+  const [isDownloaded, setIsDownloaded] = useState(propIsDownloaded || false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   
   // Check if song is already downloaded when component mounts
   useEffect(() => {
-    if (song?.id) {
+    if (propIsDownloaded !== null) {
+      // If prop is provided, use it
+      setIsDownloaded(propIsDownloaded);
+    } else if (song?.id) {
+      // Otherwise check storage
       checkIfDownloaded(song.id);
     }
-  }, [song?.id]);
+  }, [song?.id, propIsDownloaded]);
   
   // Function to check if a song is already downloaded
   const checkIfDownloaded = async (songId) => {
@@ -543,9 +557,45 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
     }
   };
 
+  // For the menu dropdown options, use consistent icons and sizing
+  const renderMenu = () => (
+    <Modal
+      transparent
+      visible={menuVisible}
+      onRequestClose={closeMenu}
+      animationType="fade"
+    >
+      <Pressable style={styles.modalOverlay} onPress={closeMenu}>
+        <View style={[styles.menuContainer, { top: menuPosition.top, right: menuPosition.right }]}>
+          <TouchableOpacity style={styles.menuItem} onPress={addToQueue}>
+            <MaterialCommunityIcons name="playlist-plus" size={24} color="white" />
+            <Text style={styles.menuText}>Add to queue</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.menuItem} onPress={playNext}>
+            <MaterialCommunityIcons name="play-speed" size={24} color="white" />
+            <Text style={styles.menuText}>Play next</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.menuItem} onPress={addToPlaylist}>
+            <MaterialCommunityIcons name="playlist-music" size={24} color="white" />
+            <Text style={styles.menuText}>Add to playlist</Text>
+          </TouchableOpacity>
+          
+          {!isDownloaded && (
+            <TouchableOpacity style={styles.menuItem} onPress={downloadSong}>
+              <Octicons name="download" size={24} color="white" />
+              <Text style={styles.menuText}>Download</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </Pressable>
+    </Modal>
+  );
+
   return (
     <>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
         {/* For album view only - Show download button */}
         {isFromAlbum && (
           <TouchableOpacity
@@ -553,11 +603,12 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
             style={{
               padding: 4,
               marginRight: 6,
+              borderRadius: 50,
             }}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             {isDownloading ? (
-              <CircularProgress progress={downloadProgress} size={30} />
+              <CircularProgress progress={downloadProgress} size={28} />
             ) : (
               <Octicons
                 name={isDownloaded ? "check-circle" : "download"}
@@ -592,42 +643,21 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
         >
           <MaterialCommunityIcons
             name="dots-vertical"
-            size={isFromAlbum ? 25 : 21}
+            size={isFromAlbum ? 24 : 20}
             color="#FFFFFF" 
           />
         </Pressable>
       </View>
+      
+      {/* Show playlist selector if needed */}
+      {showPlaylistSelector && (
+        <PlaylistSelectorWrapper 
+          songToAdd={song} 
+          onClose={() => setShowPlaylistSelector(false)} 
+        />
+      )}
 
-      <Modal
-        visible={menuVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={closeMenu}
-      >
-        <Pressable style={styles.modalOverlay} onPress={closeMenu}>
-          <View style={[styles.menuContainer, { top: menuPosition.top, right: menuPosition.right }]}>
-            <TouchableOpacity style={styles.menuItem} onPress={addToQueue}>
-              <MaterialCommunityIcons name="playlist-plus" size={20} color="white" />
-              <Text style={styles.menuText}>Add to queue</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.menuItem} onPress={playNext}>
-              <MaterialCommunityIcons name="play-speed" size={20} color="white" />
-              <Text style={styles.menuText}>Play next</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.menuItem} onPress={addToPlaylist}>
-              <MaterialCommunityIcons name="playlist-music" size={20} color="white" />
-              <Text style={styles.menuText}>Add to playlist</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.menuItem} onPress={downloadSong}>
-              <Octicons name="download" size={20} color="white" />
-              <Text style={styles.menuText}>Download</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Modal>
+      {renderMenu()}
     </>
   );
 };

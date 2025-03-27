@@ -3,19 +3,51 @@ import { PlainText } from "./PlainText";
 import { SmallText } from "./SmallText";
 import FastImage from "react-native-fast-image";
 import { AddPlaylist, getIndexQuality, PlayOneSong } from "../../MusicPlayerFunctions";
-import { memo, useContext } from "react";
+import { memo, useContext, useState, useEffect } from "react";
 import Context from "../../Context/Context";
 import { useActiveTrack, usePlaybackState } from "react-native-track-player";
 import FormatTitleAndArtist from "../../Utils/FormatTitleAndArtist";
 import FormatArtist from "../../Utils/FormatArtists";
 import { EachSongMenuButton } from "../MusicPlayer/EachSongMenuButton";
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import { StorageManager } from '../../Utils/StorageManager';
+import EventRegister from '../../Utils/EventRegister';
 
 export const EachSongCard = memo(function EachSongCard({title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index}) {
   const width1 = Dimensions.get("window").width;
   const {updateTrack, setVisible} = useContext(Context)
   const currentPlaying = useActiveTrack()
   const playerState = usePlaybackState()
+  const [isDownloaded, setIsDownloaded] = useState(false);
+  
+  // Check if song is downloaded
+  useEffect(() => {
+    const checkDownloadStatus = async () => {
+      if (id) {
+        try {
+          const isDownloaded = await StorageManager.isSongDownloaded(id);
+          setIsDownloaded(isDownloaded);
+        } catch (error) {
+          console.error('Error checking download status:', error);
+          setIsDownloaded(false);
+        }
+      }
+    };
+    
+    checkDownloadStatus();
+    
+    // Listen for download completion events
+    const downloadListener = EventRegister.addEventListener('download-complete', (songId) => {
+      if (songId === id) {
+        setIsDownloaded(true);
+      }
+    });
+    
+    return () => {
+      EventRegister.removeEventListener(downloadListener);
+    };
+  }, [id]);
 
   const formatText = (text) => {
     const formattedText = FormatTitleAndArtist(text)
@@ -146,13 +178,15 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
             padding: 6,
           }}
         >
-          <FastImage source={((id === currentPlaying?.id ?? "") && playerState.state === "playing") ? require("../../Images/playing.gif") : ((id === currentPlaying?.id ?? "") && playerState.state !== "playing" ) ? require("../../Images/songPaused.gif") : {
-            uri:image,
-          }} style={{
-            height:50,
-            width:50,
-            borderRadius:4,
-          }}/>
+          <View style={{ position: 'relative' }}>
+            <FastImage source={((id === currentPlaying?.id ?? "") && playerState.state === "playing") ? require("../../Images/playing.gif") : ((id === currentPlaying?.id ?? "") && playerState.state !== "playing" ) ? require("../../Images/songPaused.gif") : {
+              uri:image,
+            }} style={{
+              height:50,
+              width:50,
+              borderRadius:4,
+            }}/>
+          </View>
           <View style={{
             flex:1,
             marginRight: isFromAlbum ? 5 : (isFromPlaylist ? 10 : 8),
@@ -168,7 +202,7 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
             <SmallText 
               text={formatText(artist)} 
               isArtistName={true}
-              style={{width:titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.68 : (isFromPlaylist ? 0.63 : 0.66))}}
+              style={{width:titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.65 : (isFromPlaylist ? 0.60 : 0.63))}}
               numberOfLines={1}
               ellipsizeMode="tail"
             />
@@ -197,6 +231,7 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
             isFromAlbum={isFromAlbum}
             size={isFromAlbum ? 28 : 18}
             marginRight={isFromAlbum ? 2 : 10}
+            isDownloaded={isDownloaded}
           />
         </View>
       </View>

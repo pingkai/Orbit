@@ -54,7 +54,7 @@ export const PlayButton = ({onPress, Loading, size = "normal", isPlaying: extern
   }, [externalIsPlaying, currentPlaying, albumId]);
   
   // Determine size based on prop - reduce large size to be less dominant
-  const buttonSize = size === "large" ? 56 : size === "small" ? 40 : 50;
+  const buttonSize = size === "large" ? 56 : size === "small" ? 40 : 48;
   const iconSize = size === "large" ? 32 : size === "small" ? 20 : 25;
   const buttonPadding = size === "large" ? 12 : size === "small" ? 10 : 12;
   
@@ -64,11 +64,11 @@ export const PlayButton = ({onPress, Loading, size = "normal", isPlaying: extern
       { 
         width: buttonSize, 
         height: buttonSize,
-        marginRight: 10,
-        marginLeft: 5,
+        marginRight: 0,
+        marginLeft: 0,
         // Enhanced glow effect when large
-        elevation: size === "large" ? 10 : 8,
-        shadowRadius: size === "large" ? 5 : 4,
+        elevation: size === "large" ? 10 : 6,
+        shadowRadius: size === "large" ? 5 : 3,
       }
     ]}>
       <Pressable 
