@@ -724,6 +724,12 @@ export const CustomPlaylistView = (props) => {
     return { uri: item.image || item.artwork };
   }, []);
   
+  // Function to truncate text to improve UI layout
+  const truncateText = useCallback((text, maxLength = 25) => {
+    if (!text) return '';
+    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+  }, []);
+  
   // Function to render a song item in the FlatList (memoized)
   const renderSongItem = useCallback(({ item, index }) => {
     const isCurrentPlaying = currentPlaying && currentPlaying.id === item.id;
@@ -792,10 +798,10 @@ export const CustomPlaylistView = (props) => {
         />
         <View style={styles.songInfo}>
           <Text style={styles.songTitle} numberOfLines={1}>
-            {item.title || 'Unknown'}
+            {truncateText(item.title || 'Unknown', 20)}
           </Text>
           <Text style={styles.songArtist} numberOfLines={1}>
-            {item.artist || 'Unknown Artist'}
+            {truncateText(item.artist || 'Unknown Artist', 18)}
           </Text>
         </View>
         <Pressable
@@ -807,7 +813,7 @@ export const CustomPlaylistView = (props) => {
         </Pressable>
       </Pressable>
     );
-  }, [currentPlaying, Songs, getSafeImageSource, updateTrack, formatTrack]);
+  }, [currentPlaying, Songs, getSafeImageSource, updateTrack, formatTrack, truncateText]);
   
   // Memoized function to get a key extractor for the FlatList
   const keyExtractor = useCallback((item, index) => `song-${item.id || index}-${index}`, []);
@@ -830,7 +836,7 @@ export const CustomPlaylistView = (props) => {
           <Pressable onPress={handleGoBack} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </Pressable>
-          <PlainText text={playlistName} style={styles.title} />
+          <PlainText text={truncateText(playlistName, 35)} style={styles.title} />
         </View>
         <View style={styles.emptyContainer}>
           <Ionicons name="musical-notes-outline" size={50} color="rgba(255,255,255,0.5)" />
@@ -851,7 +857,7 @@ export const CustomPlaylistView = (props) => {
         <Pressable onPress={handleGoBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </Pressable>
-        <PlainText text={playlistName} style={styles.title} />
+        <PlainText text={truncateText(playlistName, 35)} style={styles.title} />
       </View>
       
       <FlatList
@@ -874,7 +880,7 @@ export const CustomPlaylistView = (props) => {
                 defaultSource={DEFAULT_MUSIC_IMAGE}
               />
               <View style={styles.playlistInfoContainer}>
-                <Text style={styles.playlistTitle}>{playlistName}</Text>
+                <Text style={styles.playlistTitle}>{truncateText(playlistName, 35)}</Text>
                 <Text style={styles.songCount}>{Songs.length} {Songs.length === 1 ? 'song' : 'songs'}</Text>
                 <CustomPlaylistPlay 
                   onPress={AddAllSongsToQueue} 
@@ -910,7 +916,7 @@ export const CustomPlaylistView = (props) => {
           {selectedSong && (
             <>
               <Text style={{ color: '#FFFFFF', fontSize: 18, marginBottom: 16 }}>
-                {selectedSong.title}
+                {truncateText(selectedSong.title, 40)}
               </Text>
               
               <Pressable
