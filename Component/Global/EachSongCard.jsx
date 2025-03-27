@@ -67,7 +67,7 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
 
   const formatText = (text) => {
     const formattedText = FormatTitleAndArtist(text)
-    return formattedText?.length > 20 ? formattedText.substring(0, 20) + "..." : formattedText
+    return formattedText?.length > 15 ? formattedText.substring(0, 15) + "..." : formattedText
   }
 
   async function AddSongToPlayer(){
@@ -357,7 +357,7 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
         paddingRight: isFromAlbum ? 0 : (isFromPlaylist ? 2 : 2),
         paddingVertical: 4,
         justifyContent: 'space-between',
-        paddingHorizontal: isFromAlbum ? 4 : (isFromPlaylist ? 6 : 4),
+        paddingHorizontal: isFromAlbum ? 5 : (isFromPlaylist ? 6 : 4),
         borderRadius: 8,
         overflow: 'hidden',
         marginVertical: 0
@@ -392,14 +392,19 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
               text={formatText(title)} 
               songId={id} 
               isSongTitle={true} 
-              style={{width:titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.68 : (isFromPlaylist ? 0.63 : 0.66))}}
+              style={{
+                width: titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.62 : (isFromPlaylist ? 0.62 : 0.63)),
+                marginBottom: 2
+              }}
               numberOfLines={1}
               ellipsizeMode="tail"
             />
             <SmallText 
               text={formatText(artist)} 
               isArtistName={true}
-              style={{width:titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.65 : (isFromPlaylist ? 0.60 : 0.63))}}
+              style={{
+                width: titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.60 : (isFromPlaylist ? 0.58 : 0.60))
+              }}
               numberOfLines={1}
               ellipsizeMode="tail"
             />
@@ -407,26 +412,26 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
         </Pressable>
         <View style={{
           flexDirection: 'row',
-          justifyContent: 'center',
+          justifyContent: 'flex-end',
           alignItems: 'center',
-          minWidth: isFromAlbum ? 90 : (isFromPlaylist ? 90 : 80),
+          minWidth: isFromAlbum ? 80 : (isFromPlaylist ? 80 : 75),
           paddingLeft: isFromAlbum ? 0 : (isFromPlaylist ? 3 : 2),
-          marginRight: isFromAlbum ? 0 : (isFromPlaylist ? 8 : 2),
+          marginRight: isFromAlbum ? 0 : (isFromPlaylist ? 2 : 0),
         }}>
           {/* Download Button - shown in both album and playlist views */}
           <Pressable 
             onPress={handleDownload}
             style={{
-              padding: 8,
-              marginRight: 12
+              padding: 6,
+              marginRight: 8
             }}
           >
             {isDownloaded ? (
-              <Octicons name="check-circle" size={24} color="#1DB954" />
+              <Octicons name="check-circle" size={22} color="#1DB954" />
             ) : downloadInProgress ? (
-              <MaterialCommunityIcons name="loading" size={26} color="#FFA500" />
+              <MaterialCommunityIcons name="loading" size={24} color="#FFA500" />
             ) : (
-              <Octicons name="download" size={24} color="#FFFFFF" />
+              <Octicons name="download" size={22} color="#FFFFFF" />
             )}
           </Pressable>
           
@@ -444,8 +449,8 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
             }}
             isFromPlaylist={isFromPlaylist}
             isFromAlbum={isFromAlbum}
-            size={isFromAlbum ? 42 : 36}
-            marginRight={isFromAlbum ? 2 : 10}
+            size={isFromAlbum ? 40 : 36}
+            marginRight={isFromAlbum ? 1 : 6}
             isDownloaded={isDownloaded}
           />
         </View>
