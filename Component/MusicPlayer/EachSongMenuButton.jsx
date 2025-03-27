@@ -1,8 +1,8 @@
-import { Pressable, findNodeHandle, UIManager, View, Modal, Text, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
+import { Pressable, findNodeHandle, UIManager, View, Modal, Text, TouchableOpacity, StyleSheet, Dimensions, ToastAndroid } from "react-native";
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import Octicons from 'react-native-vector-icons/Octicons';
 import React, { useRef, useState, useContext, useEffect } from "react";
 import { StorageManager } from '../../Utils/StorageManager';
-import { ToastAndroid } from 'react-native';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import TrackPlayer from 'react-native-track-player';
 import Context from "../../Context/Context";
@@ -13,12 +13,78 @@ import RNFS from 'react-native-fs';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+// Circular Progress Component for download status
+const CircularProgress = ({ progress, size = 30, thickness = 2, color = '#1DB954' }) => {
+  // Calculate rotation based on progress
+  const rotation = progress * 3.6; // 360 degrees / 100 = 3.6
+  
+  return (
+    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+      {/* Background Circle */}
+      <View style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        borderWidth: thickness,
+        borderColor: 'rgba(255,255,255,0.2)',
+        position: 'absolute'
+      }} />
+      
+      {/* Progress Circle - segments for visualization */}
+      <View style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        position: 'absolute',
+        borderWidth: thickness,
+        borderTopColor: progress > 12.5 ? color : 'transparent',
+        borderRightColor: progress > 37.5 ? color : 'transparent',
+        borderBottomColor: progress > 62.5 ? color : 'transparent',
+        borderLeftColor: progress > 87.5 ? color : 'transparent',
+        transform: [{ rotate: `${rotation}deg` }]
+      }} />
+      
+      {/* Center Text showing percentage */}
+      <Text style={{
+        color: 'white',
+        fontSize: size / 3.5,
+        fontWeight: 'bold'
+      }}>{Math.round(progress)}%</Text>
+    </View>
+  );
+};
+
 export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingSize = 4, minWidth = 28, marginRight = 10, isFromAlbum = false, isFromPlaylist = false }) => {
   const buttonRef = useRef(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 20 });
   const { updateTrack } = useContext(Context);
   const [showPlaylistSelector, setShowPlaylistSelector] = useState(false);
+  const [isDownloaded, setIsDownloaded] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  
+  // Check if song is already downloaded when component mounts
+  useEffect(() => {
+    if (song?.id) {
+      checkIfDownloaded(song.id);
+    }
+  }, [song?.id]);
+  
+  // Function to check if a song is already downloaded
+  const checkIfDownloaded = async (songId) => {
+    try {
+      if (!songId) return false;
+      
+      // Use StorageManager to check if song is downloaded
+      const downloaded = await StorageManager.isSongDownloaded(songId);
+      setIsDownloaded(downloaded);
+      return downloaded;
+    } catch (error) {
+      console.error('Error checking download status:', error);
+      return false;
+    }
+  };
   
   // Ensure we have a valid song object
   useEffect(() => {
@@ -29,7 +95,7 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
 
   // Calculate style based on context
   const getMarginRight = () => {
-    if (isFromAlbum) return 2; // Reduced margin for albums (was 8)
+    if (isFromAlbum) return 2; // Reduced margin for albums
     if (isFromPlaylist) return 15; // Increased margin for playlists
     return marginRight; // Default for other contexts
   };
@@ -231,38 +297,51 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
   };
   
   const downloadSong = async () => {
+    // Close menu if it's open
+    if (menuVisible) {
     closeMenu();
+    }
+    
     if (!song?.url) {
       ToastAndroid.show('No song URL available', ToastAndroid.SHORT);
       return;
     }
 
     try {
-      console.log('Starting download process for:', song.title);
+      // Check if already downloaded or downloading
+      if (isDownloaded) {
+        ToastAndroid.show(`Song already downloaded`, ToastAndroid.SHORT);
+        return;
+      }
       
-      // Get highest quality URL with proper error handling
+      if (isDownloading) {
+        ToastAndroid.show(`Download in progress: ${downloadProgress}%`, ToastAndroid.SHORT);
+        return;
+      }
+      
+      setIsDownloading(true);
+      setDownloadProgress(0);
+      console.log('Starting download for:', song.title);
+      
+      // Get highest quality URL
       const downloadUrl = getHighestQualityUrl(song.url);
       if (!downloadUrl) {
         console.error('Could not determine download URL');
         ToastAndroid.show('Could not determine download URL', ToastAndroid.SHORT);
+        setIsDownloading(false);
         return;
       }
       
-      console.log('Download URL determined:', downloadUrl);
+      // Show download started toast
+      ToastAndroid.show(`Downloading: ${song.title}`, ToastAndroid.SHORT);
 
-      // Show download started toast immediately for better feedback
-      ToastAndroid.showWithGravity(
-        `Downloading: ${song.title}`,
-        ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
-      );
-
-      // Ensure directories exist with proper error handling
+      // Ensure directories exist
       try {
         await StorageManager.ensureDirectoriesExist();
       } catch (dirError) {
         console.error('Error creating directories:', dirError);
         ToastAndroid.show('Error creating download directories', ToastAndroid.SHORT);
+        setIsDownloading(false);
         return;
       }
 
@@ -276,15 +355,10 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
         downloadTime: Date.now()
       };
 
-      try {
         // First save basic metadata
         await StorageManager.saveDownloadedSongMetadata(safeMetadata.id, safeMetadata);
-      } catch (metadataError) {
-        console.error('Error saving basic metadata:', metadataError);
-        // Continue anyway, this isn't critical
-      }
 
-      // Download the song with minimal configuration
+      // Download the song
       const songPath = StorageManager.getSongPath(safeMetadata.id);
       
       try {
@@ -293,43 +367,46 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
             fileCache: false,
             path: songPath,
           })
-          .fetch('GET', downloadUrl);
+          .fetch('GET', downloadUrl)
+          .progress((received, total) => {
+            // Update progress percentage
+            if(total > 0) {
+              const percentage = Math.floor((received / total) * 100);
+              setDownloadProgress(percentage);
+            }
+          });
         
-        console.log('Song download completed successfully');
+        console.log('Song download completed');
         
-        // Now try to download artwork if available
+        // Now download artwork if available
         if (song.artwork && typeof song.artwork === 'string') {
           try {
             const artworkPath = await StorageManager.saveArtwork(safeMetadata.id, song.artwork);
           if (artworkPath) {
-            console.log('Artwork saved successfully at:', artworkPath);
               safeMetadata.localArtworkPath = artworkPath;
             }
           } catch (artworkError) {
-            console.warn('Error saving artwork, continuing anyway:', artworkError);
+            console.warn('Error saving artwork:', artworkError);
           }
         }
         
         // Update metadata with success
-        try {
           await StorageManager.saveDownloadedSongMetadata(safeMetadata.id, {
             ...safeMetadata,
             localSongPath: songPath,
             downloadComplete: true,
             downloadCompletedTime: Date.now()
           });
-        } catch (finalMetadataError) {
-          console.error('Error saving final metadata:', finalMetadataError);
-        }
         
         // Show success toast
-      ToastAndroid.showWithGravity(
-          "Download complete",
-        ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
-      );
+        ToastAndroid.show("Download complete", ToastAndroid.SHORT);
+        
+        // Update state to show downloaded icon
+        setIsDownloaded(true);
+        setIsDownloading(false);
+        setDownloadProgress(0);
 
-        // Also update orbit_downloaded_songs
+        // Update download list in AsyncStorage
         try {
           const existingData = await AsyncStorage.getItem('orbit_downloaded_songs');
           const downloadsList = existingData ? JSON.parse(existingData) : [];
@@ -360,19 +437,15 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
         }
         
         // Show error toast
-      ToastAndroid.showWithGravity(
-          "Download failed",
-        ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
-      );
+        ToastAndroid.show("Download failed", ToastAndroid.SHORT);
+        setIsDownloading(false);
+        setDownloadProgress(0);
       }
     } catch (error) {
       console.error('Unexpected error during download:', error);
-      ToastAndroid.showWithGravity(
-        "Download failed",
-        ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
-      );
+      ToastAndroid.show("Download failed", ToastAndroid.SHORT);
+      setIsDownloading(false);
+      setDownloadProgress(0);
     }
   };
 
@@ -472,11 +545,30 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
 
   return (
     <>
-      <View style={{
-        marginLeft: isFromAlbum ? 0 : 0,
-        marginRight: getMarginRight(),
-        paddingRight: paddingSize,
-      }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {/* For album view only - Show download button */}
+        {isFromAlbum && (
+          <TouchableOpacity
+            onPress={downloadSong}
+            style={{
+              padding: 4,
+              marginRight: 6,
+            }}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            {isDownloading ? (
+              <CircularProgress progress={downloadProgress} size={30} />
+            ) : (
+              <Octicons
+                name={isDownloaded ? "check-circle" : "download"}
+                size={24}
+                color={isDownloaded ? "#4CAF50" : "#FFFFFF"}
+              />
+            )}
+          </TouchableOpacity>
+        )}
+        
+        {/* Three dots menu button */}
         <Pressable
           ref={buttonRef}
           onPress={handlePress}
@@ -484,23 +576,23 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
             padding: paddingSize,
             alignItems: 'center',
             justifyContent: 'center',
-            width: 32,
-            height: 32,
+            width: isFromAlbum ? 38 : 32,
+            height: isFromAlbum ? 38 : 32,
             backgroundColor: 'transparent',
             borderRadius: 16,
             elevation: 0,
-            marginRight: isFromAlbum ? 0 : getMarginRight(), // Reduced marginRight when in album view
+            marginRight: isFromAlbum ? 0 : getMarginRight() + 5,
           }}
           android_ripple={{ 
             color: 'rgba(255, 255, 255, 0.2)', 
             borderless: true, 
-            radius: 20 
+            radius: isFromAlbum ? 18 : 20
           }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <MaterialCommunityIcons
             name="dots-vertical"
-            size={22} 
+            size={isFromAlbum ? 25 : 21}
             color="#FFFFFF" 
           />
         </Pressable>
@@ -530,7 +622,7 @@ export const EachSongMenuButton = ({ song, size = 18, hitSlopSize = 18, paddingS
             </TouchableOpacity>
             
             <TouchableOpacity style={styles.menuItem} onPress={downloadSong}>
-              <MaterialCommunityIcons name="download" size={20} color="white" />
+              <Octicons name="download" size={20} color="white" />
               <Text style={styles.menuText}>Download</Text>
             </TouchableOpacity>
           </View>

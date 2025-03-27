@@ -9,9 +9,9 @@ import { useActiveTrack, usePlaybackState } from "react-native-track-player";
 import FormatTitleAndArtist from "../../Utils/FormatTitleAndArtist";
 import FormatArtist from "../../Utils/FormatArtists";
 import { EachSongMenuButton } from "../MusicPlayer/EachSongMenuButton";
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
-
-export const EachSongCard = memo(function EachSongCard({title,artist,image,id,url,duration,language,artistID,isLibraryLiked, width, titleandartistwidth, isFromPlaylist, Data, index}) {
+export const EachSongCard = memo(function EachSongCard({title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index}) {
   const width1 = Dimensions.get("window").width;
   const {updateTrack, setVisible} = useContext(Context)
   const currentPlaying = useActiveTrack()
@@ -125,10 +125,10 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
         width:width ? width : width1,
         marginRight:0,
         alignItems:"center",
-        paddingRight: isFromPlaylist ? 2 : 2,
+        paddingRight: isFromAlbum ? 0 : (isFromPlaylist ? 2 : 2),
         paddingVertical: 4,
         justifyContent: 'space-between',
-        paddingHorizontal: isFromPlaylist ? 6 : 4,
+        paddingHorizontal: isFromAlbum ? 4 : (isFromPlaylist ? 6 : 4),
         borderRadius: 8,
         overflow: 'hidden',
         marginVertical: 0
@@ -155,27 +155,31 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
           }}/>
           <View style={{
             flex:1,
-            marginRight: isFromPlaylist ? 10 : 8,
+            marginRight: isFromAlbum ? 5 : (isFromPlaylist ? 10 : 8),
           }}>
             <PlainText 
               text={formatText(title)} 
               songId={id} 
               isSongTitle={true} 
-              style={{width:titleandartistwidth ? titleandartistwidth : width1 * (isFromPlaylist ? 0.63 : 0.66)}}
+              style={{width:titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.68 : (isFromPlaylist ? 0.63 : 0.66))}}
+              numberOfLines={1}
+              ellipsizeMode="tail"
             />
             <SmallText 
               text={formatText(artist)} 
               isArtistName={true}
-              style={{width:titleandartistwidth ? titleandartistwidth : width1 * (isFromPlaylist ? 0.63 : 0.66)}}
+              style={{width:titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.68 : (isFromPlaylist ? 0.63 : 0.66))}}
+              numberOfLines={1}
+              ellipsizeMode="tail"
             />
           </View>
         </Pressable>
         <View style={{
           justifyContent: 'center',
           alignItems: 'center',
-          minWidth: isFromPlaylist ? 40 : 36,
-          paddingLeft: isFromPlaylist ? 3 : 2,
-          marginRight: isFromPlaylist ? 8 : 2,
+          minWidth: isFromAlbum ? 42 : (isFromPlaylist ? 40 : 36),
+          paddingLeft: isFromAlbum ? 0 : (isFromPlaylist ? 3 : 2),
+          marginRight: isFromAlbum ? 0 : (isFromPlaylist ? 8 : 2),
         }}>
           <EachSongMenuButton 
             song={{
@@ -190,6 +194,9 @@ export const EachSongCard = memo(function EachSongCard({title,artist,image,id,ur
               artistID
             }}
             isFromPlaylist={isFromPlaylist}
+            isFromAlbum={isFromAlbum}
+            size={isFromAlbum ? 28 : 18}
+            marginRight={isFromAlbum ? 2 : 10}
           />
         </View>
       </View>

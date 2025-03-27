@@ -252,7 +252,7 @@ export const Album = ({route}) => {
           scrollEventThrottle={16} 
           ref={AnimatedRef} 
           contentContainerStyle={{
-            paddingBottom: 120, // Extra padding to account for bottom player
+            paddingBottom: 120, // Extra padding to completely hide the watermark
             backgroundColor: "#101010",
           }}
         >
@@ -266,6 +266,7 @@ export const Album = ({route}) => {
             {Data?.data?.songs?.map((e,i)=>
               <EachSongCard 
                 isFromPlaylist={true} 
+                isFromAlbum={true}
                 Data={Data} 
                 index={i} 
                 artist={FormatArtist(e?.artists?.primary)} 
