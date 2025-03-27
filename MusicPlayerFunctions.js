@@ -105,9 +105,28 @@ async function PlayOneSong(song) {
 }
 
 async function AddPlaylist (songs){
-  await  TrackPlayer.reset()
-  await TrackPlayer.add(songs);
-  await TrackPlayer.play();
+  try {
+    // Validate songs array
+    if (!Array.isArray(songs) || songs.length === 0) {
+      console.error('Invalid songs array provided to AddPlaylist');
+      return;
+    }
+    
+    // Ensure all songs have albumId if it exists on the first song
+    const albumId = songs[0]?.albumId;
+    if (albumId) {
+      songs = songs.map(song => ({
+        ...song,
+        albumId: albumId // Ensure all songs have the same albumId
+      }));
+    }
+    
+    await TrackPlayer.reset();
+    await TrackPlayer.add(songs);
+    await TrackPlayer.play();
+  } catch (error) {
+    console.error('Error in AddPlaylist:', error);
+  }
 }
 
 async function AddSongsToQueue(songs){

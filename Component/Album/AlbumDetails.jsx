@@ -27,6 +27,7 @@ export const AlbumDetails = ({name,releaseData,liked,Data}) => {
         image:e?.image[2]?.url,
         duration:e?.duration,
         id:e?.id,
+        albumId: Data?.data?.id,
         language:e?.language,
         artistID:e?.primary_artists_id,
       }
@@ -55,9 +56,12 @@ export const AlbumDetails = ({name,releaseData,liked,Data}) => {
           <Spacer/>
           {/*<AntDesign size={20} name={liked ? "heart" : "hearto"} color={liked ? 'rgb(227,97,97)' : theme.colors.text}/>*/}
         </View>
-        <PlayButton onPress={()=>{
-          AddToPlayer()
-        }}/>
+        <PlayButton 
+          onPress={()=>{
+            AddToPlayer()
+          }}
+          albumId={Data?.data?.id}
+        />
     </LinearGradient>
   );
 };

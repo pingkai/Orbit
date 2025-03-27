@@ -5,7 +5,7 @@ import { useContext, useEffect, useState } from "react";
 import TrackPlayer, { State } from "react-native-track-player";
 import Context from "../../Context/Context";
 
-export const PlayButton = ({onPress, Loading, size = "normal", isPlaying: externalIsPlaying = null}) => {
+export const PlayButton = ({onPress, Loading, size = "normal", isPlaying: externalIsPlaying = null, albumId = null}) => {
   const theme = useTheme();
   const [isPlaying, setIsPlaying] = useState(false);
   const { currentPlaying } = useContext(Context);
@@ -18,13 +18,24 @@ export const PlayButton = ({onPress, Loading, size = "normal", isPlaying: extern
       return;
     }
     
-    // Otherwise, check player state
+    // Check if this album's songs are playing
     const checkPlaybackState = async () => {
       try {
+        // First check if anything is playing
         const state = await TrackPlayer.getState();
-        setIsPlaying(state === State.Playing);
+        
+        // If we have an albumId, check if the currently playing song is from this album
+        if (albumId && currentPlaying) {
+          // Album-specific logic: only show pause if the current track is from this album
+          const isFromThisAlbum = currentPlaying.albumId === albumId;
+          setIsPlaying(state === State.Playing && isFromThisAlbum);
+        } else {
+          // Legacy behavior for non-album contexts
+          setIsPlaying(state === State.Playing);
+        }
       } catch (err) {
         console.error('Error checking playback state:', err);
+        setIsPlaying(false);
       }
     };
     
@@ -34,12 +45,13 @@ export const PlayButton = ({onPress, Loading, size = "normal", isPlaying: extern
     const playerStateListener = TrackPlayer.addEventListener(
       'playback-state',
       (event) => {
-        setIsPlaying(event.state === State.Playing);
+        // When state changes, recheck if the current song is from this album
+        checkPlaybackState();
       }
     );
     
     return () => playerStateListener.remove();
-  }, [externalIsPlaying, currentPlaying]);
+  }, [externalIsPlaying, currentPlaying, albumId]);
   
   // Determine size based on prop - reduce large size to be less dominant
   const buttonSize = size === "large" ? 56 : size === "small" ? 40 : 50;
