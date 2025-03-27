@@ -54,9 +54,9 @@ export const PlayButton = ({onPress, Loading, size = "normal", isPlaying: extern
   }, [externalIsPlaying, currentPlaying, albumId]);
   
   // Determine size based on prop - reduce large size to be less dominant
-  const buttonSize = size === "large" ? 56 : size === "small" ? 40 : 48;
-  const iconSize = size === "large" ? 32 : size === "small" ? 20 : 25;
-  const buttonPadding = size === "large" ? 12 : size === "small" ? 10 : 12;
+  const buttonSize = size === "large" ? 62 : size === "small" ? 44 : 54;
+  const iconSize = size === "large" ? 36 : size === "small" ? 24 : 30;
+  const buttonPadding = size === "large" ? 14 : size === "small" ? 12 : 14;
   
   return (
     <View style={[

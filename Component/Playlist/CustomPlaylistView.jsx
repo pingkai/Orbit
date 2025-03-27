@@ -17,6 +17,7 @@ import { getUserPlaylists, clearPlaylistCache } from '../../Utils/PlaylistManage
 import { Animated } from 'react';
 import { SmallText } from '../Global/SmallText';
 import { CustomPlaylistPlay } from './CustomPlaylistPlay';
+import { DownloadButton } from '../Global/DownloadButton';
 
 // Default image constant moved outside component to prevent re-creation
 const DEFAULT_MUSIC_IMAGE = require('../../Images/default.jpg');
@@ -38,9 +39,10 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    marginLeft: 16,
+    marginLeft: 12,
     color: '#FFFFFF',
     flex: 1,
+    fontWeight: '600',
   },
   coverContainer: {
     paddingHorizontal: 16,
@@ -112,6 +114,7 @@ const styles = StyleSheet.create({
   },
   songInfo: {
     flex: 1,
+    marginRight: 8,
   },
   songTitle: {
     fontSize: 16,
@@ -122,11 +125,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'rgba(255,255,255,0.7)',
   },
+  songControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   menuButton: {
-    padding: 8,
+    padding: 6,
     backgroundColor: 'transparent',
     borderRadius: 16,
-    marginHorizontal: 4,
   },
   menuModal: {
     margin: 0,
@@ -804,16 +811,29 @@ export const CustomPlaylistView = (props) => {
             {truncateText(item.artist || 'Unknown Artist', 18)}
           </Text>
         </View>
-        <Pressable
-          onPress={handleOptions}
-          style={styles.menuButton}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <MaterialCommunityIcons name="dots-vertical" size={24} color="#FFFFFF" />
-        </Pressable>
+        
+        <View style={styles.songControls}>
+          {/* Download button */}
+          <DownloadButton 
+            songs={[item]} 
+            albumName={playlistName}
+            size="small"
+            individual={true}
+            songId={item.id}
+          />
+          
+          {/* Options button */}
+          <Pressable
+            onPress={handleOptions}
+            style={styles.menuButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <MaterialCommunityIcons name="dots-vertical" size={24} color="#FFFFFF" />
+          </Pressable>
+        </View>
       </Pressable>
     );
-  }, [currentPlaying, Songs, getSafeImageSource, updateTrack, formatTrack, truncateText]);
+  }, [currentPlaying, Songs, getSafeImageSource, updateTrack, formatTrack, truncateText, playlistName]);
   
   // Memoized function to get a key extractor for the FlatList
   const keyExtractor = useCallback((item, index) => `song-${item.id || index}-${index}`, []);
@@ -857,7 +877,11 @@ export const CustomPlaylistView = (props) => {
         <Pressable onPress={handleGoBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </Pressable>
-        <PlainText text={truncateText(playlistName, 35)} style={styles.title} />
+        <PlainText 
+          text={truncateText(playlistName, 28)} 
+          style={styles.title}
+          numberOfLines={1}
+        />
       </View>
       
       <FlatList
@@ -880,12 +904,20 @@ export const CustomPlaylistView = (props) => {
                 defaultSource={DEFAULT_MUSIC_IMAGE}
               />
               <View style={styles.playlistInfoContainer}>
-                <Text style={styles.playlistTitle}>{truncateText(playlistName, 35)}</Text>
-                <Text style={styles.songCount}>{Songs.length} {Songs.length === 1 ? 'song' : 'songs'}</Text>
+                <Text 
+                  style={styles.playlistTitle}
+                  numberOfLines={2}
+                >
+                  {truncateText(playlistName, 40)}
+                </Text>
+                <Text style={styles.songCount}>
+                  {Songs.length} {Songs.length === 1 ? 'song' : 'songs'}
+                </Text>
                 <CustomPlaylistPlay 
                   onPress={AddAllSongsToQueue} 
                   songs={Songs}
                   playlistId={playlistId || ""}
+                  playlistName={playlistName || "Playlist"}
                 />
               </View>
             </View>

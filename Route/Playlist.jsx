@@ -422,7 +422,10 @@ export const Playlist = ({route}) => {
         >
           <PlaylistTopHeader 
             AnimatedRef={AnimatedRef} 
-            url={image || (Data?.data?.songs[0]?.images && Data?.data?.songs[0]?.images[2]?.url ? Data?.data?.songs[0]?.images[2]?.url : "")} 
+            url={image || (Data?.data?.songs[0]?.images && Data?.data?.songs[0]?.images[2]?.url ? Data?.data?.songs[0]?.images[2]?.url : "")}
+            playlistId={id ? id.replace('album_', '') : id} 
+            name={name || Data?.data?.name || "Playlist"}
+            follower={follower || Data?.data?.follower || ""}
           />
           <PlaylistDetails 
             name={truncateText(name || Data?.data?.name || "Playlist")} 

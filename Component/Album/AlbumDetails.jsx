@@ -21,6 +21,7 @@ import DeviceInfo from "react-native-device-info";
 import RNFS from "react-native-fs";
 import { safeExists, safeDownloadFile, ensureDirectoryExists } from '../../Utils/FileUtils';
 import EventRegister from '../../Utils/EventRegister';
+import { DownloadButton } from "../Global/DownloadButton";
 
 // Circular progress component for download indicator
 const CircularProgress = ({ progress, size = 20, thickness = 2, color = '#1DB954' }) => {
@@ -169,19 +170,19 @@ export const AlbumDetails = ({name,releaseData,liked,Data}) => {
   async function AddToPlayer(){
     try {
       const quality = await getIndexQuality();
-    const ForMusicPlayer = Data?.data?.songs?.map((e,i)=>{
-      return {
-        url:e?.downloadUrl[quality].url,
-        title:FormatTitleAndArtist(e?.name),
-        artist:FormatTitleAndArtist(FormatArtist(e?.artists?.primary)),
-        artwork:e?.image[2]?.url,
-        image:e?.image[2]?.url,
-        duration:e?.duration,
-        id:e?.id,
+      const ForMusicPlayer = Data?.data?.songs?.map((e,i)=>{
+        return {
+          url:e?.downloadUrl[quality].url,
+          title:FormatTitleAndArtist(e?.name),
+          artist:FormatTitleAndArtist(FormatArtist(e?.artists?.primary)),
+          artwork:e?.image[2]?.url,
+          image:e?.image[2]?.url,
+          duration:e?.duration,
+          id:e?.id,
           albumId: Data?.data?.id,
-        language:e?.language,
-        artistID:e?.primary_artists_id,
-      }
+          language:e?.language,
+          artistID:e?.primary_artists_id,
+        }
       });
       
       await AddPlaylist(ForMusicPlayer);
@@ -434,31 +435,20 @@ export const AlbumDetails = ({name,releaseData,liked,Data}) => {
           </View>
         </View>
 
-        {/* Controls on the right - Download icon and Play button */}
+        {/* Controls on the right - Download and Play buttons */}
         <View style={{
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 14,
-          marginRight: 0,
+          gap: 12,
         }}>
-          {/* Download button in middle */}
-          <TouchableOpacity 
-            style={{
-              backgroundColor: 'rgba(0,0,0,0.4)',
-              borderRadius: 50,
-              padding: 0,
-              width: 40,
-              height: 40,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            onPress={!isDownloading ? getPermission : undefined}
-            disabled={isDownloading}
-          >
-            {renderDownloadButton()}
-          </TouchableOpacity>
+          {/* Download All button */}
+          <DownloadButton 
+            songs={Data?.data?.songs || []} 
+            albumName={name}
+            size="normal"
+          />
           
-          {/* Play button on right */}
+          {/* Play button */}
           <PlayButton 
             onPress={handlePlayPause}
             albumId={Data?.data?.id}

@@ -13,6 +13,13 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { StorageManager } from '../../Utils/StorageManager';
 import EventRegister from '../../Utils/EventRegister';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import Octicons from 'react-native-vector-icons/Octicons';
+import ReactNativeBlobUtil from "react-native-blob-util";
+import RNFS from "react-native-fs";
+import { PermissionsAndroid, Platform, ToastAndroid, Alert } from "react-native";
+import DeviceInfo from "react-native-device-info";
+import { safePath, safeExists, safeDownloadFile, ensureDirectoryExists, safeUnlink } from '../../Utils/FileUtils';
 
 export const EachSongCard = memo(function EachSongCard({title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index}) {
   const width1 = Dimensions.get("window").width;
@@ -20,6 +27,7 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
   const currentPlaying = useActiveTrack()
   const playerState = usePlaybackState()
   const [isDownloaded, setIsDownloaded] = useState(false);
+  const [downloadInProgress, setDownloadInProgress] = useState(false);
   
   // Check if song is downloaded
   useEffect(() => {
@@ -41,11 +49,19 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
     const downloadListener = EventRegister.addEventListener('download-complete', (songId) => {
       if (songId === id) {
         setIsDownloaded(true);
+        setDownloadInProgress(false);
+      }
+    });
+    
+    const downloadStartedListener = EventRegister.addEventListener('download-started', (songId) => {
+      if (songId === id) {
+        setDownloadInProgress(true);
       }
     });
     
     return () => {
       EventRegister.removeEventListener(downloadListener);
+      EventRegister.removeEventListener(downloadStartedListener);
     };
   }, [id]);
 
@@ -150,6 +166,187 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
     }
     updateTrack()
   }
+
+  const handleDownload = async () => {
+    if (isDownloaded) {
+      // If already downloaded, show message
+      ToastAndroid.show('Song already downloaded', ToastAndroid.SHORT);
+      return;
+    }
+    
+    if (downloadInProgress) {
+      // Do nothing if download is already in progress
+      ToastAndroid.show('Download already in progress', ToastAndroid.SHORT);
+      return;
+    }
+    
+    // Get permission first
+    try {
+    setDownloadInProgress(true);
+      // Notify other components
+      EventRegister.emit('download-started', id);
+      
+      // Different handling based on platform
+      if (Platform.OS === 'ios') {
+        // iOS doesn't need explicit permissions for app-specific storage
+        actualDownload();
+        return;
+      }
+      
+      // For Android, check version
+      try {
+        const deviceVersion = await DeviceInfo.getSystemVersion();
+        
+        if (parseInt(deviceVersion) >= 13) {
+          // Android 13+ uses scoped storage, no need for permissions
+          actualDownload();
+        } else {
+          // For older Android, request storage permission
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+            {
+              title: "Storage Permission",
+              message: "Orbit needs storage access to save music for offline playback",
+              buttonPositive: "Allow",
+              buttonNegative: "Cancel"
+            }
+          );
+          
+          if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+            actualDownload();
+          } else {
+            ToastAndroid.show("Storage permission denied", ToastAndroid.SHORT);
+            setDownloadInProgress(false);
+          }
+        }
+      } catch (versionError) {
+        console.error("Error detecting device version:", versionError);
+        // Fallback - try download anyway
+        actualDownload();
+      }
+    } catch (error) {
+      console.error("Error in download process:", error);
+      setDownloadInProgress(false);
+      ToastAndroid.show("Download failed", ToastAndroid.SHORT);
+    }
+  };
+  
+  const actualDownload = async () => {
+    try {
+      // Select URL from quality array
+      let songUrl = "";
+      const quality = await getIndexQuality();
+      
+      if (Array.isArray(url) && url.length > 0) {
+        if (url.length > quality && url[quality]?.url) {
+          songUrl = url[quality].url;
+        } else {
+          songUrl = url[0].url;
+        }
+      } else if (typeof url === 'string') {
+        songUrl = url;
+      }
+      
+      if (!songUrl) {
+        console.error("Invalid song URL");
+        Alert.alert("Download Failed", "Invalid song URL");
+        setDownloadInProgress(false);
+        return;
+      }
+      
+      // Ensure directories exist
+      try {
+        const baseDir = RNFS.DocumentDirectoryPath + '/orbit_music';
+        await ensureDirectoryExists(baseDir);
+        await ensureDirectoryExists(baseDir + '/songs');
+        await ensureDirectoryExists(baseDir + '/artwork');
+        await ensureDirectoryExists(baseDir + '/metadata');
+      } catch (dirError) {
+        console.error("Error creating directories:", dirError);
+      }
+      
+      // Prepare download path
+      const songFileName = `${id}.mp3`;
+      const basePath = typeof RNFS.DocumentDirectoryPath === 'string' ? 
+                       RNFS.DocumentDirectoryPath : 
+                       String(RNFS.DocumentDirectoryPath || '');
+      
+      if (!basePath) {
+        throw new Error("Invalid path");
+      }
+      
+      // Construct full path
+      const fullPath = basePath + '/orbit_music/songs/' + songFileName;
+      const downloadPath = safePath(fullPath);
+      
+      // Prepare download config
+      const downloadConfig = {
+        fileCache: false,
+        path: downloadPath,
+        overwrite: true,
+        indicator: false,
+        timeout: 60000
+      };
+      
+      // Start download
+      const res = await ReactNativeBlobUtil.config(downloadConfig)
+        .fetch('GET', songUrl, {
+          'Accept': 'audio/mpeg, application/octet-stream',
+          'Cache-Control': 'no-store'
+        })
+        .progress((received, total) => {
+          if (total <= 0) return;
+          const percentage = Math.floor((received / total) * 100);
+          // Update UI with progress
+          // Here we don't update state to avoid too many re-renders
+        });
+      
+      if (res.info().status !== 200) {
+        throw new Error(`Download failed with status: ${res.info().status}`);
+      }
+      
+      // Save metadata after successful download
+      await StorageManager.saveDownloadedSongMetadata(id, {
+        id: id,
+        title: title || 'Unknown',
+        artist: artist || 'Unknown',
+        album: 'Unknown',
+        url: songUrl,
+        artwork: image || null,
+        duration: duration || 0,
+        downloadedAt: new Date().toISOString()
+      });
+      
+      // Download artwork if available
+      if (image && typeof image === 'string') {
+        try {
+          await StorageManager.saveArtwork(id, image);
+        } catch (artworkError) {
+          console.error("Error saving artwork:", artworkError);
+        }
+      }
+      
+      // Emit events for download completion
+      EventRegister.emit('download-complete', id);
+      setIsDownloaded(true);
+      setDownloadInProgress(false);
+      ToastAndroid.show("Download complete", ToastAndroid.SHORT);
+      
+    } catch (downloadError) {
+      console.error("Download failed:", downloadError);
+      setDownloadInProgress(false);
+      ToastAndroid.show("Download failed", ToastAndroid.SHORT);
+      
+      // Clean up partial downloads
+      try {
+        const downloadPath = RNFS.DocumentDirectoryPath + '/orbit_music/songs/' + id + '.mp3';
+        await safeUnlink(downloadPath);
+      } catch (unlinkError) {
+        console.error("Error cleaning up partial download:", unlinkError);
+      }
+    }
+  };
+  
   return (
     <>
       <View style={{
@@ -209,12 +406,30 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
           </View>
         </Pressable>
         <View style={{
+          flexDirection: 'row',
           justifyContent: 'center',
           alignItems: 'center',
-          minWidth: isFromAlbum ? 42 : (isFromPlaylist ? 40 : 36),
+          minWidth: isFromAlbum ? 90 : (isFromPlaylist ? 90 : 80),
           paddingLeft: isFromAlbum ? 0 : (isFromPlaylist ? 3 : 2),
           marginRight: isFromAlbum ? 0 : (isFromPlaylist ? 8 : 2),
         }}>
+          {/* Download Button - shown in both album and playlist views */}
+          <Pressable 
+            onPress={handleDownload}
+            style={{
+              padding: 8,
+              marginRight: 12
+            }}
+          >
+            {isDownloaded ? (
+              <Octicons name="check-circle" size={24} color="#1DB954" />
+            ) : downloadInProgress ? (
+              <MaterialCommunityIcons name="loading" size={26} color="#FFA500" />
+            ) : (
+              <Octicons name="download" size={24} color="#FFFFFF" />
+            )}
+          </Pressable>
+          
           <EachSongMenuButton 
             song={{
               title,
@@ -229,7 +444,7 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
             }}
             isFromPlaylist={isFromPlaylist}
             isFromAlbum={isFromAlbum}
-            size={isFromAlbum ? 28 : 18}
+            size={isFromAlbum ? 42 : 36}
             marginRight={isFromAlbum ? 2 : 10}
             isDownloaded={isDownloaded}
           />

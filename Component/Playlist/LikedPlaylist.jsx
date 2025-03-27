@@ -20,7 +20,7 @@ export const LikedPlaylist = ({
   const navigation = useNavigation();
   
   // Increase icon size for better visibility
-  const iconSize = size === "large" ? 36 : size === "small" ? 34 : 30;
+  const iconSize = size === "large" ? 40 : size === "small" ? 36 : 34;
 
   useEffect(() => {
     const checkLiked = async () => {
@@ -177,9 +177,9 @@ const styles = StyleSheet.create({
     padding: 8,
     alignItems: "center",
     justifyContent: "center",
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: 'rgba(0,0,0,0.5)',
     elevation: 3,
     shadowColor: "#000",
@@ -189,9 +189,9 @@ const styles = StyleSheet.create({
   },
   smallContainer: {
     padding: 0,
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: 'rgba(0,0,0,0.3)',
     marginLeft: 15,
     marginRight: 5,

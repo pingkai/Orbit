@@ -256,7 +256,13 @@ export const Album = ({route}) => {
             backgroundColor: "#101010",
           }}
         >
-          <PlaylistTopHeader AnimatedRef={AnimatedRef} url={getValidImageUrl(Data?.data?.image[2]?.url ?? "")} />
+          <PlaylistTopHeader 
+            AnimatedRef={AnimatedRef} 
+            url={getValidImageUrl(Data?.data?.image[2]?.url ?? "")} 
+            playlistId={"album_" + (Data?.data?.id || route?.params?.id)} 
+            name={Data?.data?.name || "Album"}
+            follower=""
+          />
           <AlbumDetails name={Data?.data?.name ?? ""} liked={false} releaseData={Data?.data?.year ?? ""}  Data={Data}/>
           {<View style={{
             paddingHorizontal: 8,

@@ -1,4 +1,4 @@
-import { Dimensions, View, StyleSheet } from "react-native";
+import { Dimensions, View, StyleSheet, TouchableOpacity } from "react-native";
 import { Heading } from "../Global/Heading";
 import { SmallText } from "../Global/SmallText";
 import { Spacer } from "../Global/Spacer";
@@ -14,6 +14,7 @@ import FormatArtist from "../../Utils/FormatArtists";
 import FormatTitleAndArtist from "../../Utils/FormatTitleAndArtist";
 import { CacheManager } from '../../Utils/CacheManager';
 import TrackPlayer from "react-native-track-player";
+import { DownloadButton } from "../Global/DownloadButton";
 
 // Reduce truncate limit further to avoid layout issues
 const truncateText = (text, limit = 20) => {
@@ -73,7 +74,6 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
   const [loading, setLoading] = useState(Loading);
   const theme = useTheme();
   const width = Dimensions.get('window').width;
-  const displayName = truncateText(name, 18); // Reduce to 18 characters
   const [playlistData, setPlaylistData] = useState(Data);
   
   // Reset isPlaying when Loading changes to false
@@ -252,67 +252,88 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
   // If not released, don't render anything
   if (notReleased) return null;
   
+  // Make sure to truncate the name properly for display
+  const displayName = truncateText(name, 24); // Increased character limit for better display
+  
   return (
-    <LinearGradient 
-      start={{x: 0, y: 0}} 
-      end={{x: 0, y: 1}} 
-      colors={['rgba(44,44,44,0)', 'rgb(23,23,23)', theme.colors.background]} 
-      style={styles.container}
-    >
-      <View style={styles.infoContainer}>
-        <Heading text={displayName} style={styles.heading}/>
-        <View style={styles.followerContainer}>
-          <Ionicons name={"musical-note"} size={16} color={theme.colors.text}/>
-          <SmallText text={follower || listener || ""}/>
-        </View>
+    <View style={styles.outerContainer}>
+      {/* Like button removed as it's now in the PlaylistTopHeader component */}
+
+      <View style={styles.container}>
+        <LinearGradient 
+          start={{x: 0, y: 0}} 
+          end={{x: 0, y: 1}} 
+          colors={['rgba(44,44,44,0)', 'rgb(23,23,23)', '#121212']} 
+          style={styles.gradientContainer}
+        >
+          {/* Playlist info on the left */}
+          <View style={styles.infoContainer}>
+            <Heading 
+              text={displayName} 
+              style={styles.heading}
+              numberOfLines={1} 
+            />
+            
+          </View>
+
+          {/* Controls on the right - Download icon and Play button */}
+          <View style={styles.controlsContainer}>
+            {/* Download button in middle */}
+            <DownloadButton 
+              songs={Data?.data?.songs || []} 
+              albumName={name}
+              size="normal"
+            />
+            
+            {/* Play button on right */}
+            <PlayButton 
+              onPress={AddToPlayer}
+              Loading={loading}
+              isPlaying={isPlaying}
+            />
+          </View>
+        </LinearGradient>
       </View>
-      
-      <View style={styles.buttonContainer}>
-        <LikedPlaylist 
-          id={id} 
-          image={image} 
-          name={name || ""} 
-          follower={follower}
-          size="small"
-        />
-        <Spacer width={20} />
-        <PlayButton 
-          Loading={loading} 
-          size="large"
-          isPlaying={isPlaying}
-          onPress={AddToPlayer}
-        />
-      </View>
-    </LinearGradient>
+    </View>
   );
 };
 
 // Move styles to StyleSheet for better performance
 const styles = StyleSheet.create({
+  outerContainer: {
+    position: "relative",
+    width: "100%",
+  },
   container: {
-    padding: 10,
-    paddingVertical: 15,
-    flexDirection: "row",
-    justifyContent: "space-between",
+    width: "100%",
+  },
+  gradientContainer: {
+    padding: 16,
+    paddingVertical: 18,
+    paddingTop: 24,
     alignItems: "center",
+    justifyContent: "space-between",
+    flexDirection: "row",
   },
   infoContainer: {
-    paddingLeft: 5,
-    maxWidth: Dimensions.get('window').width * 0.5, // Further reduce width for more space
+    flex: 1,
+    paddingLeft: 4,
+    paddingRight: 12, // Increased padding for better spacing
   },
   heading: {
-    fontSize: 24,
-    marginBottom: 5,
+    fontSize: 22,
+    marginBottom: 4,
+    flex: 1, // Allow text to flex and truncate properly
   },
   followerContainer: {
     flexDirection: "row", 
     alignItems: "center", 
-    gap: 5
+    gap: 5,
+    marginTop: 2,
   },
-  buttonContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingRight: 10,
-    paddingVertical: 5,
+  controlsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16, // Increased gap for better spacing between buttons
   }
 });

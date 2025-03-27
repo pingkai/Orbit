@@ -596,29 +596,6 @@ export const EachSongMenuButton = ({
   return (
     <>
       <View style={{ flexDirection: "row", alignItems: "center" }}>
-        {/* For album view only - Show download button */}
-        {isFromAlbum && (
-          <TouchableOpacity
-            onPress={downloadSong}
-            style={{
-              padding: 4,
-              marginRight: 6,
-              borderRadius: 50,
-            }}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            {isDownloading ? (
-              <CircularProgress progress={downloadProgress} size={28} />
-            ) : (
-              <Octicons
-                name={isDownloaded ? "check-circle" : "download"}
-                size={24}
-                color={isDownloaded ? "#4CAF50" : "#FFFFFF"}
-              />
-            )}
-          </TouchableOpacity>
-        )}
-        
         {/* Three dots menu button */}
         <Pressable
           ref={buttonRef}
