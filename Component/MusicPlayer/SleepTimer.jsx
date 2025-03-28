@@ -3,56 +3,112 @@ import { Pressable, Modal, View, Text, StyleSheet, TextInput } from 'react-nativ
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { PlaySong, PauseSong } from '../../MusicPlayerFunctions'; 
 
+// Global timer state to persist across component unmounts
+let globalTimerRef = null;
+let globalCountdownRef = null;
+let globalEndTime = 0;
+let isGlobalTimerActive = false;
+
 export const SleepTimerButton = ({ size = 25 }) => {
-  const [isTimerActive, setIsTimerActive] = useState(false); 
+  const [isTimerActive, setIsTimerActive] = useState(isGlobalTimerActive);
   const [modalVisible, setModalVisible] = useState(false); 
   const [customTime, setCustomTime] = useState(''); 
   const [timeUnit, setTimeUnit] = useState('minutes'); 
-  const [remainingTime, setRemainingTime] = useState(0);
-  const timerRef = useRef(null); 
-  const countdownRef = useRef(null); 
+  const [remainingTime, setRemainingTime] = useState(
+    isGlobalTimerActive ? Math.max(0, Math.floor((globalEndTime - Date.now()) / 1000)) : 0
+  );
+  const timerRef = useRef(globalTimerRef);
+  const countdownRef = useRef(globalCountdownRef);
+
   const timerOptions = [
     { label: '15 minutes', value: 15 * 60 },
     { label: '30 minutes', value: 30 * 60 },
     { label: '45 minutes', value: 45 * 60 },
     { label: '1 hour', value: 60 * 60 },
   ];
+
+  // Sync with global timer state on mount
+  useEffect(() => {
+    if (isGlobalTimerActive) {
+      const secondsRemaining = Math.max(0, Math.floor((globalEndTime - Date.now()) / 1000));
+      setRemainingTime(secondsRemaining);
+      setupCountdown(secondsRemaining);
+    }
+    
+    return () => {
+      // Don't clear timers on unmount, just save references
+      if (timerRef.current) {
+        globalTimerRef = timerRef.current;
+      }
+      if (countdownRef.current) {
+        globalCountdownRef = countdownRef.current;
+      }
+    };
+  }, []);
+
   const clearTimer = () => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
+      globalTimerRef = null;
     }
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
       countdownRef.current = null;
+      globalCountdownRef = null;
     }
     setIsTimerActive(false);
+    isGlobalTimerActive = false;
+    globalEndTime = 0;
     setRemainingTime(0);
   };
+
+  const setupCountdown = (seconds) => {
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+    }
+    
+    countdownRef.current = setInterval(() => {
+      const secondsRemaining = Math.max(0, Math.floor((globalEndTime - Date.now()) / 1000));
+      
+      if (secondsRemaining <= 0) {
+        clearInterval(countdownRef.current);
+        countdownRef.current = null;
+        globalCountdownRef = null;
+        PauseSong(); // Pause playback when countdown reaches zero
+        setIsTimerActive(false);
+        isGlobalTimerActive = false;
+        setRemainingTime(0);
+      } else {
+        setRemainingTime(secondsRemaining);
+      }
+    }, 1000);
+    
+    globalCountdownRef = countdownRef.current;
+  };
+
   const setSleepTimer = (seconds) => {
     clearTimer();
     PlaySong(); // Start playback when the timer is set
+    
+    const endTime = Date.now() + (seconds * 1000);
+    globalEndTime = endTime;
+    
+    setupCountdown(seconds);
     setRemainingTime(seconds);
-    countdownRef.current = setInterval(() => {
-      setRemainingTime((prev) => {
-        if (prev <= 1) {
-          clearInterval(countdownRef.current);
-          countdownRef.current = null;
-          PauseSong(); // Pause playback when countdown reaches zero
-          setIsTimerActive(false);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    
     timerRef.current = setTimeout(() => {
       PauseSong(); // Ensure playback stops after the specified duration
       clearTimer();
     }, seconds * 1000);
+    
+    globalTimerRef = timerRef.current;
     setIsTimerActive(true);
+    isGlobalTimerActive = true;
     setModalVisible(false);
     setCustomTime('');
   };
+
   const handleCustomTimer = () => {
     const time = parseInt(customTime, 10);
     if (!isNaN(time) && time > 0) {
@@ -60,16 +116,13 @@ export const SleepTimerButton = ({ size = 25 }) => {
       setSleepTimer(seconds);
     }
   };
-  useEffect(() => {
-    return () => {
-      clearTimer();
-    };
-  }, []);
+
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
+
   return (
     <View style={styles.container}>
       <Pressable
