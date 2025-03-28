@@ -1,7 +1,6 @@
-import { Dimensions, Pressable, View } from "react-native";
+import { Dimensions, Pressable, View, Image } from "react-native";
 import { PlainText } from "./PlainText";
 import { SmallText } from "./SmallText";
-import FastImage from "react-native-fast-image";
 import { AddPlaylist, getIndexQuality, PlayOneSong } from "../../MusicPlayerFunctions";
 import { memo, useContext, useState, useEffect } from "react";
 import Context from "../../Context/Context";
@@ -28,6 +27,50 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
   const playerState = usePlaybackState()
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [downloadInProgress, setDownloadInProgress] = useState(false);
+  
+  // Simple string image URI handling
+  let imageSource = null;
+  let safeImageUri = '';
+  
+  try {
+    // First, determine if we're showing playing/paused indicator
+    if (id === (currentPlaying?.id ?? "") && playerState.state === "playing") {
+      imageSource = require("../../Images/playing.gif");
+      safeImageUri = '';
+    } else if (id === (currentPlaying?.id ?? "") && playerState.state !== "playing") {
+      imageSource = require("../../Images/songPaused.gif");
+      safeImageUri = '';
+    } else {
+      // For normal state, extract a safe string URI
+      if (typeof image === 'string') {
+        safeImageUri = image;
+      } else if (image && typeof image === 'object') {
+        // For object types, try to safely extract a string
+        try {
+          if (typeof image.uri === 'string') {
+            safeImageUri = image.uri;
+          } else if (typeof image.url === 'string') {
+            safeImageUri = image.url;
+          } else if (Array.isArray(image) && image.length > 0 && typeof image[0] === 'string') {
+            safeImageUri = image[0];
+          } else {
+            // Default empty URI
+            safeImageUri = '';
+          }
+        } catch (e) {
+          safeImageUri = '';
+        }
+      } else {
+        safeImageUri = '';
+      }
+      
+      imageSource = safeImageUri ? { uri: safeImageUri } : null;
+    }
+  } catch (error) {
+    console.error('Error preparing image source:', error);
+    imageSource = null;
+    safeImageUri = '';
+  }
   
   // Check if song is downloaded
   useEffect(() => {
@@ -108,12 +151,35 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
           continue;
         }
 
+        // Extract a safe artwork URI string
+        let artworkUri = '';
+        try {
+          if (typeof e?.image === 'string') {
+            artworkUri = e.image;
+          } else if (e?.image && typeof e.image === 'object') {
+            // Try to get a string URI from the image object
+            if (typeof e.image.uri === 'string') {
+              artworkUri = e.image.uri;
+            } else if (typeof e.image.url === 'string') {
+              artworkUri = e.image.url;
+            } else if (Array.isArray(e.image) && e.image.length > 0) {
+              if (typeof e.image[0] === 'string') {
+                artworkUri = e.image[0];
+              } else if (e.image[0] && typeof e.image[0].url === 'string') {
+                artworkUri = e.image[0].url;
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error extracting artwork URI:', error);
+        }
+
         ForMusicPlayer.push({
           url: songUrl,
           title: formatText(e?.name),
           artist: formatText(FormatArtist(e?.artists?.primary)),
-          artwork: e?.image[2]?.url,
-          image: e?.image[2]?.url,
+          artwork: artworkUri,
+          image: artworkUri,
           duration: e?.duration,
           id: e?.id,
           language: e?.language,
@@ -134,11 +200,62 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
       // Use a for loop for consistent approach
       for (let i = index; i < Data.length; i++) {
         const e = Data[i]
+        
+        // Extract a safe artwork URI string
+        let artworkUri = '';
+        try {
+          if (typeof e?.artwork === 'string') {
+            artworkUri = e.artwork;
+          } else if (e?.artwork && typeof e.artwork === 'object') {
+            // Try to get a string URI from the artwork object
+            if (typeof e.artwork.uri === 'string') {
+              artworkUri = e.artwork.uri;
+            } else if (typeof e.artwork.url === 'string') {
+              artworkUri = e.artwork.url;
+            } else if (Array.isArray(e.artwork) && e.artwork.length > 0) {
+              if (typeof e.artwork[0] === 'string') {
+                artworkUri = e.artwork[0];
+              } else if (e.artwork[0] && typeof e.artwork[0].url === 'string') {
+                artworkUri = e.artwork[0].url;
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error extracting artwork URI:', error);
+        }
+        
+        // Get URL with proper error handling
+        let songUrl;
+        if (e?.url) {
+          if (typeof e.url === 'string') {
+            songUrl = e.url;
+          } else if (Array.isArray(e.url) && e.url.length > 0) {
+            const quality = await getIndexQuality();
+            songUrl = e.url[quality]?.url || e.url[0]?.url || '';
+          } else {
+            // Handle potential ReadableNativeArray
+            try {
+              // Try to get the first item
+              const firstUrl = e.url[0];
+              if (firstUrl && typeof firstUrl === 'object' && firstUrl.url) {
+                songUrl = firstUrl.url;
+              }
+            } catch (error) {
+              console.error('Error processing URL:', error);
+            }
+          }
+        }
+        
+        if (!songUrl) {
+          console.log(`EachSongCard: Skipping song with invalid URL at index ${i}`);
+          continue;
+        }
+        
         Final.push({
-          url: e.url,
+          url: songUrl,
           title: formatText(e?.title),
           artist: formatText(e?.artist),
-          artwork: e?.artwork,
+          artwork: artworkUri,
           duration: e?.duration,
           id: e?.id,
           language: e?.language,
@@ -150,16 +267,34 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
       await AddPlaylist(Final)
     } else {
       const quality = await getIndexQuality()
+      
+      // Get URL with proper error handling
+      let songUrl;
+      if (url) {
+        if (Array.isArray(url) && url.length > quality && url[quality]?.url) {
+          songUrl = url[quality].url;
+        } else if (Array.isArray(url) && url.length > 0 && url[0]?.url) {
+          songUrl = url[0].url;
+        } else if (typeof url === 'string') {
+          songUrl = url;
+        }
+      }
+      
+      if (!songUrl) {
+        console.error("Invalid song URL");
+        return;
+      }
+      
       const song  = {
-        url: url[quality].url,
+        url: songUrl,
         title: formatText(title),
         artist: formatText(artist),
-        artwork:image,
+        artwork: safeImageUri,  // Using our pre-processed safe URI
         duration,
         id,
         language,
         artistID:artistID,
-        image:image,
+        image: safeImageUri,    // Using our pre-processed safe URI
         downloadUrl:url,
       }
       PlayOneSong(song)
@@ -254,6 +389,9 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
         return;
       }
       
+      // We already processed and validated the image URI earlier
+      const validArtworkUri = typeof safeImageUri === 'string' && safeImageUri.length > 0 ? safeImageUri : null;
+      
       // Ensure directories exist
       try {
         const baseDir = RNFS.DocumentDirectoryPath + '/orbit_music';
@@ -312,15 +450,15 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
         artist: artist || 'Unknown',
         album: 'Unknown',
         url: songUrl,
-        artwork: image || null,
+        artwork: validArtworkUri, // Use validated artwork URI
         duration: duration || 0,
         downloadedAt: new Date().toISOString()
       });
       
       // Download artwork if available
-      if (image && typeof image === 'string') {
+      if (validArtworkUri) {
         try {
-          await StorageManager.saveArtwork(id, image);
+          await StorageManager.saveArtwork(id, validArtworkUri);
         } catch (artworkError) {
           console.error("Error saving artwork:", artworkError);
         }
@@ -376,13 +514,14 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
           }}
         >
           <View style={{ position: 'relative' }}>
-            <FastImage source={((id === currentPlaying?.id ?? "") && playerState.state === "playing") ? require("../../Images/playing.gif") : ((id === currentPlaying?.id ?? "") && playerState.state !== "playing" ) ? require("../../Images/songPaused.gif") : {
-              uri:image,
-            }} style={{
-              height:50,
-              width:50,
-              borderRadius:4,
-            }}/>
+            <Image 
+              source={imageSource} 
+              style={{
+                height:50,
+                width:50,
+                borderRadius:4,
+              }}
+            />
           </View>
           <View style={{
             flex:1,
@@ -439,8 +578,8 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
             song={{
               title,
               artist,
-              artwork: image,
-              image,
+              artwork: typeof safeImageUri === 'string' ? safeImageUri : '',
+              image: typeof safeImageUri === 'string' ? safeImageUri : '',
               id,
               url,
               duration,

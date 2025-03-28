@@ -3,7 +3,7 @@ import { View, Text, Platform, ToastAndroid } from "react-native";
 import { EachSongQueue } from "./EachSongQueue";
 import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import Context from "../../Context/Context";
-import { useActiveTrack, useTrackPlayerEvents, Event } from "react-native-track-player";
+import { useActiveTrack, useTrackPlayerEvents, Event, State } from "react-native-track-player";
 import TrackPlayer from "react-native-track-player";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import DraggableFlatList, { ScaleDecorator } from "react-native-draggable-flatlist";
@@ -21,6 +21,7 @@ const QueueRenderSongs = memo(() => {
   const [isDragging, setIsDragging] = useState(false);
   const [lastDraggedSongId, setLastDraggedSongId] = useState(null);
   const [isOffline, setIsOffline] = useState(false);
+  const [isPendingAction, setIsPendingAction] = useState(false);
   const flatListRef = useRef(null);
   const operationInProgressRef = useRef(false);
   
@@ -106,42 +107,121 @@ const QueueRenderSongs = memo(() => {
       const downloadedTracks = await getDownloadedTracks();
       console.log(`Found ${downloadedTracks.length} downloaded tracks for queue`);
       
-      // If playing a downloaded track (either in offline mode or online mode)
-      if (isLocalTrack(currentTrack)) {
-        console.log('Playing local/downloaded track - showing all downloaded tracks in queue');
+      // Check if the current track has a sourceType (mymusic or download)
+      const sourceType = currentTrack.sourceType || (isLocalTrack(currentTrack) ? 'download' : 'online');
+      console.log('Current track source type:', sourceType);
+      
+      // If playing a track from MyMusic, only show MyMusic tracks in the queue
+      if (sourceType === 'mymusic') {
+        console.log('Playing from MyMusic - showing only MyMusic tracks in queue');
         
-        // Put current track first, then other downloaded tracks
+        // Get the full queue from TrackPlayer which should contain all MyMusic tracks
+        const fullQueue = await TrackPlayer.getQueue();
+        
+        // Filter to only include tracks from MyMusic source
+        const myMusicTracks = fullQueue.filter(track => track.sourceType === 'mymusic');
+        
+        // If no MyMusic tracks found, just show the current track
+        if (myMusicTracks.length === 0) {
+          return [currentTrack];
+        }
+        
+        // Put current track first
         const rearrangedTracks = [
           currentTrack,
-          ...downloadedTracks.filter(track => track.id !== currentTrack.id)
+          ...myMusicTracks.filter(track => track.id !== currentTrack.id)
         ];
         
         setIsLocalSource(true);
         return rearrangedTracks;
       }
       
+      // If playing a downloaded track
+      if (sourceType === 'download' || (isLocalTrack(currentTrack) && !currentTrack.sourceType)) {
+        console.log('Playing downloaded track - showing all downloaded tracks in queue');
+        
+        // Check if we're in offline mode
+        if (isOffline) {
+          // In offline mode, only show downloaded tracks
+          const rearrangedTracks = [
+            currentTrack,
+            ...downloadedTracks.filter(track => track.id !== currentTrack.id)
+          ];
+          
+          setIsLocalSource(true);
+          return rearrangedTracks;
+        }
+        
+        // In online mode, get full queue but filter for downloaded tracks only
+        const fullQueue = await TrackPlayer.getQueue();
+        
+        // Filter to only include downloaded tracks
+        const downloadSourceTracks = fullQueue.filter(track => 
+          track.sourceType === 'download' || 
+          (isLocalTrack(track) && !track.sourceType)
+        );
+        
+        // If no downloaded tracks found in queue, merge with downloaded tracks from storage
+        let combinedTracks = downloadSourceTracks.length > 0 ? downloadSourceTracks : [];
+        
+        // Add any downloaded tracks not already in the queue
+        if (downloadedTracks.length > 0) {
+          const existingIds = new Set(combinedTracks.map(t => t.id));
+          const additionalDownloads = downloadedTracks.filter(t => !existingIds.has(t.id));
+          combinedTracks = [...combinedTracks, ...additionalDownloads];
+        }
+        
+        // If still empty, at least show current track
+        if (combinedTracks.length === 0) {
+          combinedTracks = [currentTrack];
+        } else {
+          // Put current track first if it exists in the combined tracks
+          const currentTrackIndex = combinedTracks.findIndex(t => t.id === currentTrack.id);
+          if (currentTrackIndex > 0) {
+            const currentTrackItem = combinedTracks.splice(currentTrackIndex, 1)[0];
+            combinedTracks = [currentTrackItem, ...combinedTracks];
+          } else if (currentTrackIndex === -1) {
+            // Add current track if not in the combined list
+            combinedTracks = [currentTrack, ...combinedTracks];
+          }
+        }
+        
+        setIsLocalSource(true);
+        return combinedTracks;
+      }
+      
       // For online tracks in online mode - normal behavior
       if (!isOffline) {
-      // Determine if current track is local
-      const currentIsLocal = isLocalTrack(currentTrack);
-      
-      // Update state to reflect current source type
-      setIsLocalSource(currentIsLocal);
-      
-      // Get the full queue from TrackPlayer
-      const fullQueue = await TrackPlayer.getQueue();
-      
+        // Get the full queue from TrackPlayer
+        const fullQueue = await TrackPlayer.getQueue();
+        
         if (fullQueue.length === 0) {
           console.log('TrackPlayer queue is empty, using current track');
           return [currentTrack];
         }
         
-        // Filter to only include online tracks
-      const filtered = fullQueue.filter(track => 
-        isLocalTrack(track) === currentIsLocal
-      );
-      
-      return filtered;
+        // Filter to only include online tracks (neither mymusic nor download source type)
+        const onlineTracks = fullQueue.filter(track => 
+          !track.sourceType && !isLocalTrack(track)
+        );
+        
+        // Put current track first if it exists in the online tracks
+        if (onlineTracks.length > 0) {
+          const currentTrackIndex = onlineTracks.findIndex(t => t.id === currentTrack.id);
+          if (currentTrackIndex > 0) {
+            const currentTrackItem = onlineTracks.splice(currentTrackIndex, 1)[0];
+            return [currentTrackItem, ...onlineTracks];
+          } else if (currentTrackIndex === -1) {
+            // If current track is not in the filtered list but should be (it's online)
+            if (!isLocalTrack(currentTrack)) {
+              return [currentTrack, ...onlineTracks];
+            }
+          }
+          return onlineTracks;
+        }
+        
+        // If no online tracks found or filtering removed all tracks
+        return [currentTrack];
       }
       
       // Fallback for any other scenario - just return current track
@@ -168,7 +248,14 @@ const QueueRenderSongs = memo(() => {
         if (track) {
           setCurrentIndex(index || 0);
           
-          // Filter the queue
+          // Get the source type for the current track
+          const sourceType = track.sourceType || (isLocalTrack(track) ? 'download' : 'online');
+          console.log('Track changed - source type:', sourceType);
+          
+          // Update local source flag based on source type
+          setIsLocalSource(sourceType === 'mymusic' || sourceType === 'download' || isLocalTrack(track));
+          
+          // Filter the queue based on source type
           const filtered = await filterQueueBySource(track);
           
           // Filter out duplicate songs based on ID
@@ -213,10 +300,17 @@ const QueueRenderSongs = memo(() => {
       
       try {
         if (currentPlaying) {
+          // Get the source type for the current track
+          const sourceType = currentPlaying.sourceType || (isLocalTrack(currentPlaying) ? 'download' : 'online');
+          console.log('Initializing queue - current source type:', sourceType);
+          
+          // Update local source flag based on source type
+          setIsLocalSource(sourceType === 'mymusic' || sourceType === 'download' || isLocalTrack(currentPlaying));
+          
           // Always ensure we have the latest downloaded tracks
           await getDownloadedTracks();
           
-          // Filter queue based on current track
+          // Filter queue based on current track's source type
           const filtered = await filterQueueBySource(currentPlaying);
           
           // Filter out duplicate songs based on ID
@@ -303,52 +397,37 @@ const QueueRenderSongs = memo(() => {
     };
   }, [currentPlaying, isDragging, isOffline]);
 
-  // NEW FUNCTION: Handle track selection with improved error handling
+  // Function to handle track selection from the queue
   const handleTrackSelect = async (item, displayIndex) => {
+    operationInProgressRef.current = true;
     try {
-      if (!item || !item.id) {
-        console.warn('Cannot select track: Invalid track data');
-        return;
-      }
-
-      console.log(`Attempting to play track "${item.title}" with ID ${item.id}`);
-
-      // Check if the item is a local/downloaded track
-      if (isLocalTrack(item)) {
-        console.log('Selected local/downloaded track, playing directly');
+      // Capture playback state in case we need to restore it
+      let wasPlaying = false;
+      let position = 0;
+      let currentTrack = null;
+      
+      try {
+        setIsPendingAction(true);
+        // Get current track to compare with selected
+        currentTrack = await TrackPlayer.getActiveTrack();
         
-        try {
-          // For local tracks, get the full queue of local tracks
-          const localTracks = await getDownloadedTracks();
+        if (currentTrack?.id === item.id) {
+          console.log('Selected currently playing track - toggle playback');
+          const state = await TrackPlayer.getState();
           
-          // Find the selected track in the local tracks
-          const localTrackIndex = localTracks.findIndex(track => track.id === item.id);
-          
-          if (localTrackIndex === -1) {
-            console.log('Local track not found in downloaded tracks, using direct play');
-            
-            // If not found, try to play it directly by building a queue with it
-            await TrackPlayer.reset();
-            await TrackPlayer.add([item, ...localTracks.filter(t => t.id !== item.id)]);
+          if (state === State.Playing) {
+            await TrackPlayer.pause();
+          } else {
             await TrackPlayer.play();
-            return;
           }
-          
-          // Otherwise, play it from the local tracks collection
-          await TrackPlayer.reset();
-          await TrackPlayer.add([
-            localTracks[localTrackIndex],
-            ...localTracks.filter((_, index) => index !== localTrackIndex)
-          ]);
-          await TrackPlayer.play();
+          setIsPendingAction(false);
+          operationInProgressRef.current = false;
           return;
-        } catch (error) {
-          console.error('Error playing local track directly:', error);
         }
+      } catch (stateError) {
+        console.error('Error getting playback state:', stateError);
       }
       
-      // For non-local tracks or if local track direct play failed
-      try {
         // Get the full TrackPlayer queue to find the actual index
         const queue = await TrackPlayer.getQueue();
         
@@ -362,38 +441,104 @@ const QueueRenderSongs = memo(() => {
           if (item.url) {
             console.log('Track has URL but not in queue, adding it to queue');
             
+            // Ensure the sourceType property is properly set based on track type
+            let sourceType = item.sourceType;
+            
+            // If sourceType isn't explicitly set, determine it based on the track properties
+            if (!sourceType) {
+              // Check if it's from MyMusic first from the URL or other properties
+              if (item.isFromMyMusic) {
+                sourceType = 'mymusic';
+              } 
+              // Then check if it's a downloaded or local track
+              else if (isLocalTrack(item)) {
+                sourceType = 'download';
+              } 
+              // If we have a current track, inherit its sourceType as fallback
+              else if (currentTrack?.sourceType) {
+                sourceType = currentTrack.sourceType;
+              } 
+              // Last resort, mark as unknown
+              else {
+                sourceType = 'online';
+              }
+            }
+          
+            // Preserve sourceType if present
+            const trackToAdd = {
+              ...item,
+              sourceType: sourceType
+            };
+            
             // Try to add it to the queue and play it
             try {
               // Keep existing queue if possible
               if (queue.length > 0) {
-                await TrackPlayer.add([item], 0); // Add at beginning
+                await TrackPlayer.add([trackToAdd], 0); // Add at beginning
                 await TrackPlayer.skip(0); // Skip to our new track
               } else {
                 await TrackPlayer.reset();
-                await TrackPlayer.add([item]);
+                await TrackPlayer.add([trackToAdd]);
               }
               await TrackPlayer.play();
+              setIsPendingAction(false);
+              operationInProgressRef.current = false;
               return;
             } catch (err) {
               console.error('Error adding track to queue:', err);
               if (Platform.OS === 'android') {
                 ToastAndroid.show('Could not play this track', ToastAndroid.SHORT);
               }
+              setIsPendingAction(false);
+              operationInProgressRef.current = false;
               return;
             }
           }
           
           // Final fallback - just try to add and play the current track
           try {
+            // Ensure the sourceType property is properly set
+            let sourceType = item.sourceType;
+            
+            // If sourceType isn't explicitly set, determine it based on the track properties
+            if (!sourceType) {
+              // Check if it's from MyMusic first
+              if (item.isFromMyMusic) {
+                sourceType = 'mymusic';
+              } 
+              // Then check if it's a downloaded or local track
+              else if (isLocalTrack(item)) {
+                sourceType = 'download';
+              } 
+              // If we have a current track, inherit its sourceType as fallback
+              else if (currentTrack?.sourceType) {
+                sourceType = currentTrack.sourceType;
+              } 
+              // Last resort, mark as unknown
+              else {
+                sourceType = 'online';
+              }
+            }
+          
+            // Preserve sourceType if present
+            const trackToAdd = {
+              ...item,
+              sourceType: sourceType
+            };
+          
             await TrackPlayer.reset();
-            await TrackPlayer.add([item]);
+            await TrackPlayer.add([trackToAdd]);
             await TrackPlayer.play();
+            setIsPendingAction(false);
+            operationInProgressRef.current = false;
             return;
           } catch (finalError) {
             console.error('Final attempt to play track failed:', finalError);
             if (Platform.OS === 'android') {
               ToastAndroid.show('Cannot play this track', ToastAndroid.SHORT);
             }
+            setIsPendingAction(false);
+            operationInProgressRef.current = false;
             return;
           }
         }
@@ -403,29 +548,12 @@ const QueueRenderSongs = memo(() => {
         // Skip to the actual index in the queue
         await SkipToTrack(actualIndex);
         
+      setIsPendingAction(false);
+      operationInProgressRef.current = false;
       } catch (error) {
         console.error('Error selecting track:', error);
-        
-        // Last resort - try direct play
-        try {
-          if (item.url) {
-            await TrackPlayer.reset();
-            await TrackPlayer.add([item]);
-            await TrackPlayer.play();
-            console.log('Using emergency direct play method');
-          }
-        } catch (directPlayError) {
-          console.error('Direct play failed:', directPlayError);
-          if (Platform.OS === 'android') {
-            ToastAndroid.show('Failed to play track', ToastAndroid.SHORT);
-          }
-        }
-      }
-    } catch (outerError) {
-      console.error('Outer error in handleTrackSelect:', outerError);
-      if (Platform.OS === 'android') {
-        ToastAndroid.show('Failed to play selected track', ToastAndroid.SHORT);
-      }
+      setIsPendingAction(false);
+      operationInProgressRef.current = false;
     }
   };
 
@@ -552,8 +680,22 @@ const QueueRenderSongs = memo(() => {
           const aIsLocal = isLocalTrack(a);
           const bIsLocal = isLocalTrack(b);
           
-          // If track types don't match our filter, keep their original order
-          if (aIsLocal !== isLocalSource || bIsLocal !== isLocalSource) {
+          // Get source types with fallback
+          const aSourceType = a.sourceType || (aIsLocal ? 'download' : 'online');
+          const bSourceType = b.sourceType || (bIsLocal ? 'download' : 'online');
+          
+          // Don't reorder tracks of different source types
+          if (aSourceType !== bSourceType) {
+            return 0;
+          }
+          
+          // Get the current track's source type
+          const currentTrackSourceType = currentTrack ? 
+            (currentTrack.sourceType || (isLocalTrack(currentTrack) ? 'download' : 'online')) : 
+            null;
+          
+          // Only reorder tracks that match the current track's source type
+          if (aSourceType !== currentTrackSourceType || bSourceType !== currentTrackSourceType) {
             return 0;
           }
           
@@ -658,14 +800,33 @@ const QueueRenderSongs = memo(() => {
 
   // Empty queue state
   if ((!upcomingQueue || upcomingQueue.length === 0) && !isDragging) {
+    // Determine message based on current track source type
+    let emptyQueueMessage = "No songs in queue";
+    let subMessage = "Add songs to your queue";
+    
+    if (currentPlaying) {
+      const sourceType = currentPlaying.sourceType || (isLocalTrack(currentPlaying) ? 'download' : 'online');
+      
+      if (sourceType === 'mymusic') {
+        emptyQueueMessage = "No more local songs from My Music in queue";
+        subMessage = "Add more songs from My Music to your queue";
+      } else if (sourceType === 'download' || isLocalTrack(currentPlaying)) {
+        emptyQueueMessage = "No more downloaded songs in queue";
+        subMessage = "Add more downloaded songs to your queue";
+      } else {
+        emptyQueueMessage = "No more online songs in queue";
+        subMessage = "Add more songs from playlists to your queue";
+      }
+    }
+    
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#151515', paddingHorizontal: 20 }}>
         <Ionicons name="musical-notes-outline" size={40} color="#777" />
         <Text style={{ color: '#fff', fontSize: 16, marginTop: 10, textAlign: 'center' }}>
-          {isLocalSource ? "No more local songs in queue" : "No more online songs in queue"}
+          {emptyQueueMessage}
         </Text>
         <Text style={{ color: '#aaa', fontSize: 12, marginTop: 5, textAlign: 'center', paddingHorizontal: 20 }}>
-          {isLocalSource ? "Add more local songs to your queue" : "Add more songs from playlists to your queue"}
+          {subMessage}
         </Text>
       </View>
     );

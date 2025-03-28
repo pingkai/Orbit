@@ -3,6 +3,23 @@ import { getCachedData, CACHE_GROUPS, isNetworkAvailable } from './CacheManager'
 
 async function getRecommendedSongs(id) {
   try {
+    // Skip recommendation requests for local files
+    if (id && (
+        typeof id === 'string' && (
+          id.startsWith('/') || 
+          id.startsWith('file://') || 
+          id.includes('/storage/') || 
+          id.includes('.mp3') || 
+          id.includes('.m4a') || 
+          id.includes('.wav') || 
+          id.includes('.flac') || 
+          id.includes('.ogg')
+        )
+      )) {
+      console.log(`Skipping recommendations for local file: ${id}`);
+      return { data: [], success: true, message: "No recommendations for local files" };
+    }
+    
     // First check if we're offline
     const isOnline = await isNetworkAvailable();
     if (!isOnline) {

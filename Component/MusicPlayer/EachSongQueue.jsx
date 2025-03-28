@@ -28,7 +28,8 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
       
       // For other tracks, handle different artwork formats
       if (!artwork) {
-        return require("../../Images/default.jpg");
+        // Use static image instead of animated GIF
+        return getDefaultImage();
       }
       
       // Handle numeric artwork values (which come from local files)
@@ -40,7 +41,8 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
       if (typeof artwork === 'object' && artwork.uri) {
         // Ensure URI is not null or undefined
         if (!artwork.uri) {
-          return require("../../Images/default.jpg");
+          // Use static image instead of animated GIF
+          return getDefaultImage();
         }
         return artwork;
       }
@@ -61,12 +63,18 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
         return { uri: artwork };
       }
       
-      // Default fallback
-      return require("../../Images/default.jpg");
+      // Default fallback - use static image instead of animated GIF
+      return getDefaultImage();
     } catch (error) {
       console.log('Error getting image source:', error);
-      return require("../../Images/default.jpg"); // Fail-safe fallback
+      return getDefaultImage(); // Static image fallback
     }
+  };
+  
+  // Function to get a default image for songs without artwork
+  const getDefaultImage = () => {
+    // Use static image instead of animated GIFs in queue view
+    return require('../../Images/Music.jpeg');
   };
   
   // Handle special characters in text

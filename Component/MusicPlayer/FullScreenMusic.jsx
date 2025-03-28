@@ -1614,13 +1614,25 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     
     // Handle null source or source without uri
     if (!source || imageError || (typeof source === 'object' && !source.uri)) {
-      return (
-        <FastImage
-          source={require('../../Images/a.gif')} // Fallback image
-          style={style}
-          resizeMode={resizeMode}
-        />
-      );
+      // Use animated GIF for local songs in fullscreen player
+      if (currentPlaying && (currentPlaying.isLocal || currentPlaying.sourceType === 'mymusic')) {
+        return (
+          <FastImage
+            source={getGifSource()}
+            style={style}
+            resizeMode={resizeMode}
+          />
+        );
+      } else {
+        // Use default image for online songs
+        return (
+          <FastImage
+            source={require('../../Images/Music.jpeg')}
+            style={style}
+            resizeMode={resizeMode}
+          />
+        );
+      }
     }
     
     return (
@@ -1635,27 +1647,43 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
 
   // Function to safely extract artwork based on track information
   const getArtworkSource = useCallback((track) => {
-    if (!track) return null;
+    if (!track) return getGifSource(); // Use animated GIF when no track
     
     try {
-      // Case 1: Track has localArtworkPath - direct file path
-      if (track.localArtworkPath) {
-        return { uri: `file://${track.localArtworkPath}` };
-      }
-      
-      // Case 2: Track has artwork field that's already a file URI
-      if (track.artwork && typeof track.artwork === 'string') {
-        if (track.artwork.startsWith('file://')) {
+      // For local songs, if no artwork is available, use an animated GIF
+      if (track.isLocal || track.sourceType === 'mymusic') {
+        // Case 1: Track has localArtworkPath - direct file path
+        if (track.localArtworkPath) {
+          // Check if the path is valid
+          if (track.localArtworkPath && typeof track.localArtworkPath === 'string' && track.localArtworkPath.trim() !== '') {
+            return { uri: `file://${track.localArtworkPath}` };
+          }
+          // If localArtworkPath is invalid, use GIF
+          return getGifSource();
+        }
+        
+        // Case 2: Track has artwork field that's already a file URI
+        if (track.artwork && typeof track.artwork === 'string' && track.artwork.trim() !== '') {
+          if (track.artwork.startsWith('file://')) {
+            return { uri: track.artwork };
+          }
+          
+          // Case 3: Track has artwork path that needs file:// prefix
+          if (track.artwork.startsWith('/')) {
+            return { uri: `file://${track.artwork}` };
+          }
+          
+          // Case 4: Track has remote artwork URL
           return { uri: track.artwork };
         }
         
-        // Case 3: Track has artwork path that needs file:// prefix
-        if (track.artwork.startsWith('/')) {
-          return { uri: `file://${track.artwork}` };
+        // If we reach here, local song has no valid artwork, use animated GIF
+        return getGifSource();
+      } else {
+        // For online songs, use the artwork or fallback to loading GIF
+        if (track.artwork && typeof track.artwork === 'string' && track.artwork.trim() !== '') {
+          return { uri: track.artwork };
         }
-        
-        // Case 4: Track has remote artwork URL
-        return { uri: track.artwork };
       }
     } catch (error) {
       console.log('Error getting artwork source:', error);
