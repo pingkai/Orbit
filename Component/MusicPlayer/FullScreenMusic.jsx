@@ -814,8 +814,10 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
 
       // Get the navigation state to make informed decisions
       const navigationState = navigation.getState();
-      console.log('Current navigation state:', JSON.stringify(navigationState, null, 2));
+      console.log('Current navigation state:', JSON.stringify(navigationState));
 
+      // The issue is that we need to ensure the Library screen is in the navigation stack
+      // when returning from the song download screen 
       if (musicPreviousScreen) {
         // Clean up the path
         let cleanPath = musicPreviousScreen;
@@ -835,6 +837,17 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
             params: {
               timestamp: Date.now() // Force refresh
             }
+          });
+          return;
+        }
+
+        // Special handling for download songs screen within Library tab
+        // This fixes the navigation issue where library gets skipped
+        if (parts.length >= 2 && parts[0] === 'Library' && parts[1] === 'MyMusicPage') {
+          console.log('Returning to Library with MyMusicPage in history stack');
+          // First navigate to the Library tab to ensure it's in the stack
+          navigation.navigate('MainRoute', {
+            screen: 'Library'
           });
           return;
         }
@@ -970,6 +983,43 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
                       timestamp: Date.now() // Force refresh
                     }
                   });
+                }, 100);
+                return;
+              }
+              
+              // Special handling for download screen (DownloadScreen)
+              if (parts.length >= 2 && parts[0] === 'Library' && 
+                 (parts[1] === 'DownloadScreen' || parts[1] === 'DownloadSongsPage')) {
+                console.log('Ensuring proper back navigation from DownloadScreen');
+                
+                // Use a more reliable method to ensure the navigation state is correct
+                setTimeout(() => {
+                  // First navigate to Library/DownloadScreen
+                  navigation.navigate('Library', { 
+                    screen: 'DownloadScreen',
+                    params: { 
+                      previousScreen: 'Library',
+                      // Add a timestamp to force refresh if needed
+                      timestamp: Date.now()
+                    }
+                  });
+                  
+                  // Store a flag in AsyncStorage to track this special navigation case
+                  AsyncStorage.setItem('came_from_fullscreen_player', 'true');
+                  console.log('Set flag to track special navigation from fullscreen');
+                }, 100);
+                return;
+              }
+              
+              // Special handling for MyMusicPage
+              if (parts.length >= 2 && parts[0] === 'Library' && parts[1] === 'MyMusicPage') {
+                console.log('Ensuring Library is in stack when returning from MyMusicPage');
+                setTimeout(() => {
+                  navigation.navigate('Library', { 
+                    screen: 'MyMusicPage',
+                    params: { previousScreen: 'Library' }
+                  });
+                  console.log('Navigated to Library/MyMusicPage after closing fullscreen player');
                 }, 100);
                 return;
               }
@@ -1112,7 +1162,10 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     // Always show checkmark in offline mode
     if (isOffline) {
       return (
-        <TouchableOpacity style={styles.controlIcon} disabled={true}>
+        <TouchableOpacity 
+          style={[styles.controlIcon, { overflow: 'hidden' }]} 
+          disabled={true}
+        >
           <MaterialIcons name="check-circle" size={28} color="#4CAF50" />
         </TouchableOpacity>
       );
@@ -1127,7 +1180,10 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     if (isDownloaded) {
       // Show checkmark for downloaded songs
       return (
-        <TouchableOpacity style={styles.controlIcon} disabled={true}>
+        <TouchableOpacity 
+          style={[styles.controlIcon, { overflow: 'hidden' }]} 
+          disabled={true}
+        >
           <MaterialIcons name="check-circle" size={28} color="#4CAF50" />
         </TouchableOpacity>
       );
@@ -1141,8 +1197,16 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     } else {
       // Regular download button - disabled in offline mode
       return (
-        <TouchableOpacity 
-          style={styles.controlIcon} 
+        <Pressable 
+          style={({ pressed }) => [
+            styles.controlIcon,
+            {
+              backgroundColor: pressed ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+              borderRadius: 20,
+              padding: 8,
+              overflow: 'hidden'
+            }
+          ]}
           onPress={getPermission}
           disabled={isOffline}
         >
@@ -1151,7 +1215,7 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
             size={28} 
             color={isOffline ? "#888888" : "#ffffff"} 
           />
-        </TouchableOpacity>
+        </Pressable>
       );
     }
   };
@@ -1274,8 +1338,15 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
         // Download artwork if available
         if (currentPlaying?.artwork && typeof currentPlaying.artwork === 'string') {
           try {
+            // Ensure we're using the highest quality artwork for download
+            let highQualityArtwork = currentPlaying.artwork;
+            // Convert to 500x500 version if it's a JioSaavn URL
+            if (highQualityArtwork.includes('saavncdn.com')) {
+              highQualityArtwork = highQualityArtwork.replace(/50x50|150x150|500x500/g, '500x500');
+            }
+            
             // First try using StorageManager
-            await StorageManager.saveArtwork(songId, currentPlaying.artwork);
+            await StorageManager.saveArtwork(songId, highQualityArtwork);
             console.log("Artwork saved successfully via StorageManager");
         } catch (artworkError) {
             console.error("Error saving artwork via StorageManager:", artworkError);
@@ -1283,7 +1354,12 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
             // Fallback to direct download
             try {
               const artworkPath = safePath(`${RNFS.DocumentDirectoryPath}/orbit_music/artwork/${songId}.jpg`);
-              await safeDownloadFile(currentPlaying.artwork, artworkPath);
+              // Ensure we're using high quality artwork here too
+              let highQualityArtwork = currentPlaying.artwork;
+              if (highQualityArtwork.includes('saavncdn.com')) {
+                highQualityArtwork = highQualityArtwork.replace(/50x50|150x150|500x500/g, '500x500');
+              }
+              await safeDownloadFile(highQualityArtwork, artworkPath);
               console.log("Artwork saved successfully via direct download");
             } catch (directArtworkError) {
               console.error("Error saving artwork via direct download:", directArtworkError);
@@ -1295,7 +1371,7 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
         // Emit events for download completion - no alert needed
         EventRegister.emit('download-complete', songId);
         setIsDownloadComplete(true);
-      setIsDownloaded(true);
+        setIsDownloaded(true);
         setIsDownloading(false);
         setDownloadProgress(100);
         
@@ -1496,8 +1572,8 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
       // First try using the StorageManager method
       try {
         const isDownloaded = await StorageManager.isSongDownloaded(songId);
-      setIsDownloaded(isDownloaded);
-      return isDownloaded;
+        setIsDownloaded(isDownloaded);
+        return isDownloaded;
       } catch (metadataError) {
         console.error('Error checking metadata:', metadataError);
         
@@ -1540,7 +1616,7 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
           console.log('In offline mode with a playing track - marking as downloaded');
           setIsDownloaded(true);
         } else {
-        checkIfDownloaded(currentPlaying.id);
+          checkIfDownloaded(currentPlaying.id);
         }
       }
     } catch (error) {
@@ -1651,7 +1727,7 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     
     try {
       // For local songs, if no artwork is available, use an animated GIF
-      if (track.isLocal || track.sourceType === 'mymusic') {
+      if (track.isLocal || track.sourceType === 'mymusic' || track.sourceType === 'download') {
         // Case 1: Track has localArtworkPath - direct file path
         if (track.localArtworkPath) {
           // Check if the path is valid
@@ -1673,15 +1749,74 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
             return { uri: `file://${track.artwork}` };
           }
           
-          // Case 4: Track has remote artwork URL
+          // Case 4: Track has remote artwork URL - always use highest quality (500x500)
+          // Check if artwork is a remote URL - choose highest quality
+          if (track.artwork.includes('saavncdn.com')) {
+            // Try to convert to 500x500 version if it's a standard JioSaavn URL
+            return { uri: track.artwork.replace(/50x50|150x150|500x500/g, '500x500') };
+          }
+          
+          // For other URLs, ensure highest quality by adding quality parameter
+          if (track.artwork.startsWith('http')) {
+            try {
+              const url = new URL(track.artwork);
+              url.searchParams.set('quality', '100');
+              
+              // Additional parameters for common CDNs to force high quality
+              if (url.hostname.includes('saavn') || url.hostname.includes('jiosaavn')) {
+                url.searchParams.set('w', '500');
+                url.searchParams.set('h', '500');
+              }
+              
+              return { uri: url.toString() };
+            } catch (e) {
+              // If URL parsing fails, add quality parameter manually
+              if (track.artwork.includes('?')) {
+                return { uri: `${track.artwork}&quality=100` };
+              } else {
+                return { uri: `${track.artwork}?quality=100` };
+              }
+            }
+          }
+          
           return { uri: track.artwork };
         }
         
         // If we reach here, local song has no valid artwork, use animated GIF
         return getGifSource();
       } else {
-        // For online songs, use the artwork or fallback to loading GIF
+        // For online songs, use the highest quality artwork or fallback to loading GIF
         if (track.artwork && typeof track.artwork === 'string' && track.artwork.trim() !== '') {
+          // Always use highest quality for remote URLs
+          if (track.artwork.startsWith('http')) {
+            try {
+              const url = new URL(track.artwork);
+              // Set quality to maximum
+              url.searchParams.set('quality', '100');
+              
+              // Special handling for JioSaavn and similar CDNs
+              if (track.artwork.includes('saavncdn.com')) {
+                // Replace any size with 500x500
+                const highQualitySaavnUrl = track.artwork.replace(/50x50|150x150|500x500/g, '500x500');
+                const finalUrl = new URL(highQualitySaavnUrl);
+                return { uri: finalUrl.toString() };
+              }
+              
+              return { uri: url.toString() };
+            } catch (e) {
+              // If URL parsing fails, try direct string replacement
+              if (track.artwork.includes('saavncdn.com')) {
+                return { uri: track.artwork.replace(/50x50|150x150|500x500/g, '500x500') };
+              }
+              
+              // Add quality parameter manually
+              if (track.artwork.includes('?')) {
+                return { uri: `${track.artwork}&quality=100` };
+              } else {
+                return { uri: `${track.artwork}?quality=100` };
+              }
+            }
+          }
           return { uri: track.artwork };
         }
       }
@@ -1818,13 +1953,10 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
       {renderLocalTracksList()}
       <ImageBackground 
         source={
-          // Prevent null sources with explicit fallback
+          // Use our high-quality artwork source function
           isOffline ? getGifSource() :
-          (currentPlaying?.isLocal && currentPlaying?.localArtworkPath) 
-            ? { uri: `file://${currentPlaying.localArtworkPath}` }
-            : currentPlaying?.artwork
-              ? { uri: currentPlaying.artwork }
-              : require('../../Images/loading.gif')
+          currentPlaying ? getArtworkSource(currentPlaying) :
+          require('../../Images/loading.gif')
         }
         style={{ flex: 1 }}
         resizeMode="cover"
@@ -1843,7 +1975,17 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
                   console.error('Error in down arrow press handler:', error);
                 }
               }}
-              style={{ position: 'absolute', top: 20, left: 20, zIndex: 10 }}
+              style={({ pressed }) => [
+                { 
+                  position: 'absolute', 
+                  top: 20, 
+                  left: 20, 
+                  zIndex: 10,
+                  padding: 8,
+                  borderRadius: 20,
+                  backgroundColor: pressed ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+                }
+              ]}
             >
               <Ionicons name="chevron-down" size={30} color="white" />
             </Pressable>
@@ -1854,16 +1996,12 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
            <Spacer height={5} />
             <GestureDetector gesture={combinedGestures}>
               <View>
-                {/* Replace SafeImage with more robust implementation */}
+                {/* Use our high-quality artwork function */}
                 <SafeImage
-                  source={
-                    currentPlaying?.artwork 
-                      ? { uri: currentPlaying.artwork } 
-                      : require('../../Images/loading.gif')
-                  }
-                    style={{ height: width * 0.9, width: width * 0.9, borderRadius: 10 }}
-                    resizeMode={FastImage.resizeMode.contain}
-                  />
+                  source={currentPlaying ? getArtworkSource(currentPlaying) : require('../../Images/loading.gif')}
+                  style={{ height: width * 0.9, width: width * 0.9, borderRadius: 10 }}
+                  resizeMode={FastImage.resizeMode.contain}
+                />
                 <Animated.View style={volumeOverlayStyle}>
                   <Ionicons name={getVolumeIconName()} size={24} color="white" style={{ marginBottom: 10 }} />
                   <View style={volumeBarContainerStyle}>

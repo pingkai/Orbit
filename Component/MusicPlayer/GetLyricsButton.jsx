@@ -6,7 +6,14 @@ import { Pressable } from "react-native";
 export const GetLyricsButton = ({ onPress }) => {
   const theme = useTheme()
   return (
-    <Pressable onPress={onPress}>
+    <Pressable 
+      onPress={onPress} 
+      style={({ pressed }) => ({
+        padding: 8,
+        borderRadius: 20,
+        backgroundColor: pressed ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+      })}
+    >
       <MaterialIcons name={"lyrics"} size={25} color={theme.colors.text}/>
     </Pressable>
   );

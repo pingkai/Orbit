@@ -308,7 +308,61 @@ export const DownloadButton = ({
       // Download artwork
       if (song.image && song.image[2]?.url) {
         const artworkPath = `${baseDir}/artwork/${song.id}.jpg`;
-        await safeDownloadFile(song.image[2].url, artworkPath);
+        // Get highest quality image available
+        const highestQualityImage = song.image.reduce((best, current) => {
+          // If current has larger width or height, use it
+          if (!best || 
+              (current.width && best.width && current.width > best.width) || 
+              (current.height && best.height && current.height > best.height)) {
+            return current;
+          }
+          return best;
+        }, null);
+        
+        // Use highest quality or fallback to original logic
+        const imageUrl = highestQualityImage?.url || song.image[2].url;
+        
+        // Add quality=100 parameter if it's a URL
+        let highQualityUrl = imageUrl;
+        if (imageUrl.startsWith('http')) {
+          try {
+            const url = new URL(imageUrl);
+            url.searchParams.set('quality', '100');
+            highQualityUrl = url.toString();
+          } catch (e) {
+            // If URL parsing fails, use original URL
+            highQualityUrl = imageUrl;
+          }
+        }
+        
+        await safeDownloadFile(highQualityUrl, artworkPath);
+      }
+      
+      // Save metadata with highest quality artwork
+      let highQualityArtwork = null;
+      if (song.image) {
+        // Find highest resolution image
+        const highestQualityImage = song.image.reduce((best, current) => {
+          if (!best || 
+              (current.width && best.width && current.width > best.width) || 
+              (current.height && best.height && current.height > best.height)) {
+            return current;
+          }
+          return best;
+        }, null);
+        
+        if (highestQualityImage?.url) {
+          // Add quality parameter
+          try {
+            const url = new URL(highestQualityImage.url);
+            url.searchParams.set('quality', '100');
+            highQualityArtwork = url.toString();
+          } catch (e) {
+            highQualityArtwork = highestQualityImage.url;
+          }
+        } else if (song.image[2]?.url) {
+          highQualityArtwork = song.image[2].url;
+        }
       }
       
       // Save metadata
@@ -318,7 +372,7 @@ export const DownloadButton = ({
         artist: FormatArtist(song.artists?.primary) || 'Unknown',
         album: albumName || 'Unknown',
         url: songUrl,
-        artwork: song.image[2]?.url || null,
+        artwork: highQualityArtwork || (song.image[2]?.url || null),
         duration: song.duration || 0,
         downloadedAt: new Date().toISOString()
       });

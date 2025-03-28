@@ -420,6 +420,43 @@ export const RootRoute = () => {
     asyncFunction();
   }, [Index]);
 
+  // Effect to handle direct navigation to Library tab
+  useEffect(() => {
+    // When Library tab is focused directly (not via back button or internal navigation)
+    const unsubscribe = navigation.addListener('tabPress', e => {
+      if (e.target.includes('Library')) {
+        // Check if we're already on a Library sub-screen
+        const currentState = navigation.getState();
+        if (currentState && currentState.routes) {
+          const libraryTab = currentState.routes.find(route => route.name === 'Library');
+          
+          // If we have nested state in Library tab and it's not the main screen
+          if (libraryTab && 
+              libraryTab.state && 
+              libraryTab.state.routes && 
+              libraryTab.state.routes.length > 0 &&
+              libraryTab.state.routes[0].name !== 'LibraryPage') {
+            
+            // Clear any special navigation flags
+            AsyncStorage.removeItem('came_from_fullscreen_player')
+              .then(() => {
+                console.log('Cleared navigation flags on direct Library tab press');
+              })
+              .catch(error => {
+                console.error('Error clearing navigation flag:', error);
+              });
+            
+            // Navigate to main Library page instead of the sub-screen
+            e.preventDefault();
+            navigation.navigate('Library', { screen: 'LibraryPage' });
+          }
+        }
+      }
+    });
+    
+    return unsubscribe;
+  }, [navigation]);
+
   return (
     <View style={{ flex: 1 }}>
       {Index === 1 ? (

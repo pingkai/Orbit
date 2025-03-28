@@ -23,6 +23,7 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
   const [albumArt, setAlbumArt] = useState(null);
   const navigation = useNavigation();
   const [fullNavPath, setFullNavPath] = useState('');
+  const [isPressed, setIsPressed] = useState(false);
 
   useEffect(() => {
     const fetchAlbumArt = async () => {
@@ -56,19 +57,10 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
   useEffect(() => {
     // Try to identify if we're in the MyMusic page on mount
     try {
-      const currentState = navigation.getState();
-      if (currentState && currentState.routes && currentState.routes.length > 0) {
-        const currentTabRoute = currentState.routes[currentState.index];
-        let navigationPath = currentTabRoute.name;
-        
-        // Check for nested navigation to identify MyMusicPage
-        if (currentTabRoute.name === 'Library' && currentTabRoute.state) {
-          const libraryRoute = currentTabRoute.state.routes[currentTabRoute.state.index];
-          if (libraryRoute.name === 'MyMusicPage') {
-            navigationPath = 'Library/MyMusicPage';
-          }
-        }
+      const navigationPath = getNavigationPath();
+      if (navigationPath) {
         setFullNavPath(navigationPath);
+        console.log('Set fullNavPath on mount:', navigationPath);
       }
     } catch (error) {
       console.warn('Error detecting current route:', error);
@@ -90,73 +82,57 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
     }
   };
 
+  // Handle potential missing fullNavPath state
+  const getNavigationPath = () => {
+    try {
+      // Get current navigation state
+      const currentState = navigation.getState();
+      if (currentState && currentState.routes && currentState.routes.length > 0) {
+        const currentTabRoute = currentState.routes[currentState.index];
+        let navPath = currentTabRoute.name;
+        
+        // Check for Library tab with nested screens
+        if (currentTabRoute.name === 'Library' && currentTabRoute.state) {
+          const libraryRoute = currentTabRoute.state.routes[currentTabRoute.state.index];
+          if (libraryRoute.name === 'MyMusicPage') {
+            return 'Library/MyMusicPage';
+          } else if (libraryRoute.name === 'DownloadScreen') {
+            return 'Library/DownloadScreen';
+          }
+        }
+        
+        // Check for nested screens in any tab
+        if (currentTabRoute.state && currentTabRoute.state.routes) {
+          const activeNestedRoute = currentTabRoute.state.routes[currentTabRoute.state.index];
+          navPath = `${currentTabRoute.name}/${activeNestedRoute.name}`;
+        }
+        
+        return navPath;
+      }
+    } catch (error) {
+      console.log('Error getting navigation path:', error);
+    }
+    
+    // Fallback to using fullNavPath state if available, or a default value
+    return fullNavPath || 'Library/MyMusicPage';
+  };
+
   const handlePress = async () => {
     try {
       // Save current navigation state before opening fullscreen player
       const currentState = navigation.getState();
       if (currentState && currentState.routes && currentState.routes.length > 0) {
-        const currentTabRoute = currentState.routes[currentState.index];
-        let navPath = currentTabRoute.name;
-
-        // Try to get current route name (safer method)
-        let currentRouteName = null;
-        try {
-          // Check if we're in the MyMusicPage by inspecting the navigation state
-          if (currentTabRoute.name === 'Library' && currentTabRoute.state) {
-            const libraryRoute = currentTabRoute.state.routes[currentTabRoute.state.index];
-            currentRouteName = libraryRoute.name;
-            
-            // If we found MyMusicPage, set it explicitly
-            if (currentRouteName === 'MyMusicPage') {
-              console.log('Detected MyMusicPage through navigation state inspection');
-              navPath = 'Library/MyMusicPage';
-              setFullNavPath(navPath);
-              setPreviousScreen(navPath);
-              setMusicPreviousScreen(navPath);
-              console.log('Explicitly set music previous screen to:', navPath);
-            }
-          }
-        } catch (routeError) {
-          console.log('Error trying to get current route name:', routeError);
-        }
+        // Get navigation path reliably using the helper function
+        const navPath = getNavigationPath();
         
-        // If we already identified MyMusicPage, skip the rest of route detection
-        if (navPath === 'Library/MyMusicPage') {
-          // Format tracks and start playback
-          await prepareAndPlayTracks();
-          return;
-        }
-        
-        // If there's a nested navigation state, get the current active route
-        const nestedState = currentTabRoute.state;
-        if (nestedState && nestedState.routes && nestedState.routes.length > 0) {
-          const activeNestedRoute = nestedState.routes[nestedState.index];
-          
-          // Check for deeper nesting (for screens like MyMusicPage in Library)
-          if (activeNestedRoute.state && activeNestedRoute.state.routes && activeNestedRoute.state.routes.length > 0) {
-            const deepNestedRoute = activeNestedRoute.state.routes[activeNestedRoute.state.index];
-            // Store the full navigation path with tab, screen and nested screen
-            navPath = `${currentTabRoute.name}/${activeNestedRoute.name}/${deepNestedRoute.name}`;
-            console.log('LocalMusicCard detected deep nesting:', navPath);
-          } else {
-            // Store the full navigation path (tab/screen)
-            navPath = `${currentTabRoute.name}/${activeNestedRoute.name}`;
-          }
-        }
-        
-        // Save the current screen before opening player to both state variables
-        console.log('Setting music previous screen before player opens:', navPath);
-        // Make sure we're using a consistent path format - remove MainRoute prefix if present
-        if (navPath.startsWith('MainRoute/')) {
-          navPath = navPath.replace('MainRoute/', '');
-          console.log('Cleaned MainRoute prefix from path:', navPath);
-        }
-        setFullNavPath(navPath);
-        setPreviousScreen(navPath);
+        // Store the navigation path only in the required context variables
+        // Don't use setFullNavPath (it might be undefined)
+        console.log('Setting navigation path for local music:', navPath);
+        setPreviousScreen(navPath);  
         setMusicPreviousScreen(navPath);
       }
 
-      // If we get here, proceed with normal playback
+      // Proceed with normal playback
       await prepareAndPlayTracks();
     } catch (error) {
       console.error('Error playing track:', error);
@@ -164,7 +140,8 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
       // Fallback method if the normal approach fails
       try {
         const song = allSongs[index];
-        const isFromMyMusic = fullNavPath === 'Library/MyMusicPage';
+        // Get source type using reliable method instead of fullNavPath
+        const isFromMyMusic = getNavigationPath().includes('MyMusicPage');
         
         // Ensure we have a valid artwork that won't cause type issues
         let artwork;
@@ -227,8 +204,9 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
   // Helper function to prepare and play tracks
   const prepareAndPlayTracks = async () => {
     try {
-      // Check if we're in the MyMusic page
-      const isFromMyMusic = fullNavPath === 'Library/MyMusicPage';
+      // Check if we're in the MyMusic page using reliable method
+      const navPath = getNavigationPath();
+      const isFromMyMusic = navPath.includes('MyMusicPage');
       console.log('Playing from MyMusic:', isFromMyMusic);
 
       // Ensure we have allSongs before proceeding
@@ -247,7 +225,7 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
         };
         
         if (!singleTrack.url) {
-          console.error('Cannot play track: Missing file path');
+          console.error('No URL available for track');
           return;
         }
         
@@ -258,13 +236,18 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
         return;
       }
       
-      // Format all tracks for the queue
+      // Get the index of the current song in the array
+      const songIndex = allSongs.findIndex(s => s.id === song.id);
+      if (songIndex === -1) {
+        console.error('Song not found in queue');
+        return;
+      }
+      
+      // Format tracks for the queue
       const formattedTracks = allSongs.map(track => {
-        if (!track) return null;
-        
         return {
-          id: track.id || String(Math.random()),
-          url: track.url || (track.path ? `file://${track.path}` : null),
+          id: track.id,
+          url: track.url || `file://${track.path}`,
           title: formatTitle(track.title),
           artist: formatArtist(track.artist),
           artwork: getArtworkForTrack(track),
@@ -273,36 +256,28 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
         };
       }).filter(track => track && track.url); // Remove any invalid tracks
       
-      if (formattedTracks.length === 0) {
-        console.error('No valid tracks to play');
-        return;
-      }
-      
-      // Reset player and add all tracks
+      // Reset the queue and add tracks
       await TrackPlayer.reset();
       
-      // Make sure the index is valid for the filtered array
-      const validIndex = Math.min(index || 0, formattedTracks.length - 1);
-      
-      // Add all tracks to queue, starting with the selected one
-      const tracksToAdd = [
-        ...formattedTracks.slice(validIndex),
-        ...formattedTracks.slice(0, validIndex)
-      ];
-      
-      await TrackPlayer.add(tracksToAdd);
+      // Add tracks to queue, starting from the selected track
+      await TrackPlayer.add([
+        ...formattedTracks.slice(songIndex), // Current song and those after it
+        ...formattedTracks.slice(0, songIndex) // Songs before the current one
+      ]);
       
       // Start playback
       await TrackPlayer.play();
       
-      // Open the fullscreen player
+      // Open fullscreen player
       setIndex(1);
     } catch (error) {
       console.error('Error in prepareAndPlayTracks:', error);
-      
+
       // Fallback to playing just this song on error
       try {
-        const isFromMyMusic = fullNavPath === 'Library/MyMusicPage';
+        const navPath = getNavigationPath();
+        const isFromMyMusic = navPath.includes('MyMusicPage');
+        
         const singleTrack = {
           id: song.id || String(Math.random()),
           url: song.url || (song.path ? `file://${song.path}` : null),
@@ -312,15 +287,17 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
           isLocal: true,
           sourceType: isFromMyMusic ? 'mymusic' : 'download'
         };
-        
+
         if (singleTrack.url) {
           await TrackPlayer.reset();
           await TrackPlayer.add(singleTrack);
           await TrackPlayer.play();
           setIndex(1);
+        } else {
+          console.error('No URL available for track');
         }
       } catch (fallbackError) {
-        console.error('Even fallback playback failed:', fallbackError);
+        console.error('Final fallback failed:', fallbackError);
       }
     }
   };
@@ -329,9 +306,35 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
   const getArtworkForTrack = (track) => {
     // Ensure we have a valid artwork that won't cause type issues
     if (track.cover && typeof track.cover === 'string' && track.cover.trim() !== '') {
+      // For online streaming tracks - ensure highest quality
+      if (track.cover.startsWith('http')) {
+        // Find quality parameter
+        try {
+          const url = new URL(track.cover);
+          
+          // Always use the highest quality (100)
+          url.searchParams.set('quality', '100');
+          
+          // Force image CDN to provide highest resolution 
+          if (url.hostname.includes('saavn') || url.hostname.includes('jiosaavn')) {
+            url.searchParams.set('w', '500');
+            url.searchParams.set('h', '500');
+          }
+          
+          return { uri: url.toString() };
+        } catch (e) {
+          // If URL parsing fails, use original URL at highest quality
+          if (track.cover.includes('?')) {
+            // If URL already has parameters, add quality=100
+            return { uri: `${track.cover}&quality=100` };
+          } else {
+            return { uri: `${track.cover}?quality=100` };
+          }
+        }
+      }
       return { uri: track.cover };
     } else {
-      // Use static Music.jpeg image instead of animated GIFs in list view
+      // Use static Music.jpeg image
       return DEFAULT_MUSIC_IMAGE;
     }
   };
@@ -348,14 +351,20 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
     } else if (song.cover && typeof song.cover === 'string' && song.cover.trim() !== '') {
       return { uri: song.cover };
     } else {
-      // Use animated GIF from artwork function
-      return getArtworkForTrack(song);
+      return DEFAULT_MUSIC_IMAGE;
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Pressable onPress={handlePress} style={styles.songInfo}>
+    <Pressable 
+      onPress={handlePress} 
+      style={({pressed}) => [
+        styles.container,
+        pressed && {backgroundColor: 'rgba(255,255,255,0.12)'}
+      ]}
+      android_ripple={{color: 'rgba(255,255,255,0.15)'}}
+    >
+      <View style={styles.songInfo}>
         <View style={styles.imageContainer}>
           <FastImage 
             source={getImageSource()}
@@ -369,8 +378,6 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
             style={styles.title} 
             numberOfLines={1} 
             ellipsizeMode="tail"
-            songId={song.id}
-            isSongTitle={true}
           />
           <SmallText 
             text={formatArtist(song.artist)} 
@@ -379,7 +386,7 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
             ellipsizeMode="tail"
           />
         </View>
-      </Pressable>
+      </View>
       <Pressable 
         ref={menuButtonRef}
         onPress={handleMenuPress}
@@ -388,21 +395,11 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
       >
         <MaterialCommunityIcons name="dots-vertical" size={24} color="white"/>
       </Pressable>
-    </View>
+    </Pressable>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    marginHorizontal: 8,
-    marginVertical: 4,
-    borderRadius: 8,
-  },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -410,6 +407,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderBottomWidth: 0.5,
     borderBottomColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'space-between',
   },
   songInfo: {
     flex: 1,
