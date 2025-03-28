@@ -10,6 +10,12 @@ import { InitialScreen } from "./Route/InitialScreen";
 import CodePush from "react-native-code-push";
 import { useEffect, useRef} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+// Import Firebase
+import firebase from '@react-native-firebase/app';
+// Import analytics
+import analytics from '@react-native-firebase/analytics';
+// Import analytics service
+import { analyticsService, AnalyticsEvents } from './Utils/AnalyticsUtils';
 
 const Stack = createStackNavigator()
 let codePushOptions = { checkFrequency: CodePush.CheckFrequency.ON_APP_START };
@@ -50,6 +56,21 @@ function App(){
     };
     
     initializeUserPlaylists();
+  }, []);
+  
+  // Initialize Firebase Analytics
+  useEffect(() => {
+    // Set analytics collection enabled (can be toggled for GDPR compliance)
+    analytics().setAnalyticsCollectionEnabled(true);
+    
+    // Enable debug mode in development
+    if (__DEV__) {
+      console.log('Firebase Analytics debug mode enabled');
+    }
+    
+    // Log app open event
+    analyticsService.logEvent(AnalyticsEvents.APP_OPEN);
+    console.log('Firebase Analytics initialized');
   }, []);
   
   useEffect(()=>{
@@ -111,6 +132,8 @@ function App(){
         const currentRouteName = navigationRef.current?.getCurrentRoute()?.name;
         if (currentRouteName) {
           console.log("Current screen:", currentRouteName);
+          // Log screen view to Firebase Analytics
+          analyticsService.logScreenView(currentRouteName);
         }
       }}
       fallback={<InitialScreen navigation={undefined as any} />}

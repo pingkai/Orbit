@@ -9,6 +9,7 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation } from '@react-navigation/native';
 import { StorageManager } from '../../Utils/StorageManager';
 import { safePath, safeExists } from '../../Utils/FileUtils';
+import { analyticsService } from '../../Utils/AnalyticsUtils';
 
 // Hard-coded colors until we find the correct import
 const AppColors = {
@@ -31,6 +32,9 @@ export default function DownloadScreen(props) {
 
   useEffect(() => {
     getDownloadedSongs();
+    
+    // Track active user for analytics
+    analyticsService.trackActiveUser();
 
     // Add back handler to properly navigate back to Library instead of Home
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -179,6 +183,9 @@ export default function DownloadScreen(props) {
         
         if (allMetadata && Object.keys(allMetadata).length > 0) {
           console.log(`Found ${Object.keys(allMetadata).length} songs in StorageManager`);
+          
+          // Track download count for analytics
+          analyticsService.trackDownloadCount(Object.keys(allMetadata).length);
           
           // Format tracks with metadata
           const formattedTracks = await Promise.all(

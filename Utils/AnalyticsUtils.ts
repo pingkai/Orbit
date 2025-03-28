@@ -1,0 +1,158 @@
+import analytics from '@react-native-firebase/analytics';
+
+// Analytics event types
+export enum AnalyticsEvents {
+  APP_OPEN = 'app_open',
+  USER_LOGIN = 'user_login',
+  USER_SIGNUP = 'user_signup',
+  SONG_PLAY = 'song_play',
+  PLAYLIST_CREATE = 'playlist_create',
+  PLAYLIST_ADD_SONG = 'playlist_add_song',
+  SEARCH = 'search',
+  DOWNLOAD_START = 'download_start',
+  DOWNLOAD_COMPLETE = 'download_complete',
+  SHARE = 'share',
+}
+
+// Analytics user properties
+export enum UserProperties {
+  USER_THEME = 'user_theme',
+  LANGUAGE = 'language',
+  SUBSCRIPTION_STATUS = 'subscription_status',
+}
+
+class AnalyticsService {
+  /**
+   * Log a screen view event
+   * @param screenName The name of the screen
+   * @param screenClass The class of the screen (optional)
+   */
+  logScreenView = async (screenName: string, screenClass?: string) => {
+    try {
+      await analytics().logScreenView({
+        screen_name: screenName,
+        screen_class: screenClass || screenName,
+      });
+      console.log(`Screen view logged: ${screenName}`);
+    } catch (error) {
+      console.error('Error logging screen view:', error);
+    }
+  };
+
+  /**
+   * Log a custom event
+   * @param eventName The name of the event
+   * @param params Additional parameters for the event
+   */
+  logEvent = async (eventName: string, params?: Record<string, any>) => {
+    try {
+      await analytics().logEvent(eventName, params);
+      console.log(`Event logged: ${eventName}`, params);
+    } catch (error) {
+      console.error(`Error logging event ${eventName}:`, error);
+    }
+  };
+
+  /**
+   * Set a user property
+   * @param name The name of the property
+   * @param value The value of the property
+   */
+  setUserProperty = async (name: string, value: string) => {
+    try {
+      await analytics().setUserProperty(name, value);
+      console.log(`User property set: ${name}=${value}`);
+    } catch (error) {
+      console.error(`Error setting user property ${name}:`, error);
+    }
+  };
+
+  /**
+   * Log when a user plays a song
+   * @param songId The ID of the song
+   * @param songName The name of the song
+   * @param artistName The name of the artist
+   */
+  logSongPlay = (songId: string, songName: string, artistName: string) => {
+    this.logEvent(AnalyticsEvents.SONG_PLAY, {
+      song_id: songId,
+      song_name: songName,
+      artist_name: artistName,
+      timestamp: Date.now(),
+    });
+  };
+
+  /**
+   * Log when a user downloads a song or album
+   * @param contentId The ID of the content
+   * @param contentType The type of content ('song' or 'album')
+   * @param contentName The name of the content
+   */
+  logDownloadStart = (contentId: string, contentType: 'song' | 'album', contentName: string) => {
+    this.logEvent(AnalyticsEvents.DOWNLOAD_START, {
+      content_id: contentId,
+      content_type: contentType,
+      content_name: contentName,
+      timestamp: Date.now(),
+    });
+  };
+
+  /**
+   * Log when a download completes
+   * @param contentId The ID of the content
+   * @param contentType The type of content ('song' or 'album')
+   * @param contentName The name of the content
+   * @param success Whether the download was successful
+   */
+  logDownloadComplete = (
+    contentId: string, 
+    contentType: 'song' | 'album', 
+    contentName: string,
+    success: boolean
+  ) => {
+    this.logEvent(AnalyticsEvents.DOWNLOAD_COMPLETE, {
+      content_id: contentId,
+      content_type: contentType,
+      content_name: contentName,
+      success,
+      timestamp: Date.now(),
+    });
+  };
+
+  /**
+   * Log search events
+   * @param query The search query
+   * @param resultsCount The number of results
+   */
+  logSearch = (query: string, resultsCount: number) => {
+    this.logEvent(AnalyticsEvents.SEARCH, {
+      search_term: query,
+      results_count: resultsCount,
+    });
+  };
+
+  /**
+   * Track total downloaded content count
+   * This helps monitor how many songs users have downloaded in total
+   * @param count The total number of downloaded items
+   */
+  trackDownloadCount = (count: number) => {
+    this.logEvent('download_count', {
+      count,
+      timestamp: Date.now()
+    });
+  };
+
+  /**
+   * Track active users
+   * Call this function periodically to record active users
+   */
+  trackActiveUser = () => {
+    this.logEvent('active_user', {
+      timestamp: Date.now()
+    });
+  };
+}
+
+// Export a singleton instance
+export const analyticsService = new AnalyticsService(); 

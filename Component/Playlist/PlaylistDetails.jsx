@@ -86,49 +86,97 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
   // Check if this playlist is currently playing
   const checkPlaybackState = async () => {
     try {
-      // Check if player is playing
+      // Get the current player state - check if playing or paused
       const playerState = await TrackPlayer.getState();
       const isPlayerPlaying = playerState === TrackPlayer.STATE_PLAYING;
+      const currentTrackIndex = await TrackPlayer.getCurrentTrack();
       
-      // Check if current track is from this playlist
-      if (isPlayerPlaying && currentPlaying) {
-        const queue = await TrackPlayer.getQueue();
-        const playlistSongs = Data?.data?.songs || [];
-        
-        // Create a set of playlist song IDs for faster lookup
-        const playlistSongIds = new Set();
-        playlistSongs.forEach(song => {
-          if (song && song.id) {
-            playlistSongIds.add(song.id);
-          }
-        });
-        
-        // Check if any queue item is from this playlist
-        const isPlaylistPlaying = queue.some(track => 
-          playlistSongIds.has(track.id)
-        );
-        
-        setIsPlaying(isPlaylistPlaying);
-      } else {
+      // If no track is playing, definitely not playing
+      if (currentTrackIndex === null) {
         setIsPlaying(false);
+        return;
       }
+      
+      // Get current track and queue
+      const currentTrack = await TrackPlayer.getTrack(currentTrackIndex);
+      const queue = await TrackPlayer.getQueue();
+      const playlistSongs = Data?.data?.songs || [];
+      
+      // Direct match by playlist ID - most reliable approach
+      if (currentTrack && currentTrack.playlistId && 
+         (currentTrack.playlistId === id || currentTrack.playlistId === playlistId)) {
+        setIsPlaying(isPlayerPlaying);
+        return;
+      }
+      
+      // If current track doesn't have playlistId, check if any song in the queue has a matching ID
+      // Create a set of playlist song IDs for faster lookup
+      const playlistSongIds = new Set();
+      playlistSongs.forEach(song => {
+        if (song && song.id) {
+          playlistSongIds.add(song.id);
+        }
+      });
+      
+      // Check if current track's ID is in our playlist
+      if (currentTrack && currentTrack.id && playlistSongIds.has(currentTrack.id)) {
+        setIsPlaying(isPlayerPlaying);
+        return;
+      }
+      
+      // Last resort: check if any song in the queue is from this playlist
+      const isPlaylistInQueue = queue.some(track => {
+        return (track.playlistId === id || track.playlistId === playlistId) || 
+               playlistSongIds.has(track.id);
+      });
+      
+      // Only playing if the player is playing AND a playlist song is in the queue
+      setIsPlaying(isPlayerPlaying && isPlaylistInQueue);
     } catch (error) {
       console.error("Error checking playback state:", error);
       setIsPlaying(false);
     }
   };
   
-  // Setup listener for track changes
+  // Setup listeners for track changes and playback state
   useEffect(() => {
+    // Initial check
     checkPlaybackState();
     
-    const playerStateListener = TrackPlayer.addEventListener(
+    // Create a single function to handle all state updates
+    const updatePlaybackState = () => {
+      setTimeout(() => {
+        checkPlaybackState();
+      }, 50); // Small delay to ensure TrackPlayer state is updated
+    };
+    
+    // Set up listeners for various TrackPlayer events
+    const stateListener = TrackPlayer.addEventListener(
       'playback-state',
-      () => checkPlaybackState()
+      updatePlaybackState
     );
     
-    return () => playerStateListener.remove();
-  }, [currentPlaying, Data]);
+    const trackChangeListener = TrackPlayer.addEventListener(
+      'playback-track-changed',
+      updatePlaybackState
+    );
+    
+    const queueListener = TrackPlayer.addEventListener(
+      'playback-queue-ended',
+      updatePlaybackState
+    );
+    
+    // Also set up an interval to periodically check state
+    // This helps catch any edge cases where events might be missed
+    const intervalCheck = setInterval(updatePlaybackState, 3000);
+    
+    return () => {
+      stateListener.remove();
+      trackChangeListener.remove();
+      queueListener.remove();
+      clearInterval(intervalCheck);
+    };
+  }, [Data, id, playlistId]);
   
   useEffect(() => {
     const loadPlaylistData = async () => {
@@ -188,7 +236,50 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
     try {
       // If already playing, pause playback
       if (isPlaying) {
+        console.log("Pausing playback since playlist is currently playing");
         await TrackPlayer.pause();
+        setIsPlaying(false);
+        return;
+      }
+      
+      // Check if current track is from this playlist but paused
+      const currentTrackIndex = await TrackPlayer.getCurrentTrack();
+      const queue = await TrackPlayer.getQueue();
+      const playlistSongs = Data?.data?.songs || [];
+      
+      // Create a set of playlist song IDs for faster lookup
+      const playlistSongIds = new Set();
+      playlistSongs.forEach(song => {
+        if (song && song.id) {
+          playlistSongIds.add(song.id);
+        }
+      });
+      
+      // First check if the currently loaded track is from this playlist
+      let isPlaylistTrackCurrent = false;
+      
+      if (currentTrackIndex !== null) {
+        const currentTrack = await TrackPlayer.getTrack(currentTrackIndex);
+        if (currentTrack) {
+          if (currentTrack.playlistId === id || currentTrack.playlistId === playlistId) {
+            isPlaylistTrackCurrent = true;
+          } else if (playlistSongIds.has(currentTrack.id)) {
+            isPlaylistTrackCurrent = true;
+          }
+        }
+      }
+      
+      // Check if any queue item is from this playlist
+      const isPlaylistInQueue = queue.some(track => 
+        (track.playlistId === id || track.playlistId === playlistId) || 
+        playlistSongIds.has(track.id)
+      );
+      
+      if (isPlaylistTrackCurrent || isPlaylistInQueue) {
+        console.log("Playlist already in queue, resuming playback");
+        // Resume playback if playlist is already in queue but paused
+        await TrackPlayer.play();
+        setIsPlaying(true);
         return;
       }
       
@@ -226,6 +317,8 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
           id: e?.id || `unknown-${i}`,
           language: e?.language || "",
           artistID: e?.primary_artists_id || e?.artist_id || "",
+          // Include playlist ID for tracking which playlist a song belongs to
+          playlistId: id || playlistId || "",
           // Include basic info for debugging
           downloadUrl: e?.downloadUrl || e?.download_url || [],
         });
@@ -235,11 +328,17 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
       
       if (ForMusicPlayer.length === 0) {
         console.log("No valid tracks to play");
+        setLoading(false);
         return;
       }
       
       // Use AddPlaylist function to play the songs
       await AddPlaylist(ForMusicPlayer);
+      
+      // Set isPlaying to true immediately after starting playback
+      console.log("Playlist started playing, updating state");
+      setIsPlaying(true);
+      
       updateTrack();
       console.log("Successfully added songs to player");
     } catch (error) {
@@ -290,6 +389,8 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
               onPress={AddToPlayer}
               Loading={loading}
               isPlaying={isPlaying}
+              size="normal"
+              playlistId={id || playlistId}
             />
           </View>
         </LinearGradient>

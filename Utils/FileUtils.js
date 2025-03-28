@@ -1,4 +1,5 @@
 import * as RNFS from 'react-native-fs';
+import { analyticsService, AnalyticsEvents } from './AnalyticsUtils';
 
 /**
  * Ensures that a path is converted to a string, with fallbacks for object paths
@@ -247,6 +248,43 @@ export const safeDownloadFile = async (url, path) => {
     }
   } catch (error) {
     console.error('Error in safeDownloadFile:', error);
+    return false;
+  }
+};
+
+/**
+ * Downloads a file with analytics tracking
+ * @param {string} url - URL to download from
+ * @param {any} path - Path to save to
+ * @param {Object} metadata - Metadata about the content being downloaded
+ * @returns {Promise<boolean>} True if successfully downloaded
+ */
+export const downloadFileWithAnalytics = async (url, path, metadata = {}) => {
+  const { id, name, type = 'song' } = metadata;
+  
+  try {
+    // Track download start
+    if (id && name) {
+      analyticsService.logDownloadStart(id, type, name);
+    }
+    
+    // Perform the download
+    const success = await safeDownloadFile(url, path);
+    
+    // Track download completion
+    if (id && name) {
+      analyticsService.logDownloadComplete(id, type, name, success);
+    }
+    
+    return success;
+  } catch (error) {
+    console.error('Error in downloadFileWithAnalytics:', error);
+    
+    // Track failed download
+    if (id && name) {
+      analyticsService.logDownloadComplete(id, type, name, false);
+    }
+    
     return false;
   }
 };
