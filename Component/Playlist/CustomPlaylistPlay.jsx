@@ -3,7 +3,6 @@ import { TouchableOpacity, Text, View, StyleSheet } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import TrackPlayer from 'react-native-track-player';
 import Context from '../../Context/Context';
-import { DownloadButton } from '../Global/DownloadButton';
 
 export const CustomPlaylistPlay = ({ onPress, songs = [], playlistId = '', playlistName = 'Playlist' }) => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -66,9 +65,12 @@ export const CustomPlaylistPlay = ({ onPress, songs = [], playlistId = '', playl
   const handlePress = async () => {
     try {
       if (isPlaying) {
+        // If this playlist is currently playing, just pause it
         await TrackPlayer.pause();
       } else {
-        onPress && onPress();
+        // If this playlist is not playing, trigger the onPress handler
+        // which will replace the current queue with this playlist's songs
+        onPress && onPress(true); // Pass true to indicate we want to force-play
       }
     } catch (error) {
       console.error('Error toggling playback:', error);
@@ -85,15 +87,6 @@ export const CustomPlaylistPlay = ({ onPress, songs = [], playlistId = '', playl
         <Ionicons name={isPlaying ? "pause" : "play"} size={20} color="#000000" />
         <Text style={styles.playButtonText}>{isPlaying ? 'Pause' : 'Play'}</Text>
       </TouchableOpacity>
-      
-      {/* Download button */}
-      <View style={styles.downloadButtonContainer}>
-        <DownloadButton 
-          songs={songs} 
-          albumName={playlistName}
-          size="normal"
-        />
-      </View>
     </View>
   );
 };
@@ -124,9 +117,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     marginLeft: 8,
-  },
-  downloadButtonContainer: {
-    marginLeft: 4,
-    paddingVertical: 4,
   },
 }); 

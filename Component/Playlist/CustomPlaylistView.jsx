@@ -17,7 +17,6 @@ import { getUserPlaylists, clearPlaylistCache } from '../../Utils/PlaylistManage
 import { Animated } from 'react';
 import { SmallText } from '../Global/SmallText';
 import { CustomPlaylistPlay } from './CustomPlaylistPlay';
-import { DownloadButton } from '../Global/DownloadButton';
 
 // Default image constant moved outside component to prevent re-creation
 const DEFAULT_MUSIC_IMAGE = require('../../Images/default.jpg');
@@ -544,7 +543,7 @@ export const CustomPlaylistView = (props) => {
   }, []);
   
   // Function to add all songs to the queue (optimized version)
-  const AddAllSongsToQueue = useCallback(async () => {
+  const AddAllSongsToQueue = useCallback(async (forcePlay = false) => {
     try {
       if (!Songs || Songs.length === 0) {
         console.log('No songs to play');
@@ -554,8 +553,8 @@ export const CustomPlaylistView = (props) => {
       // Show toast first for quick feedback
       ToastAndroid.show('Adding songs to queue...', ToastAndroid.SHORT);
       
-      if (isPlaying) {
-        // If already playing, pause playback
+      // If already playing but not force play, just pause
+      if (isPlaying && !forcePlay) {
         await TrackPlayer.pause();
         return;
       }
@@ -563,42 +562,44 @@ export const CustomPlaylistView = (props) => {
       // Process tracks in a separate task
       setTimeout(async () => {
         try {
-          // Check if queue is empty
-          const queue = await TrackPlayer.getQueue();
+          // Format all tracks in chunks for better performance
+          let allFormattedTracks = [];
+          const chunkSize = 50; // Process 50 songs at a time
           
-          if (queue.length === 0) {
-            // Format all tracks in chunks for better performance
-            let allFormattedTracks = [];
-            const chunkSize = 50; // Process 50 songs at a time
+          for (let i = 0; i < Songs.length; i += chunkSize) {
+            const chunk = Songs.slice(i, i + chunkSize);
+            const formattedChunk = chunk.map(formatTrack);
+            allFormattedTracks = [...allFormattedTracks, ...formattedChunk];
             
-            for (let i = 0; i < Songs.length; i += chunkSize) {
-              const chunk = Songs.slice(i, i + chunkSize);
-              const formattedChunk = chunk.map(formatTrack);
-              allFormattedTracks = [...allFormattedTracks, ...formattedChunk];
-              
-              // Small pause between chunks to keep UI responsive
-              if (i + chunkSize < Songs.length) {
-                await new Promise(resolve => setTimeout(resolve, 50));
-              }
+            // Small pause between chunks to keep UI responsive
+            if (i + chunkSize < Songs.length) {
+              await new Promise(resolve => setTimeout(resolve, 50));
             }
-            
-            console.log(`Adding ${allFormattedTracks.length} tracks to queue`);
-            
-            // Reset queue and add all songs
-            await TrackPlayer.reset();
-            await TrackPlayer.add(allFormattedTracks);
-            await TrackPlayer.play();
-          } else {
-            // Resume playback if there are tracks in queue
-            await TrackPlayer.play();
           }
           
-          // Update context if needed
+          console.log(`Adding ${allFormattedTracks.length} tracks to queue`);
+          
+          // Always reset queue and add all songs when playing a playlist
+          await TrackPlayer.reset();
+          await TrackPlayer.add(allFormattedTracks);
+          await TrackPlayer.play();
+          
+          // Update Context state to reflect only songs from this playlist
+          if (setQueue) {
+            setQueue(allFormattedTracks);
+          }
+          
+          // Update currentPlaying in Context if needed
+          if (allFormattedTracks.length > 0 && setCurrentPlaying) {
+            setCurrentPlaying(allFormattedTracks[0]);
+          }
+          
+          // Update track in Context if needed
           if (updateTrack) {
             updateTrack();
           }
           
-          ToastAndroid.show('Playing all songs', ToastAndroid.SHORT);
+          ToastAndroid.show('Playing playlist', ToastAndroid.SHORT);
         } catch (innerError) {
           console.error('Error processing songs:', innerError);
           ToastAndroid.show('Failed to play all songs', ToastAndroid.SHORT);
@@ -608,7 +609,7 @@ export const CustomPlaylistView = (props) => {
       console.error('Error playing songs:', error);
       ToastAndroid.show('Failed to play songs: ' + error.message, ToastAndroid.SHORT);
     }
-  }, [Songs, updateTrack, isPlaying]);
+  }, [Songs, updateTrack, isPlaying, formatTrack, setQueue, setCurrentPlaying]);
   
   // Memoized function to format a track for playback
   const formatTrack = useCallback((track) => {
@@ -763,9 +764,21 @@ export const CustomPlaylistView = (props) => {
               return;
             }
             
+            // Always reset the queue, regardless of its current state
             await TrackPlayer.reset();
             await TrackPlayer.add(tracksToPlay);
             await TrackPlayer.play();
+            
+            // Update Context state to reflect only the playlist songs from this point onward
+            if (setQueue) {
+              setQueue(tracksToPlay);
+            }
+            
+            // Update the currently playing track in the Context
+            if (tracksToPlay.length > 0 && setCurrentPlaying) {
+              setCurrentPlaying(tracksToPlay[0]);
+            }
+            
             if (updateTrack) updateTrack();
           } catch (innerError) {
             console.error('Error playing song in background:', innerError);
@@ -813,15 +826,6 @@ export const CustomPlaylistView = (props) => {
         </View>
         
         <View style={styles.songControls}>
-          {/* Download button */}
-          <DownloadButton 
-            songs={[item]} 
-            albumName={playlistName}
-            size="small"
-            individual={true}
-            songId={item.id}
-          />
-          
           {/* Options button */}
           <Pressable
             onPress={handleOptions}
@@ -833,7 +837,7 @@ export const CustomPlaylistView = (props) => {
         </View>
       </Pressable>
     );
-  }, [currentPlaying, Songs, getSafeImageSource, updateTrack, formatTrack, truncateText, playlistName]);
+  }, [currentPlaying, Songs, getSafeImageSource, updateTrack, formatTrack, truncateText, playlistName, setQueue, setCurrentPlaying]);
   
   // Memoized function to get a key extractor for the FlatList
   const keyExtractor = useCallback((item, index) => `song-${item.id || index}-${index}`, []);
@@ -956,10 +960,38 @@ export const CustomPlaylistView = (props) => {
                 onPress={async () => {
                   setMenuVisible(false);
                   try {
+                    // Get the current queue and track index
                     const queue = await TrackPlayer.getQueue();
                     const currentIndex = await TrackPlayer.getCurrentTrack();
-                    await TrackPlayer.add([formatTrack(selectedSong)], currentIndex + 1);
-                    ToastAndroid.show('Added to play next', ToastAndroid.SHORT);
+                    
+                    if (currentIndex !== null && currentIndex >= 0) {
+                      // Insert the song right after the current track
+                      const formattedTrack = formatTrack(selectedSong);
+                      await TrackPlayer.add([formattedTrack], currentIndex + 1);
+                      
+                      // Update the Context's queue if available
+                      if (setQueue && Queue) {
+                        // Create a new queue array with the selected song inserted after the current track
+                        const newQueue = [...Queue];
+                        newQueue.splice(currentIndex + 1, 0, formattedTrack);
+                        setQueue(newQueue);
+                      }
+                      
+                      ToastAndroid.show('Added to play next', ToastAndroid.SHORT);
+                    } else {
+                      // If no track is currently playing, just reset and play this song
+                      const formattedTrack = formatTrack(selectedSong);
+                      await TrackPlayer.reset();
+                      await TrackPlayer.add([formattedTrack]);
+                      await TrackPlayer.play();
+                      
+                      // Update Context
+                      if (setQueue) setQueue([formattedTrack]);
+                      if (setCurrentPlaying) setCurrentPlaying(formattedTrack);
+                      if (updateTrack) updateTrack();
+                      
+                      ToastAndroid.show('Now playing', ToastAndroid.SHORT);
+                    }
                   } catch (error) {
                     console.error('Error adding song to play next:', error);
                     ToastAndroid.show('Failed to add song', ToastAndroid.SHORT);

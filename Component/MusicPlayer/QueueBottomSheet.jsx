@@ -5,8 +5,6 @@ import { PlainText } from "../Global/PlainText";
 import { SmallText } from "../Global/SmallText";
 import { View, StyleSheet, Dimensions, Text, ActivityIndicator } from "react-native";
 import Octicons from "react-native-vector-icons/Octicons";
-import { DeviceEventEmitter } from "react-native";
-import { FadeIn, FadeOut } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');

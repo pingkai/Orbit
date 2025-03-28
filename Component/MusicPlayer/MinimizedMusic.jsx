@@ -17,6 +17,42 @@ import NetInfo from "@react-native-community/netinfo";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+// Function to get high quality artwork URL
+const getHighQualityArtwork = (artworkUrl) => {
+  if (!artworkUrl) return "https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png";
+  
+  try {
+    // For local files, return as is
+    if (artworkUrl.startsWith('file://')) {
+      return artworkUrl;
+    }
+    
+    // Special handling for JioSaavn CDN
+    if (artworkUrl.includes('saavncdn.com')) {
+      // Replace any size with 500x500 for highest quality
+      return artworkUrl.replace(/50x50|150x150|500x500/g, '500x500');
+    }
+    
+    // For other URLs, try to add quality parameter
+    try {
+      const url = new URL(artworkUrl);
+      // Set quality to maximum
+      url.searchParams.set('quality', '100');
+      return url.toString();
+    } catch (e) {
+      // If URL parsing fails, try direct string manipulation
+      if (artworkUrl.includes('?')) {
+        return `${artworkUrl}&quality=100`;
+      } else {
+        return `${artworkUrl}?quality=100`;
+      }
+    }
+  } catch (error) {
+    console.error('Error processing artwork URL:', error);
+    return artworkUrl; // Return original URL as fallback
+  }
+};
+
 export const MinimizedMusic = memo(({setIndex, color}) => {
   const { position, duration } = useProgress()
   const { setPreviousScreen, setMusicPreviousScreen, setCurrentPlaylistData } = useContext(Context);
@@ -309,7 +345,7 @@ export const MinimizedMusic = memo(({setIndex, color}) => {
           }}>
             <FastImage
               source={{
-                uri: currentPlaying?.artwork ?? "https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png",
+                uri: getHighQualityArtwork(currentPlaying?.artwork),
               }}
               style={{
                 height: (size *  0.1) - 30,

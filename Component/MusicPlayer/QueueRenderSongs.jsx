@@ -11,6 +11,42 @@ import { SkipToTrack } from "../../MusicPlayerFunctions";
 import NetInfo from "@react-native-community/netinfo";
 import { StorageManager } from '../../Utils/StorageManager';
 
+// Function to get high quality artwork URL
+const getHighQualityArtwork = (artworkUrl) => {
+  if (!artworkUrl) return null;
+  
+  try {
+    // For local files, return as is
+    if (artworkUrl.startsWith('file://')) {
+      return artworkUrl;
+    }
+    
+    // Special handling for JioSaavn CDN
+    if (artworkUrl.includes('saavncdn.com')) {
+      // Replace any size with 500x500 for highest quality
+      return artworkUrl.replace(/50x50|150x150|500x500/g, '500x500');
+    }
+    
+    // For other URLs, try to add quality parameter
+    try {
+      const url = new URL(artworkUrl);
+      // Set quality to maximum
+      url.searchParams.set('quality', '100');
+      return url.toString();
+    } catch (e) {
+      // If URL parsing fails, try direct string manipulation
+      if (artworkUrl.includes('?')) {
+        return `${artworkUrl}&quality=100`;
+      } else {
+        return `${artworkUrl}?quality=100`;
+      }
+    }
+  } catch (error) {
+    console.error('Error processing artwork URL:', error);
+    return artworkUrl; // Return original URL as fallback
+  }
+};
+
 const QueueRenderSongs = memo(() => {
   // Context and state
   const { Queue } = useContext(Context);
@@ -878,6 +914,21 @@ const QueueRenderSongs = memo(() => {
     }
   }, [isLocalSource, isLocalTrack, isOffline, filterQueueBySource]);
 
+  // Function to enhance track data with high-quality artwork
+  const enhanceTrackWithHighQualityArtwork = (track) => {
+    if (!track) return track;
+    
+    // Clone the track to avoid mutating the original
+    const enhancedTrack = { ...track };
+    
+    // Enhance the artwork if it exists
+    if (enhancedTrack.artwork) {
+      enhancedTrack.artwork = getHighQualityArtwork(enhancedTrack.artwork);
+    }
+    
+    return enhancedTrack;
+  };
+
   // Empty queue state
   if ((!upcomingQueue || upcomingQueue.length === 0) && !isDragging) {
     // Determine message based on current track source type
@@ -918,17 +969,22 @@ const QueueRenderSongs = memo(() => {
       <BottomSheetFlatList
         data={upcomingQueue}
         keyExtractor={(item, index) => `${item.id || 'track'}-${index}`}
-        renderItem={({ item, index }) => (
-          <EachSongQueue 
-            title={item.title}
-            artist={item.artist}
-            id={item.id}
-            index={index}
-            artwork={item.artwork}
-            isActive={false}
-            onPress={() => handleTrackSelect(item, index)}
-          />
-        )}
+        renderItem={({ item, index }) => {
+          // Enhance the item with high-quality artwork
+          const enhancedItem = enhanceTrackWithHighQualityArtwork(item);
+          
+          return (
+            <EachSongQueue 
+              title={enhancedItem.title}
+              artist={enhancedItem.artist}
+              id={enhancedItem.id}
+              index={index}
+              artwork={enhancedItem.artwork}
+              isActive={false}
+              onPress={() => handleTrackSelect(enhancedItem, index)}
+            />
+          );
+        }}
         contentContainerStyle={{ 
           paddingBottom: 100,
           paddingTop: 8,
@@ -961,20 +1017,25 @@ const QueueRenderSongs = memo(() => {
       }}
       dragItemOverflow={true} // Enable overflow for better visibility when dragging
       scrollEnabled={!isDragging} // Disable regular scrolling during drag for smoother interaction
-      renderItem={({ item, index, drag, isActive }) => (
-        <ScaleDecorator activeScale={0.98}>
-          <EachSongQueue 
-            title={item.title}
-            artist={item.artist}
-            id={item.id}
-            index={index}
-            artwork={item.artwork}
-            drag={drag}
-            isActive={isActive}
-            onPress={() => handleTrackSelect(item, index)}
-          />
-        </ScaleDecorator>
-      )}
+      renderItem={({ item, index, drag, isActive }) => {
+        // Enhance the item with high-quality artwork
+        const enhancedItem = enhanceTrackWithHighQualityArtwork(item);
+        
+        return (
+          <ScaleDecorator activeScale={0.98}>
+            <EachSongQueue 
+              title={enhancedItem.title}
+              artist={enhancedItem.artist}
+              id={enhancedItem.id}
+              index={index}
+              artwork={enhancedItem.artwork}
+              drag={drag}
+              isActive={isActive}
+              onPress={() => handleTrackSelect(enhancedItem, index)}
+            />
+          </ScaleDecorator>
+        );
+      }}
     />
   );
 });
