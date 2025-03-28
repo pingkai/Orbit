@@ -246,7 +246,7 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
         await TrackPlayer.add(song);
         await TrackPlayer.play();
       } else {
-        if (song.isLocalMusic) { if (song.isLocalMusic) { if (song.isLocalMusic) { if (song.isLocalMusic) { if (song.isLocalMusic) { if (song.isLocalMusic) { if (song.isLocalMusic) { if (song.isLocalMusic) { if (song.isLocalMusic) { if (song.isLocalMusic) { if (song.isLocalMusic) { if (song.isLocalMusic) { await TrackPlayer.add(song, currentIndex + 1); } else { await AddSongsToQueue([song]); } } else { await AddSongsToQueue([song]); } } else { await AddSongsToQueue([song]); } } else { await AddSongsToQueue([song]); } } else { await AddSongsToQueue([song]); } } else { await AddSongsToQueue([song]); } } else { await AddSongsToQueue([song]); } } else { await AddSongsToQueue([song]); } } else { await AddSongsToQueue([song]); } } else { await AddSongsToQueue([song]); } } else { await AddSongsToQueue([song]); } } else { await AddSongsToQueue([song]); }
+        await TrackPlayer.add(song, currentIndex + 1);
       }
       
       updateTrack();

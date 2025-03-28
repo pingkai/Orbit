@@ -27,7 +27,7 @@ const QueueBottomSheet = () => {
       onChange={handleSheetChange}
       enablePanDownToClose={false}
       animateOnMount={false}
-      snapPoints={[120, '50%']} // Increased height for better visibility
+      snapPoints={[100, '50%']} // Increased height for better visibility
       ref={bottomSheetRef}
       style={{
         backgroundColor,

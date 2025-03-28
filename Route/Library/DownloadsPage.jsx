@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, RefreshControl, ToastAndroid } from 'react-native';
+import { View, Text, FlatList, StyleSheet, RefreshControl, ToastAndroid, AppState } from 'react-native';
 import { MainWrapper } from "../../Layout/MainWrapper";
 import { GetDownloadPath } from "../../LocalStorage/AppSettings";
 import ReactNativeBlobUtil from "react-native-blob-util";
@@ -13,78 +13,143 @@ export const DownloadsPage = () => {
   const [downloads, setDownloads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [downloadDir, setDownloadDir] = useState('');
 
-  const loadDownloadedSongs = async () => {
+  const scanDownloadFolders = async () => {
     try {
       const path = await GetDownloadPath();
       const dirs = ReactNativeBlobUtil.fs.dirs;
-      const downloadDir = (path === "Downloads") 
+      
+      // Set up primary and fallback download directories
+      const primaryDir = (path === "Downloads") 
         ? dirs.LegacyDownloadDir + `/Orbit` 
         : dirs.LegacyMusicDir + `/Orbit`;
+        
+      // Also check the Downloads folder for existing music files
+      const secondaryDir = dirs.DownloadDir;
+      const musicDir = dirs.MusicDir;
       
-      // Check if directory exists
-      const exists = await ReactNativeBlobUtil.fs.exists(downloadDir);
-      if (!exists) {
-        console.log('Download directory does not exist');
-        setDownloads([]);
-        return;
+      setDownloadDir(primaryDir);
+      
+      let musicFiles = [];
+      
+      // Function to scan a directory and return music files
+      const scanDirectory = async (directory) => {
+        try {
+          // Check if directory exists
+          const exists = await ReactNativeBlobUtil.fs.exists(directory);
+          if (!exists) {
+            console.log(`Directory does not exist: ${directory}`);
+            return [];
+          }
+          
+          // List files in the directory
+          const files = await ReactNativeBlobUtil.fs.ls(directory);
+          
+          // Filter music files with more comprehensive extensions
+          return files.filter(file => 
+            file.toLowerCase().endsWith('.mp3') || 
+            file.toLowerCase().endsWith('.m4a') || 
+            file.toLowerCase().endsWith('.wav') || 
+            file.toLowerCase().endsWith('.flac') ||
+            file.toLowerCase().endsWith('.aac') ||
+            file.toLowerCase().endsWith('.ogg') ||
+            file.toLowerCase().endsWith('.wma')
+          );
+        } catch (error) {
+          console.log(`Error scanning directory ${directory}:`, error);
+          return [];
+        }
+      };
+      
+      // Scan primary directory (app's download folder)
+      const primaryFiles = await scanDirectory(primaryDir);
+      console.log(`Found ${primaryFiles.length} music files in primary directory`);
+      
+      // Create directory if it doesn't exist
+      if (primaryFiles.length === 0) {
+        try {
+          const primaryDirExists = await ReactNativeBlobUtil.fs.exists(primaryDir);
+          if (!primaryDirExists) {
+            await ReactNativeBlobUtil.fs.mkdir(primaryDir);
+            console.log(`Created directory: ${primaryDir}`);
+          }
+        } catch (error) {
+          console.log(`Error creating directory ${primaryDir}:`, error);
+        }
       }
       
-      // List files in the directory
-      const files = await ReactNativeBlobUtil.fs.ls(downloadDir);
-      
-      // Filter music files
-      const musicFiles = files.filter(file => 
-        file.endsWith('.mp3') || 
-        file.endsWith('.m4a') || 
-        file.endsWith('.wav') || 
-        file.endsWith('.flac')
-      );
+      // Collect all music files
+      musicFiles = [...primaryFiles];
       
       if (musicFiles.length === 0) {
-        console.log('No music files found');
+        console.log('No music files found in any directory');
         setDownloads([]);
         return;
       }
       
       // Extract artist from title
       const extractArtistFromTitle = (title) => {
-        const regex = /- (.+)$/;
-        const match = title.match(regex);
-        return match ? match[1].trim() : "Unknown Artist";
+        // Try different patterns to extract artist
+        const patterns = [
+          /- ([^-]+)$/, // Pattern: Song Name - Artist
+          /([^-]+) -/, // Pattern: Artist - Song Name
+          /\[([^\]]+)\]/, // Pattern: Song Name [Artist]
+        ];
+        
+        for (const regex of patterns) {
+          const match = title.match(regex);
+          if (match) {
+            return match[1].trim();
+          }
+        }
+        
+        return "Unknown Artist";
       };
 
       // Format tracks for display
       const formattedTracks = musicFiles.map(file => {
-        const title = file.replace(/\.(mp3|m4a|wav|flac)$/, '');
+        // Remove file extension for display
+        const title = file.replace(/\.(mp3|m4a|wav|flac|aac|ogg|wma)$/i, '');
         const artist = extractArtistFromTitle(title);
 
         return {
           id: `local_${file}`,
-          url: `file://${downloadDir}/${file}`,
+          url: `file://${primaryDir}/${file}`,
           title: title,
           artist: artist,
           artwork: 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png',
           duration: 0, // Duration will be set when playing
           isLocal: true,
-          downloadUrl: [{url: `file://${downloadDir}/${file}`}]
+          downloadUrl: [{url: `file://${primaryDir}/${file}`}]
         };
       });
       
       setDownloads(formattedTracks);
     } catch (error) {
-      console.error('Error loading downloaded songs:', error);
+      console.error('Error scanning download folders:', error);
       ToastAndroid.show('Error loading downloads', ToastAndroid.SHORT);
     }
   };
 
   useEffect(() => {
-    loadDownloadedSongs().finally(() => setLoading(false));
+    scanDownloadFolders().finally(() => setLoading(false));
+    
+    // Also scan when app comes to foreground
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        scanDownloadFolders();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadDownloadedSongs();
+    await scanDownloadFolders();
     setRefreshing(false);
   };
 

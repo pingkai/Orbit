@@ -86,14 +86,6 @@ const CircularProgress = ({ progress, size = 24, thickness = 2, color = '#1DB954
 
 // Define LocalMusicCard component with the function properly in scope
 const LocalMusicCard = ({ song, index, allSongs, onPress }) => {
-  // Determine the source for the image
-  let imageSource;
-  if (song.isLocal || song.sourceType === 'mymusic') {
-    imageSource = require('../../Images/a.gif');
-  } else {
-    imageSource = song.artwork ? { uri: song.artwork } : require('../../Images/Music.jpeg');
-  }
-
   return (
     <TouchableOpacity
       onPress={() => onPress(song)}
@@ -109,7 +101,7 @@ const LocalMusicCard = ({ song, index, allSongs, onPress }) => {
       }}
     >
       <FastImage
-        source={imageSource}
+        source={song.artwork ? { uri: song.artwork } : require('../../Images/a.gif')}
         style={{ width: 50, height: 50, borderRadius: 4 }}
         resizeMode={FastImage.resizeMode.cover}
       />
@@ -155,47 +147,41 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
   const isFullScreenRef = useRef(false); // Reference to track fullscreen mode
   const prevSongIdRef = useRef(null); // Reference to track previous song ID for local tracks
 
-  // Add state to track the current GIF
-  const [currentGif, setCurrentGif] = useState('a');
-  
   // Create an array of GIF letters (excluding 'm' which is causing issues)
   const availableGifs = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'];
   
   // Track the current song ID to detect song changes
   const [currentSongId, setCurrentSongId] = useState(null);
   
-  // Track the current position in the GIF sequence
-  const [gifIndex, setGifIndex] = useState(0);
+  // Add state for random GIF selection
+  const [currentGif, setCurrentGif] = useState(() => {
+    // Pick a random GIF on initial load
+    const randomIndex = Math.floor(Math.random() * availableGifs.length);
+    return availableGifs[randomIndex];
+  });
   
-  // Get the next GIF in sequence
-  const getNextSequentialGif = useCallback(() => {
-    // Get current gif from the sequence
-    const nextGif = availableGifs[gifIndex];
-    
-    // Increment index for next call, wrapping around when reaching the end
-    setGifIndex((prevIndex) => (prevIndex + 1) % availableGifs.length);
-    
-    console.log(`Sequential GIF assigned: ${nextGif} (index ${gifIndex})`);
-    return nextGif;
-  }, [availableGifs, gifIndex]);
+  // Get a random GIF letter each time
+  const getRandomGif = useCallback(() => {
+    const randomIndex = Math.floor(Math.random() * availableGifs.length);
+    return availableGifs[randomIndex];
+  }, [availableGifs]);
   
-  // Listen for track changes to assign the next sequential GIF when the song changes
+  // Listen for track changes to assign a new GIF only when the song changes
   useTrackPlayerEvents([Event.PlaybackTrackChanged], async (event) => {
     try {
       if (event.type === Event.PlaybackTrackChanged) {
         const currentTrack = await TrackPlayer.getActiveTrack();
         if (currentTrack && currentTrack.id !== currentSongId) {
           // Only change GIF when the song changes (different ID)
-          console.log(`New song detected: ${currentTrack.title}`);
+          console.log(`New song detected: ${currentTrack.title}, assigning a GIF`);
           setCurrentSongId(currentTrack.id);
           
-          // Only assign a new GIF if this is specifically a MyMusic track
-          if (currentTrack.sourceType === 'mymusic') {
-            console.log('This is a MyMusic track, assigning next sequential GIF');
-            // Assign the next sequential GIF
-            const nextGif = getNextSequentialGif();
-            setCurrentGif(nextGif);
-            console.log(`Assigned GIF ${nextGif} for song: ${currentTrack.title}`);
+          // Only apply GIFs for local music
+          if (currentTrack.isLocal) {
+            // Assign a random GIF each time
+            const randomGif = getRandomGif();
+            setCurrentGif(randomGif);
+            console.log(`Assigned random GIF ${randomGif} for local song: ${currentTrack.title}`);
           }
         }
       }
@@ -204,18 +190,17 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     }
   });
   
-  // Initialize GIF when a MyMusic track starts playing for the first time
+  // Initialize GIF when a local track starts playing for the first time
   useEffect(() => {
-    if (currentPlaying && currentPlaying.sourceType === 'mymusic' && 
-       (!currentSongId || currentPlaying.id !== currentSongId)) {
+    if (currentPlaying && currentPlaying.isLocal && (!currentSongId || currentPlaying.id !== currentSongId)) {
       setCurrentSongId(currentPlaying.id);
       
-      // Assign the next sequential GIF
-      const nextGif = getNextSequentialGif();
-      setCurrentGif(nextGif);
-      console.log(`Assigned initial sequential GIF ${nextGif} for MyMusic song: ${currentPlaying.title || 'Unknown'}`);
+      // Assign a random GIF each time
+      const randomGif = getRandomGif();
+      setCurrentGif(randomGif);
+      console.log(`Assigned random GIF ${randomGif} for local song: ${currentPlaying.title || 'Unknown'}`);
     }
-  }, [currentPlaying, currentSongId, getNextSequentialGif]);
+  }, [currentPlaying?.isLocal, currentPlaying?.id, currentSongId, getRandomGif]);
 
   // Create a more efficient mapping function for GIFs
   const getGifModule = useCallback((letter) => {
@@ -256,7 +241,7 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
       return getGifModule(currentGif);
     } catch (error) {
       console.error('Error loading GIF:', error);
-      return require('../../Images/a.gif'); // Direct fallback for more reliability
+      return getGifModule('a'); // Fallback to first GIF
     }
   }, [currentGif, getGifModule]);
 
@@ -1495,8 +1480,8 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
           padding: 4, 
           position: 'absolute', 
           top: 20, 
-          left: 100, 
-          right: 100, 
+          left: 60, 
+          right: 60, 
           zIndex: 10,
           alignItems: 'center',
           justifyContent: 'center',
@@ -1697,29 +1682,56 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     }
   }, [Index]);
 
+  // Now create a simple SafeImage component that handles null sources properly
+  const SafeImage = memo(({ source, style, resizeMode = FastImage.resizeMode.cover }) => {
+    const [imageError, setImageError] = useState(false);
+    
+    // Handle null source or source without uri
+    if (!source || imageError || (typeof source === 'object' && !source.uri)) {
+      // Use animated GIF for local songs in fullscreen player
+      if (currentPlaying && (currentPlaying.isLocal || currentPlaying.sourceType === 'mymusic')) {
+        return (
+          <FastImage
+            source={getGifSource()}
+            style={style}
+            resizeMode={resizeMode}
+          />
+        );
+      } else {
+        // Use default image for online songs
+        return (
+          <FastImage
+            source={require('../../Images/Music.jpeg')}
+            style={style}
+            resizeMode={resizeMode}
+          />
+        );
+      }
+    }
+    
+    return (
+      <FastImage
+        source={source}
+        style={style}
+        resizeMode={resizeMode}
+        onError={() => setImageError(true)}
+      />
+    );
+  });
+
   // Function to safely extract artwork based on track information
   const getArtworkSource = useCallback((track) => {
-    if (!track) return require('../../Images/loading.gif'); // Default loading GIF when no track
+    if (!track) return getGifSource(); // Use animated GIF when no track
     
     try {
-      // ONLY use animated GIFs for MyMusic tracks that don't have artwork
-      if (track.sourceType === 'mymusic') {
-          return getGifSource();
-        }
-        
-      // For downloaded songs and online songs, use the actual artwork if available
+      // For local songs, if no artwork is available, use an animated GIF
+      if (track.isLocal || track.sourceType === 'mymusic' || track.sourceType === 'download') {
+        // Use GIF for local songs - this ensures GIFs are consistently displayed for local tracks
+        return getGifSource();
+      } else {
+        // For online songs, use the highest quality artwork or fallback to loading GIF
         if (track.artwork && typeof track.artwork === 'string' && track.artwork.trim() !== '') {
-        // For local downloaded songs with file:// paths
-          if (track.artwork.startsWith('file://')) {
-            return { uri: track.artwork };
-          }
-          
-        // For local paths that need file:// prefix
-        if (track.isLocal && track.artwork.startsWith('/')) {
-            return { uri: `file://${track.artwork}` };
-          }
-          
-        // For remote URLs, ensure highest quality
+          // Always use highest quality for remote URLs
           if (track.artwork.startsWith('http')) {
             try {
               const url = new URL(track.artwork);
@@ -1749,74 +1761,16 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
               }
             }
           }
-        
-        // Return whatever artwork URI we have
           return { uri: track.artwork };
         }
-      
-      // If track has no artwork but is from MyMusic, use GIF
-      if (track.sourceType === 'mymusic') {
-        return getGifSource();
       }
-      
-      // Default fallback for all other cases
-      return require('../../Images/Music.jpeg');
     } catch (error) {
       console.log('Error getting artwork source:', error);
-      // Fallback to default music image
-      return require('../../Images/Music.jpeg');
     }
+    
+    // Fallback: Use a GIF
+    return getGifSource();
   }, [getGifSource]);
-
-  // Now create a simple SafeImage component that handles null sources properly
-  const SafeImage = memo(({ source, style, resizeMode = FastImage.resizeMode.cover }) => {
-    const [imageError, setImageError] = useState(false);
-    
-    // Only use GIF for MyMusic tracks
-    if (currentPlaying && currentPlaying.sourceType === 'mymusic') {
-      return (
-        <FastImage
-          source={getGifSource()}
-          style={style}
-          resizeMode={resizeMode}
-          key={`gif-${currentGif}`} // Add key to force refresh when GIF changes
-        />
-      );
-    }
-    
-    // Handle null source or source without uri
-    if (!source || imageError || (typeof source === 'object' && !source.uri)) {
-      // Show GIF for MyMusic tracks without artwork
-      if (currentPlaying && currentPlaying.sourceType === 'mymusic') {
-        return (
-          <FastImage
-            source={getGifSource()}
-            style={style}
-            resizeMode={resizeMode}
-            key={`gif-${currentGif}`}
-          />
-        );
-      }
-      
-      // Use default image for all other cases
-      return (
-        <FastImage
-          source={require('../../Images/Music.jpeg')}
-          style={style}
-          resizeMode={resizeMode}
-        />
-      );
-    }
-    
-    return (
-      <FastImage
-        source={source}
-        style={style}
-        resizeMode={resizeMode}
-        onError={() => setImageError(true)}
-      />
-    );
-  });
 
   // Function to play a specific local track
   const playLocalTrack = async (track) => {
@@ -1928,23 +1882,10 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     }
   }, [isOffline]);
 
-  // Add an effect to force a sequential GIF when a MyMusic track is detected
-  useEffect(() => {
-    // Check if we have a MyMusic track playing
-    if (currentPlaying && currentPlaying.sourceType === 'mymusic' && !isOffline) {
-      // Assign a sequential GIF if one isn't already assigned
-      if (!currentGif || currentGif === 'a') {
-        const nextGif = getNextSequentialGif();
-        console.log(`Force assigning sequential GIF ${nextGif} for MyMusic track`);
-        setCurrentGif(nextGif);
-      }
-    }
-  }, [currentPlaying, isOffline, currentGif, getNextSequentialGif]);
-
   return (
     <Animated.View entering={FadeInDown.delay(200)} style={{ backgroundColor: "rgb(0,0,0)", flex: 1 }}>
-      {/* Show GIF when playing MyMusic tracks or in offline mode */}
-      {((currentPlaying && currentPlaying.sourceType === 'mymusic') || isOffline) && (
+      {/* Show GIF when offline or playing local music */}
+      {(isOffline || (currentPlaying && currentPlaying.isLocal)) && (
         <FastImage
           source={getGifSource()}
           style={{ width: width, height: height, position: 'absolute', top: 0, left: 0 }}
@@ -1956,19 +1897,15 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
       {renderLocalTracksList()}
       <ImageBackground 
         source={
-          // Use GIF for offline mode or MyMusic tracks
+          // Use our high-quality artwork source function
           isOffline ? getGifSource() :
-          (currentPlaying && currentPlaying.sourceType === 'mymusic') ? 
-          getGifSource() :
-          // Use artwork for online songs and downloaded songs
           currentPlaying ? getArtworkSource(currentPlaying) :
           require('../../Images/loading.gif')
         }
         style={{ flex: 1 }}
         resizeMode="cover"
-        blurRadius={currentPlaying && currentPlaying.sourceType === 'mymusic' ? 5 : blur}
+        blurRadius={blur}
         onError={() => console.log('Background image failed to load')}
-        key={`background-${currentGif}-${currentPlaying?.id || 'none'}`} // Force refresh when GIF or song changes
       >
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.44)" }}>
         {renderOfflineBanner()}
@@ -1985,7 +1922,7 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
               style={({ pressed }) => [
                 { 
                   position: 'absolute', 
-                  top: 12, 
+                  top: 20, 
                   left: 20, 
                   zIndex: 10,
                   padding: 8,
@@ -2081,6 +2018,14 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
                 </Pressable>
               )}
             </View>
+            
+            {isOffline && localTracks.length === 0 && (
+              <View style={{ marginTop: 20, padding: 15, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 10 }}>
+                <Text style={{ color: 'white', textAlign: 'center' }}>
+                  No local tracks found. Download music when online to listen offline.
+                </Text>
+              </View>
+            )}
           </LinearGradient>
         </View>
       </ImageBackground>
