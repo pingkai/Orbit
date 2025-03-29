@@ -11,15 +11,6 @@
   <a href="https://github.com/Ismartgaurav/Orbit/issues"><strong>Request Feature</strong></a>
 </p>
 
-<p align="center">
-  <img src="https://img.shields.io/github/downloads/Ismartgaurav/Orbit/total?style=for-the-badge&color=blue" alt="Downloads"/>
-  <img src="https://img.shields.io/github/contributors/Ismartgaurav/Orbit?style=for-the-badge&color=green" alt="Contributors"/> 
-  <img src="https://img.shields.io/github/forks/Ismartgaurav/Orbit?style=for-the-badge&color=purple" alt="Forks"/>
-  <img src="https://img.shields.io/github/stars/Ismartgaurav/Orbit?style=for-the-badge&color=gold" alt="Stars"/>
-  <img src="https://img.shields.io/github/issues/Ismartgaurav/Orbit?style=for-the-badge&color=orange" alt="Issues"/>
-  <img src="https://img.shields.io/github/license/Ismartgaurav/Orbit?style=for-the-badge&color=teal" alt="License"/>
-</p>
-
 
 <p align="center">
   <b>⚠️ DISCLAIMER: This project is ONLY for educational purposes ⚠️</b><br>
@@ -56,7 +47,7 @@ In a world cluttered with subscription-based streaming services and ad-interrupt
 
 <p align="center">
   <a href="https://t.me/+k7vvHEZ5DK5kZmI1">
-    <img src="https://github-production-user-asset-6210df.s3.amazonaws.com/97950192/329830321-98d4e8b5-62c2-41ec-8d66-73d791181fca.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20250329%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250329T032743Z&X-Amz-Expires=300&X-Amz-Signature=28cd1ba1556130bdeaad9585051bad47cb4748628440b0bb818851ade60c9e4f&X-Amz-SignedHeaders=host" alt="Telegram Community" width="200">
+    <img src="https://private-user-images.githubusercontent.com/97950192/329830321-98d4e8b5-62c2-41ec-8d66-73d791181fca.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NDMyMjAxNDcsIm5iZiI6MTc0MzIxOTg0NywicGF0aCI6Ii85Nzk1MDE5Mi8zMjk4MzAzMjEtOThkNGU4YjUtNjJjMi00MWVjLThkNjYtNzNkNzkxMTgxZmNhLnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNTAzMjklMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjUwMzI5VDAzNDQwN1omWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTNkMDliOWZmNDEyOGVmNTZlMmIyODE0ZDBmZTBiYjZhMGFhYTRlMTNlMTc3ZDQ3NDE3MTA4NWMzYTU1YmEzMDUmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.m46xT0QjTlHa9TWyAphnJnZJYzKb9-GCTxn-D9wc8UU" alt="Telegram Community" width="200">
   </a>
 </p>
 
