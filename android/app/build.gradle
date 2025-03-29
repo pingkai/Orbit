@@ -112,11 +112,35 @@ android {
             signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
-            // Add this line to fix CodePush asset merging
+            
+            // Fix for CodePush duplicate resources
             packagingOptions {
+                pickFirst "**/libjsc.so"
+                pickFirst "**/libc++_shared.so"
+                exclude "**/libhermes.so"
+                exclude "**/libhermes-executor-debug.so"
+                exclude "**/libhermes-executor-release.so"
+                
+                // More specific exclude for CodePushHash
                 exclude "**/CodePushHash"
+                exclude "assets/CodePushHash"
+                exclude "assets/**/CodePushHash"
+                doNotStrip "*/armeabi-v7a/libcodepush.so"
+                doNotStrip "*/arm64-v8a/libcodepush.so"
+                doNotStrip "*/x86/libcodepush.so"
+                doNotStrip "*/x86_64/libcodepush.so"
+                resources {
+                    excludes += ['**/CodePushHash', 'assets/CodePushHash']
+                }
             }
         }
+    }
+    
+    // Add this for both debug and release builds
+    packagingOptions {
+        exclude "**/CodePushHash"
+        exclude "assets/CodePushHash"
+        pickFirst "**/*.so"
     }
 }
 
