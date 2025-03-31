@@ -17,6 +17,7 @@
   This application serves as a demonstration of modern mobile development techniques and API integration.
 </p>
 
+<a href="https://ibb.co/PztFkfDX"><img src="https://i.ibb.co/S7J5S9fY/Neon-gradient-mobile-mockup-instagram-post-20250331-234406-0000.png" alt="Neon-gradient-mobile-mockup-instagram-post-20250331-234406-0000" border="0"></a>
 ## ✨ Experience the Magic of Orbit
 
 Orbit isn't just another music app—it's a revolution in how you experience sound. Built with passion and cutting-edge technology, Orbit delivers a premium, uninterrupted listening experience that puts your musical journey first.
