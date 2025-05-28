@@ -6,9 +6,9 @@
 <h3 align="center">Where Music Flows Without Boundaries</h3>
 
 <p align="center">
-  <a href="https://github.com/Ismartgaurav/Orbit/issues"><strong>Report Bug</strong></a>
+  <a href="https://github.com/gauravxdev/Orbit/issues"><strong>Report Bug</strong></a>
   ·
-  <a href="https://github.com/Ismartgaurav/Orbit/issues"><strong>Request Feature</strong></a>
+  <a href="https://github.com/gauravxdev/Orbit/issues"><strong>Request Feature</strong></a>
 </p>
 
 
@@ -112,7 +112,7 @@ We welcome all contributions, from code refinements to documentation improvement
 
 ## 📜 License
 
-Orbit is orchestrated under the MIT License. See [LICENSE](https://github.com/Ismartgaurav/Orbit/blob/main/LICENSE) for the full composition.
+Orbit is orchestrated under the MIT License. See [LICENSE](https://github.com/gauravxdev/Orbit/blob/main/LICENSE) for the full composition.
 
 
 ## ⚠️ Legal Harmony
@@ -131,4 +131,4 @@ By using the app, you consent to utilizing the songs and other content exclusive
 non-commercial purposes and in accordance with all applicable laws and regulations.
 ```
 
-<p align="center">🎵 Created with ❤️ by <a href="https://github.com/Ismartgaurav">Ismartgaurav</a> 🎵</p>
+<p align="center">🎵 Created with ❤️ by <a href="https://github.com/gauravxdev">gauravxdev</a> 🎵</p>
