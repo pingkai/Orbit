@@ -2,10 +2,11 @@ import { Pressable, View } from "react-native";
 import FastImage from "react-native-fast-image";
 import { PlainText } from "../Global/PlainText";
 import { SmallText } from "../Global/SmallText";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useTheme } from "@react-navigation/native";
 
 export const EachSmallCardHome = ({ name, subtitle, image, isPlaylist,id, navigate}) => {
   const navigation = useNavigation()
+  const { colors, dark } = useTheme();
   const ContainerHeight = 50
   function OnpressCard(){
     if (isPlaylist){
@@ -21,7 +22,7 @@ export const EachSmallCardHome = ({ name, subtitle, image, isPlaylist,id, naviga
       gap:10,
       alignItems:"center",
       justifyContent:"space-between",
-      backgroundColor:"rgb(35,35,35)",
+      backgroundColor: dark ? colors.cardSurface : colors.card,
       paddingRight:10,
       borderRadius:6,
       flex:1,

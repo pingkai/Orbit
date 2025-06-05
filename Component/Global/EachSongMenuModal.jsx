@@ -2,6 +2,7 @@ import Modal from "react-native-modal";
 import { Dimensions, PermissionsAndroid, Platform, Pressable, ToastAndroid, View } from "react-native";
 import { PlainText } from "./PlainText";
 import React, { useContext } from "react";
+import { useTheme } from "@react-navigation/native";
 import FormatTitleAndArtist from "../../Utils/FormatTitleAndArtist";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import ReactNativeBlobUtil from "react-native-blob-util";
@@ -45,7 +46,6 @@ const styles = {
     flex: 1,
   },
   playlistName: {
-    color: 'white',
     fontSize: 16,
     fontWeight: '500',
   },
@@ -88,6 +88,7 @@ const getSongUrl = (urlData, quality = 4) => {
 };
 
 export const EachSongMenuModal = ({Visible, setVisible}) => {
+  const { colors } = useTheme();
   const {updateTrack} = useContext(Context);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
@@ -527,7 +528,7 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
         }}
       >
         <View style={{
-          backgroundColor: "rgb(28,28,28)",
+          backgroundColor: colors.card, // Themed background
           borderRadius: 10,
           width: 200,
           overflow: 'hidden',
@@ -540,31 +541,34 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
         }}>
         
           <MenuButton
-            icon={<MaterialCommunityIcons name="play-box-multiple" size={22} color="white"/>}
+            icon={<MaterialCommunityIcons name="play-speed" size={22} color={colors.text}/>}
             text="Play Next"
             onPress={playNext}
+            textColor={colors.text}
           />
           <MenuButton
-            icon={<MaterialCommunityIcons name="playlist-music" size={22} color="white"/>}
+            icon={<MaterialCommunityIcons name="playlist-plus" size={22} color={colors.text}/>}
             text="Add to Queue"
             onPress={addSongToQueue}
+            textColor={colors.text}
           />
           <MenuButton
-            icon={<MaterialCommunityIcons name="playlist-plus" size={22} color="white"/>}
+            icon={<MaterialCommunityIcons name="playlist-plus" size={22} color={colors.text}/>}
             text="Add to Playlist"
             onPress={handleAddToPlaylist}
           />
           {isLocalMusic ? (
             <MenuButton
-              icon={<MaterialCommunityIcons name={isFavorite ? "heart" : "heart-outline"} size={22} color={isFavorite ? "#ff5252" : "white"}/>}
+              icon={<MaterialCommunityIcons name={isFavorite ? "heart" : "heart-outline"} size={22} color={isFavorite ? "#ff5252" : colors.text}/>}
               text={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
               onPress={toggleLocalMusicFavorite}
             />
           ) : (
             <MenuButton
-              icon={<MaterialCommunityIcons name="download" size={22} color="white"/>}
+              icon={<MaterialCommunityIcons name="download" size={22} color={colors.text}/>}
               text="Download"
               onPress={getPermission}
+              textColor={colors.text}
             />
           )}
           
@@ -581,7 +585,7 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
         }}
       >
         <View style={{
-          backgroundColor: "#121212",
+          backgroundColor: colors.card, // Themed background
           borderRadius: 10,
           padding: 20,
           width: '80%',
@@ -589,15 +593,15 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
         }}>
           <TextInput
             placeholder="Create new playlist..."
-            placeholderTextColor="rgba(255,255,255,0.5)"
+            placeholderTextColor={colors.placeholder || colors.text} // Use placeholder or fallback to text
             value={newPlaylistName}
             onChangeText={setNewPlaylistName}
             style={{
               borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.2)',
+              borderColor: colors.border,
               borderRadius: 5,
               padding: 12,
-              color: 'white',
+              color: colors.text,
               marginBottom: 10,
             }}
           />
@@ -620,7 +624,7 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
               <View style={{ padding: 10, alignItems: 'center' }}>
                 <PlainText 
                   text="No playlists available" 
-                  style={{ color: 'white', textAlign: 'center' }}
+                  style={{ color: colors.text, textAlign: 'center' }}
                 />
               </View>
             ) : (
@@ -628,12 +632,12 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
                 <Pressable
                   key={name}
                   onPress={() => addSongToSelectedPlaylist(name)}
-                  android_ripple={{color: 'rgba(255,255,255,0.1)'}}
+                  android_ripple={{color: colors.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}}
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
                     padding: 12,
-                    backgroundColor: '#282828',
+                    backgroundColor: colors.border, // Themed background for playlist items
                     borderRadius: 5,
                     marginBottom: 8,
                   }}
@@ -650,14 +654,14 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
                     <PlainText 
                       text={name} 
                       style={{
-                        color: 'white',
+                        color: colors.text,
                         fontSize: 16,
                       }}
                     />
                     <PlainText 
                       text={`${availablePlaylists[name].length} songs`} 
                       style={{
-                        color: 'gray',
+                        color: colors.textSecondary,
                         fontSize: 12,
                       }}
                     />
@@ -672,10 +676,15 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
   );
 };
 
-const MenuButton = ({icon, text, onPress}) => (
+const MenuButton = ({icon, text, onPress, textColor: textColorProp}) => {
+  const theme = useTheme();
+  const rippleColor = theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+  const finalTextColor = textColorProp || theme.colors.text;
+
+  return (
   <Pressable 
     onPress={onPress}
-    android_ripple={{color: 'rgba(255,255,255,0.1)'}}
+    android_ripple={{color: rippleColor}}
     style={{
       flexDirection: 'row',
       alignItems: 'center',
@@ -687,10 +696,11 @@ const MenuButton = ({icon, text, onPress}) => (
     <PlainText 
       text={text} 
       style={{
-        color: "white",
+        color: finalTextColor,
         marginLeft: 16,
         fontSize: 14,
       }}
     />
   </Pressable>
-);
+  );
+};

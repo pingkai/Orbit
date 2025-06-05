@@ -67,6 +67,7 @@ export default function SongDisplay({data, limit, Searchtext}) {
               title={item.item?.name} 
               artist={FormatArtist(item.item?.artists?.primary)} 
               url={item.item?.downloadUrl}
+              showNumber={false}
               getPosition={(event) => {
                 const { pageY } = event.nativeEvent;
                 return { y: pageY };

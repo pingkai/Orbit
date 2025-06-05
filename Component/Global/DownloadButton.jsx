@@ -1,6 +1,7 @@
 import { View, TouchableOpacity, ToastAndroid, Alert, StyleSheet } from "react-native";
 import AntDesign from "react-native-vector-icons/AntDesign";
 import { useState, useEffect } from "react";
+import { useTheme } from "@react-navigation/native";
 import { SmallText } from "./SmallText";
 import { PermissionsAndroid, Platform } from "react-native";
 import DeviceInfo from "react-native-device-info";
@@ -62,6 +63,7 @@ export const DownloadButton = ({
   individual = false,
   songId = null 
 }) => {
+  const { colors } = useTheme();
   const [downloadStatus, setDownloadStatus] = useState({});
   const [isDownloading, setIsDownloading] = useState(false);
   const [overallProgress, setOverallProgress] = useState(0);
@@ -430,7 +432,7 @@ export const DownloadButton = ({
         return <AntDesign name="checkcircle" size={iconSize} color="#4CAF50" />;
       }
       
-      return <AntDesign name="download" size={iconSize} color="#FFFFFF" />;
+      return <AntDesign name="download" size={iconSize} color={colors.text} />;
     }
     
     // For albums/playlists

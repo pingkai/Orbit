@@ -14,7 +14,7 @@ import Context from "../../Context/Context";
 import TrackPlayer from "react-native-track-player";
 import { Pressable } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useTheme } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Function to get high quality artwork URL
@@ -59,6 +59,7 @@ export const MinimizedMusic = memo(({setIndex, color}) => {
   const [isOffline, setIsOffline] = useState(false);
   const [localTracks, setLocalTracks] = useState([]);
   const navigation = useNavigation();
+  const { colors } = useTheme(); // Get theme colors
   
   // Check network status
   useEffect(() => {
@@ -336,7 +337,7 @@ export const MinimizedMusic = memo(({setIndex, color}) => {
           paddingVertical:15,
           alignItems:"center",
           gap:10,
-          backgroundColor:color,
+          backgroundColor: color || colors.musicPlayerBg,
         }}>
         <GestureDetector gesture={pan}>
           <View  style={{
@@ -362,25 +363,27 @@ export const MinimizedMusic = memo(({setIndex, color}) => {
             }}>
               <PlainText 
                 text={currentPlaying?.title?.length > 20 ? currentPlaying.title.substring(0, 20) + '...' : currentPlaying?.title ?? "No music :("}
+                style={{ color: colors.text }}               
               />
               <SmallText 
                 text={currentPlaying?.artist?.length > 20 ? currentPlaying.artist.substring(0, 20) + '...' : currentPlaying?.artist ?? "Explore now!"} 
                 maxLine={1}
+                style={{ color: colors.textSecondary }}
               />
             </View>
           </View>
         </GestureDetector>
         <View style={{gap:20,flexDirection:"row", alignItems:"center"}}>
           <Pressable onPress={isOffline ? playPreviousOfflineSong : PlayPreviousSong}>
-            <PreviousSongButton/>
+            <PreviousSongButton color={colors.icon}/>
           </Pressable>
-          <PlayPauseButton isplaying={false}/>
+          <PlayPauseButton isplaying={false} color={colors.icon}/>
           <Pressable onPress={isOffline ? playNextOfflineSong : PlayNextSong}>
-            <NextSongButton/>
+            <NextSongButton color={colors.icon}/>
           </Pressable>
         </View>
       </Animated.View>
-      <View style={{height:2, width:`${TotalCompletedInpercent()}%`, backgroundColor:"white"}}/>
+      <View style={{height:2, width:`${TotalCompletedInpercent()}%`, backgroundColor:colors.primary}}/>
     </GestureHandlerRootView>
   );
 });

@@ -2,8 +2,10 @@ import { View } from "react-native";
 import { EachSmallCardHome } from "./EachSmallCardHome";
 import { Spacer } from "../Global/Spacer";
 import { memo } from "react";
+import { useTheme } from "@react-navigation/native";
 
 export const DisplayTopSection = memo(({playlist}) => {
+  const { colors, dark } = useTheme();
   function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }

@@ -3,12 +3,16 @@ import { PlainText } from "./PlainText";
 import { SmallText } from "./SmallText";
 import { memo, useMemo } from "react";
 import { useNavigation } from "@react-navigation/native";
+import { useThemeContext } from "../../Context/ThemeContext";
 import LinearGradient from "react-native-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import FastImage from "react-native-fast-image";
 
 
 export const EachAlbumCard = memo(function EachAlbumCard({image, name, artists, id, mainContainerStyle, Search, source, searchText, language}) {
   const navigation = useNavigation()
+  const { theme } = useThemeContext();
+  const dark = theme.dark;
   let artistsNames = ""
   const { width, height } = Dimensions.get('window');
   
@@ -76,7 +80,8 @@ export const EachAlbumCard = memo(function EachAlbumCard({image, name, artists, 
     : require('../../Images/default.jpg');
   
   return (
-    <Pressable onPress={async () => {
+    <Pressable 
+      onPress={async () => {
       try {
         // Create params object with source tracking
         const params = { 
@@ -134,28 +139,67 @@ export const EachAlbumCard = memo(function EachAlbumCard({image, name, artists, 
         // Fallback navigation to prevent dead-end
         navigation.navigate("Home", { screen: "HomePage" });
       }
-    }} style={{
-      ...(mainContainerStyle || {}),
-      margin: 2,
-      borderRadius: 8,
-      overflow: 'hidden',
-      ...responsiveStyles.container,
-    }}>
-      <ImageBackground source={imageSource} style={responsiveStyles.image}>
+    }} 
+      style={{
+        ...(mainContainerStyle || {}),
+        margin: 2,
+        borderRadius: 8,
+        overflow: 'hidden',
+        ...responsiveStyles.container,
+      }}
+    >
+      <View style={{
+        ...responsiveStyles.image,
+        position: 'relative',
+        borderRadius: 8,
+        overflow: 'hidden',
+      }}>
+        <FastImage 
+          source={imageSource} 
+          style={{ 
+            width: '100%',
+            height: '100%',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            borderRadius: 8, // Match the parent container's border radius
+          }}
+          resizeMode={FastImage.resizeMode.cover}
+        />
         <View style={{
           width:"100%",
           height:"100%",
           justifyContent:"flex-end",
-          backgroundColor:"rgba(0,0,0,0.27)",
+          backgroundColor: dark ? "rgba(0,0,0,0.27)" : "rgba(0,0,0,0.1)",
         }}>
-          <LinearGradient start={{x: 0, y: 0}} end={{x: 0, y: 1}} colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.56)', 'rgb(0,0,0)']} style={{
-            padding:10,
+          <LinearGradient 
+            start={{x: 0, y: 0}} 
+            end={{x: 0, y: 1}} 
+            colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.9)']}
+            style={{
+            padding: 10,
+            paddingTop: 15,
           }}>
-            <PlainText text={truncateText(name, 30)}/>
-            <SmallText text={!Search ? artistsNames : truncateText(artists, 30)}/>
+            <PlainText 
+              text={truncateText(name, 15)} 
+              style={{
+                fontWeight: 'bold',
+                color: '#FFFFFF',
+                fontSize: 15,
+              }}
+            />
+            <SmallText 
+              text={!Search ? truncateText(artistsNames, 30) : truncateText(artists, 30)} 
+              style={{
+                color: 'rgba(255,255,255,0.85)',
+                fontWeight: '500',
+              }}
+            />
           </LinearGradient>
         </View>
-      </ImageBackground>
+      </View>
     </Pressable>
   );
 })

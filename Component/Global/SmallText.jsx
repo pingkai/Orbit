@@ -1,4 +1,4 @@
-import { Text } from "react-native";
+import { Text, StyleSheet } from "react-native";
 import { useTheme } from "@react-navigation/native";
 import { useEffect, useState } from "react";
 import { GetFontSizeValue } from "../../LocalStorage/AppSettings";
@@ -26,7 +26,7 @@ export const SmallText = ({text, color, style, maxLine, selectable, isArtistName
       fontSize:Size,
       fontFamily:'roboto',
       fontWeight: isArtistName ? '500' : '400',
-      ...style,
+      ...StyleSheet.flatten(style),
     }}>{text}</Text>
   );
 };

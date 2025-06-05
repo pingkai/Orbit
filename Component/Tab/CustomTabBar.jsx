@@ -4,13 +4,13 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons"
 import Animated, { withSpring, useAnimatedStyle, withTiming } from "react-native-reanimated";
 import Context from "../../Context/Context";
-
-const bottomColor = "#151515"
+import { useTheme } from "@react-navigation/native";
 
 export default function CustomTabBar({ state, descriptors, navigation }) {
   const {setIndex, Index, musicPreviousScreen} = useContext(Context);
   const previousFullscreenState = useRef(false);
   const previousTabIndex = useRef(state.index);
+  const { colors, dark } = useTheme();
   
   // Track tab changes for better back navigation
   useEffect(() => {
@@ -57,15 +57,18 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
   // Move animation styles outside the map
   const getAnimatedStyle = (isFocused) => {
     return useAnimatedStyle(() => {
+      const activeColor = dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
       return {
         transform: [{ scale: withSpring(isFocused ? 1.1 : 1) }],
         opacity: withTiming(isFocused ? 1 : 0.6, { duration: 150 }),
-        backgroundColor: withTiming(isFocused ? 'rgba(255,255,255,0.1)' : 'transparent', { duration: 150 })
+        backgroundColor: withTiming(isFocused ? activeColor : 'transparent', { duration: 150 })
       };
     });
   };
   function GetIcon(label, isDiabled = false) {
-    const color = isDiabled ? "rgb(153,151,151)" : "white";
+    const activeColor = colors.tabBarActive;
+    const inactiveColor = colors.tabBarInactive;
+    const color = isDiabled ? inactiveColor : activeColor;
     const size = 24;
     
     if (label === "Home") {
@@ -78,7 +81,7 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
   }
   if (Index === 1) return null;
   return (
-    <View style={styles.mainContainer}>
+    <View style={[styles.mainContainer, { backgroundColor: colors.tabBarBackground }]}>
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
         const label = options.tabBarLabel ?? options.title ?? route.name;
@@ -116,7 +119,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     height: 65,
     alignItems: "center",
-    backgroundColor: bottomColor,
     paddingBottom: 10,
   },
   mainItemContainer: {

@@ -65,17 +65,22 @@ export const AboutProject = () => {
                 <SocialButton 
                   icon="github" 
                   color="#9c6efa" 
-                  onPress={() => openLink("https://github.com/IsmartGaurav")}
+                  onPress={() => openLink("https://github.com/gauravxdev")}
                 />
-                <SocialButton 
+                <SocialButton   
                   icon="linkedin-square" 
                   color="#0a9fef" 
-                  onPress={() => openLink("https://www.linkedin.com/in/ismartgaurav")}
+                  onPress={() => openLink("https://www.linkedin.com/in/gauravxdev/")}
                 />
                 <SocialButton 
                   icon="instagram" 
                   color="#fa7e1e" 
                   onPress={() => openLink("https://www.instagram.com/ohh.its_gaurav")}
+                />
+                <SocialButton 
+                  icon="user" 
+                  color="#576574" 
+                  onPress={() => openLink("https://gauravxdev.vercel.app/")}
                 />
               </View>
             </View>
@@ -96,7 +101,7 @@ export const AboutProject = () => {
         <View style={styles.communityContainer}>
           <TouchableOpacity 
             style={[styles.communityCard, {backgroundColor: '#0088cc'}]}
-            onPress={() => openLink("https://t.me/+k7vvHEZ5DK5kZmI1")}
+            onPress={() => openLink("https://telegram.me/OrbitMusicOfficial")}
             activeOpacity={0.8}
           >
             <View style={styles.communityCardContent}>
@@ -137,7 +142,7 @@ export const AboutProject = () => {
         <TouchableOpacity
           style={[styles.githubCard, {backgroundColor: '#4056c5'}]}
           activeOpacity={0.8}
-          onPress={() => openLink("https://github.com/IsmartGaurav/Orbit")}
+          onPress={() => openLink("https://github.com/gauravxdev/orbit")}
         >
           <View style={styles.githubContent}>
             <View style={styles.githubTextContainer}>
@@ -161,7 +166,7 @@ export const AboutProject = () => {
           </View>
         </View>
         
-        <View style={[styles.bugReportCard, {backgroundColor: '#e74c3c'}]}>
+        <View style={[styles.bugReportCard, {backgroundColor: '#DC2626'}]}>
           <View style={styles.bugReportContent}>
             <View style={[styles.bugIconContainer, {backgroundColor: '#ff6b6b'}]}>
               <Entypo name="bug" size={36} color="#FFFFFF" />
@@ -188,7 +193,7 @@ export const AboutProject = () => {
         </View>
         
         <View style={styles.versionContainer}>
-          <SmallText text="Version 1.0.0" style={styles.versionText} />
+          <SmallText text="Version 2.0.0" style={styles.versionText} />
           <SmallText text="Made with ❤️ in India" style={styles.versionText} />
         </View>
       </ScrollView>
@@ -212,8 +217,8 @@ const SocialButton = ({ icon, color, onPress }) => {
 const styles = StyleSheet.create({
   scrollContainer: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingTop: 5,
+    paddingBottom: 120,
   },
   profileCard: {
     borderRadius: 16,
@@ -279,12 +284,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#ffffff',
   },
   sectionSubtitle: {
     fontSize: 14,
-    opacity: 0.8,
-    color: '#e0e0e0',
+    opacity: 0.8, // Review if opacity is still needed with theme.colors.textSecondary
   },
   communityContainer: {
     flexDirection: 'row',
@@ -396,8 +399,7 @@ const styles = StyleSheet.create({
   },
   versionText: {
     fontSize: 12,
-    opacity: 0.7,
+    opacity: 0.7, // Review if opacity is still needed with theme.colors.textSecondary
     marginBottom: 4,
-    color: '#b0b0b0',
   },
 });

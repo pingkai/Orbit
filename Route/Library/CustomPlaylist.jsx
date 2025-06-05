@@ -342,7 +342,7 @@ export const CustomPlaylist = () => {
             onPress={(event) => handlePlaylistOptions(item, event)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <MaterialCommunityIcons name="dots-vertical" size={24} color="#FFFFFF" />
+            <MaterialCommunityIcons name="dots-vertical" size={24} color={theme.colors.text} />
           </Pressable>
         </Pressable>
       </Animated.View>
@@ -407,7 +407,7 @@ export const CustomPlaylist = () => {
             onPress={(event) => handlePlaylistOptions(item, event)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <MaterialCommunityIcons name="dots-vertical" size={24} color="#FFFFFF" />
+            <MaterialCommunityIcons name="dots-vertical" size={24} color={theme.colors.text} />
           </Pressable>
         </Pressable>
       </Animated.View>
@@ -595,27 +595,27 @@ export const CustomPlaylist = () => {
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={styles.modalContainer}>
-          <View style={[styles.modalContent, { backgroundColor: '#121212' }]}>
+        <View style={[styles.modalContainer, { backgroundColor: theme.colors.backdrop || 'rgba(0,0,0,0.7)' }]}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.card }]}>
             <Heading text="Create New Playlist" />
-            <SmallText text="Enter playlist name" style={styles.modalLabel} />
+            <SmallText text="Enter playlist name" style={[styles.modalLabel, { color: theme.colors.textSecondary || theme.colors.text }]} />
             <TextInput
               placeholder="Playlist name"
-              placeholderTextColor="rgba(255,255,255,0.5)"
+              placeholderTextColor={theme.dark ? 'rgba(255,255,255,0.5)' : '#000000'}
               value={playlistName}
               onChangeText={setPlaylistName}
-              style={styles.input}
+              style={[styles.input, { color: theme.colors.text, backgroundColor: theme.dark ? (theme.colors.input || theme.colors.border) : '#F0F0F0', borderColor: theme.colors.border }]}
               autoFocus
             />
             <View style={styles.modalButtonContainer}>
               <Pressable 
-                style={styles.cancelButton}
+                style={[styles.cancelButton, { backgroundColor: theme.colors.border }]}
                 onPress={() => setModalVisible(false)}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, { color: theme.colors.text }]}>Cancel</Text>
               </Pressable>
             <Pressable 
-              style={styles.createPlaylistButton}
+              style={[styles.createPlaylistButton, { backgroundColor: theme.colors.primary || '#1DB954' }]}
               onPress={handleCreatePlaylist}
             >
               <Text style={styles.createButtonText}>Create</Text>
@@ -632,27 +632,27 @@ export const CustomPlaylist = () => {
         visible={editModalVisible}
         onRequestClose={() => setEditModalVisible(false)}
       >
-        <View style={styles.modalContainer}>
-          <View style={[styles.modalContent, { backgroundColor: '#121212' }]}>
+        <View style={[styles.modalContainer, { backgroundColor: theme.colors.backdrop || 'rgba(0,0,0,0.7)' }]}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.card }]}>
             <Heading text="Edit Playlist Name" />
-            <SmallText text="Enter new playlist name" style={styles.modalLabel} />
+            <SmallText text="Enter new playlist name" style={[styles.modalLabel, { color: theme.colors.textSecondary || theme.colors.text }]} />
             <TextInput
               placeholder="Playlist name"
-              placeholderTextColor="rgba(255,255,255,0.5)"
+              placeholderTextColor={theme.dark ? 'rgba(255,255,255,0.5)' : '#000000'}
               value={newPlaylistName}
               onChangeText={setNewPlaylistName}
-              style={styles.input}
+              style={[styles.input, { color: theme.colors.text, backgroundColor: theme.dark ? (theme.colors.input || theme.colors.border) : '#F0F0F0', borderColor: theme.colors.border }]}
               autoFocus
             />
             <View style={styles.modalButtonContainer}>
               <Pressable 
-                style={styles.cancelButton}
+                style={[styles.cancelButton, { backgroundColor: theme.colors.border }]}
                 onPress={() => setEditModalVisible(false)}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, { color: theme.colors.text }]}>Cancel</Text>
               </Pressable>
               <Pressable 
-                style={styles.createPlaylistButton}
+                style={[styles.createPlaylistButton, { backgroundColor: theme.colors.primary || '#1DB954' }]}
                 onPress={handleUpdatePlaylistName}
               >
                 <Text style={styles.createButtonText}>Update</Text>

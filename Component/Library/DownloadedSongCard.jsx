@@ -4,6 +4,7 @@ import FastImage from 'react-native-fast-image';
 import { PlainText } from '../Global/PlainText';
 import { SmallText } from '../Global/SmallText';
 import { useActiveTrack, usePlaybackState } from 'react-native-track-player';
+import { useTheme } from '@react-navigation/native';
 import TrackPlayer from 'react-native-track-player';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { ToastAndroid } from 'react-native';
@@ -12,6 +13,8 @@ import { StorageManager } from '../../Utils/StorageManager';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export const DownloadedSongCard = ({ song, refetch, onDeleteRequest }) => {
+  const { colors, dark } = useTheme();
+  const styles = getThemedStyles(colors, dark);
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 20 });
   const buttonRef = useRef(null);
@@ -190,7 +193,7 @@ export const DownloadedSongCard = ({ song, refetch, onDeleteRequest }) => {
       <Pressable 
         onPress={playSong}
         android_ripple={{ 
-          color: 'rgba(255, 255, 255, 0.12)',
+          color: dark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
           borderless: false,
           radius: SCREEN_WIDTH * 0.45 // Large enough to cover the card
         }}
@@ -210,7 +213,7 @@ export const DownloadedSongCard = ({ song, refetch, onDeleteRequest }) => {
           <PlainText 
             text={formatText(title)}
             style={{ 
-              color: isCurrentlyPlaying ? '#1ED760' : '#FFF',
+              color: isCurrentlyPlaying ? '#1ED760' : colors.text,
               fontSize: 15,
               fontWeight: isCurrentlyPlaying ? '600' : '500',
               marginBottom: 2
@@ -218,7 +221,7 @@ export const DownloadedSongCard = ({ song, refetch, onDeleteRequest }) => {
           />
           <SmallText 
             text={formatText(artist)}
-            style={styles.artist}
+            style={[styles.artist, { color: colors.textSecondary }]}
           />
         </View>
       </Pressable>
@@ -234,7 +237,7 @@ export const DownloadedSongCard = ({ song, refetch, onDeleteRequest }) => {
           elevation: 0,
         }}
       >
-        <MaterialCommunityIcons name="dots-vertical" size={22} color="#FFFFFF" />
+        <MaterialCommunityIcons name="dots-vertical" size={22} color={colors.text} />
       </Pressable>
 
       <Modal
@@ -246,13 +249,13 @@ export const DownloadedSongCard = ({ song, refetch, onDeleteRequest }) => {
         <Pressable style={styles.modalOverlay} onPress={closeMenu}>
           <View style={[styles.menuContainer, { top: menuPosition.top, right: menuPosition.right }]}>
             <TouchableOpacity style={styles.menuItem} onPress={playNext}>
-              <MaterialCommunityIcons name="play-speed" size={20} color="white" />
-              <Text style={styles.menuText}>Play next</Text>
+              <MaterialCommunityIcons name="play-speed" size={20} color={colors.text} />
+              <Text style={[styles.menuText, { color: colors.text }]}>Play next</Text>
             </TouchableOpacity>
             
             <TouchableOpacity style={styles.menuItem} onPress={handleDelete}>
-              <MaterialCommunityIcons name="delete-outline" size={20} color="white" />
-              <Text style={styles.menuText}>Delete</Text>
+              <MaterialCommunityIcons name="delete-outline" size={20} color={colors.text} />
+              <Text style={[styles.menuText, { color: colors.text }]}>Delete</Text>
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -261,7 +264,7 @@ export const DownloadedSongCard = ({ song, refetch, onDeleteRequest }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const getThemedStyles = (colors, dark) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -270,7 +273,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
     marginVertical: 2, // Reduced bottom margin
     borderRadius: 8,
-    backgroundColor: 'transparent'
+    backgroundColor: colors.background // Or transparent if preferred, but card might be better for light theme
   },
   pressableContent: {
     flex: 1,
@@ -283,7 +286,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 8,
-    backgroundColor: '#333'
+    backgroundColor: colors.border
   },
   textContainer: {
     flex: 1,
@@ -291,7 +294,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   title: {
-    color: '#FFF',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '500',
     marginBottom: 2
@@ -301,7 +304,7 @@ const styles = StyleSheet.create({
     fontWeight: '600'
   },
   artist: {
-    color: 'rgba(255,255,255,0.7)',
+    color: colors.textSecondary,
     fontSize: 13
   },
   optionsButton: {
@@ -313,12 +316,12 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: dark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.2)',
   },
   menuContainer: {
     position: 'absolute',
     right: 20,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: colors.card,
     borderRadius: 8,
     padding: 8,
     minWidth: 160,
@@ -330,7 +333,7 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   menuText: {
-    color: 'white',
+    color: colors.text,
     marginLeft: 10,
     fontSize: 14,
   },

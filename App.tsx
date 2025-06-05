@@ -1,5 +1,5 @@
-import { NavigationContainer, DefaultTheme, CommonActions, NavigationContainerRef } from "@react-navigation/native";
-import {RootRoute} from "./Route/RootRoute";
+import { NavigationContainer, CommonActions, NavigationContainerRef } from "@react-navigation/native";
+import { RootRoute } from "./Route/RootRoute.jsx";
 import { createStackNavigator } from "@react-navigation/stack";
 import { Dimensions, ToastAndroid, BackHandler } from "react-native";
 import ContextState from "./Context/ContextState";
@@ -8,36 +8,31 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet'
 import { RouteOnboarding } from "./Route/OnboardingScreen/RouteOnboarding";
 import { InitialScreen } from "./Route/InitialScreen";
 import CodePush from "react-native-code-push";
-import { useEffect, useRef} from "react";
+import { useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-// Import Firebase
-import firebase from '@react-native-firebase/app';
-// Import analytics
-import analytics from '@react-native-firebase/analytics';
+// Firebase Analytics is initialized within AnalyticsUtils using the modular API
 // Import analytics service
 import { analyticsService, AnalyticsEvents } from './Utils/AnalyticsUtils';
+// Import ThemeProvider from ThemeContext
+import { ThemeProvider, useThemeContext } from './Context/ThemeContext';
+// Import theme types
+import { darkTheme } from './Theme/darkTheme';
+type ThemeContextType = {
+  theme: typeof darkTheme;
+  themeMode: string;
+  colorSchemeName: string;
+  colorScheme: any;
+  toggleTheme: () => Promise<void>;
+  changeColorScheme: (scheme: string) => Promise<void>;
+  isThemeLoaded: boolean;
+};
 
 const Stack = createStackNavigator()
 let codePushOptions = { checkFrequency: CodePush.CheckFrequency.ON_APP_START };
+
 function App(){
   const width = Dimensions.get("window").width
   const navigationRef = useRef<NavigationContainerRef<any>>(null);
-  
-  const MyTheme = {
-    ...DefaultTheme,
-    colors: {
-      ...DefaultTheme.colors,
-      primary: '#6CC04A',
-      text: '#F4F5FC',
-      textSecondary: '#CCCCCC',
-      white : "white",
-      spacing : 10,
-      headingSize:width * 0.085,
-      fontSize:width * 0.045,
-      disabled:'rgb(131,131,131)',
-      background:'#101010',
-    },
-  };
   
   useEffect(() => {
     // Initialize playlists structure if needed
@@ -61,7 +56,7 @@ function App(){
   // Initialize Firebase Analytics
   useEffect(() => {
     // Set analytics collection enabled (can be toggled for GDPR compliance)
-    analytics().setAnalyticsCollectionEnabled(true);
+    analyticsService.setAnalyticsCollectionEnabled(true);
     
     // Enable debug mode in development
     if (__DEV__) {
@@ -124,28 +119,42 @@ function App(){
   
   return <GestureHandlerRootView style={{flex:1}}>
     <ContextState>
-    <BottomSheetModalProvider>
-    <NavigationContainer 
-      ref={navigationRef}
-      theme={MyTheme}
-      onStateChange={(state) => {
-        const currentRouteName = navigationRef.current?.getCurrentRoute()?.name;
-        if (currentRouteName) {
-          console.log("Current screen:", currentRouteName);
-          // Log screen view to Firebase Analytics
-          analyticsService.logScreenView(currentRouteName);
-        }
-      }}
-      fallback={<InitialScreen navigation={undefined as any} />}
-    >
-    <Stack.Navigator screenOptions={{headerShown:false}}>
-      <Stack.Screen name="Initial" component={InitialScreen} />
-      <Stack.Screen name="Onboarding" component={RouteOnboarding} />
-      <Stack.Screen name="MainRoute" component={RootRoute} />
-    </Stack.Navigator>
-  </NavigationContainer>
-  </BottomSheetModalProvider>
-  </ContextState>
+      <BottomSheetModalProvider>
+        <ThemeProvider>
+          {({ theme, isThemeLoaded }: ThemeContextType) => {
+            // Only render when theme is loaded to prevent flash of wrong theme
+            if (!isThemeLoaded) {
+              return null; // Or a loading indicator if preferred
+            }
+            
+            return (
+              <NavigationContainer 
+                ref={navigationRef}
+                theme={theme}
+                onStateChange={(state) => {
+                  const currentRouteName = navigationRef.current?.getCurrentRoute()?.name;
+                  if (currentRouteName) {
+                    console.log("Current screen:", currentRouteName);
+                    // Log screen view to Firebase Analytics
+                    analyticsService.logScreenView(currentRouteName);
+                  }
+                }}
+                fallback={<InitialScreen navigation={undefined as any} />}
+              >
+                <Stack.Navigator screenOptions={{
+                  headerShown: false,
+                  cardStyle: { backgroundColor: theme.colors.background }
+                }}>
+            <Stack.Screen name="Initial" component={InitialScreen} />
+            <Stack.Screen name="Onboarding" component={RouteOnboarding} />
+            <Stack.Screen name="MainRoute" component={RootRoute} />
+                </Stack.Navigator>
+              </NavigationContainer>
+            );
+          }}
+        </ThemeProvider>
+      </BottomSheetModalProvider>
+    </ContextState>
   </GestureHandlerRootView>
 }
 export default  CodePush(codePushOptions)(App)

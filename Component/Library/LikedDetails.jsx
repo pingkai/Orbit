@@ -88,7 +88,7 @@ const getSafeUrl = (urlSource, quality = 0) => {
   }
 };
 
-export const LikedDetails = ({name, Data, dontShowPlayButton}) => {
+export const LikedDetails = ({name, Data, dontShowPlayButton, textStyle}) => {
   const {updateTrack} = useContext(Context)
   
   async function AddToPlayer(){
@@ -142,7 +142,7 @@ export const LikedDetails = ({name, Data, dontShowPlayButton}) => {
           paddingLeft:5,
           maxWidth:width * 0.8,
         }}>
-          <Heading text={name}/>
+          <Heading text={name} style={textStyle}/>
           <Spacer/>
         </View>
       {!dontShowPlayButton && <PlayButton onPress={() => {

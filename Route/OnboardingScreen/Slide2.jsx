@@ -16,8 +16,8 @@ export const Slide2 = ({navigation}) => {
   const [Languages, setLanguages] = useState([]);
   
   async function onNextPress(language){
-    if (language.length < 2){
-      alert("Please select atleast 2 language")
+    if (language.length < 1){
+      alert("Please select atleast 1 language")
     } else {
       const Lang = language.join(",")
       await SetLanguageValue(Lang);
@@ -42,7 +42,7 @@ export const Slide2 = ({navigation}) => {
         </Animated.View>
         <Animated.View entering={FadeInDown.delay(750)}>
           <PlainText 
-            text={"Select atleast 2 language"} 
+            text={"Select atleast 1 language"} 
             style={styles.subHeading}
           />
         </Animated.View>

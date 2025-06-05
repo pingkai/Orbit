@@ -15,8 +15,40 @@ export const HomeRoute = () => {
   return (
     <Stack.Navigator screenOptions={{headerShown:false,animation:'fade_from_bottom'}}>
       <Stack.Screen  name="HomePage" component={Home} />
-      <Stack.Screen  name="Playlist" component={Playlist} />
-      <Stack.Screen name={"Album"} component={Album}/>
+      <Stack.Screen
+        name="Playlist"
+        component={Playlist}
+        options={{
+          headerShown: true,
+          headerTransparent: true,
+          title: '', // Ensure no default title from navigation
+          headerBackVisible: false, // Hide native back button
+          headerStyle: {
+            backgroundColor: 'transparent',
+          },
+          headerTintColor: '#FFFFFF',
+          headerTitleStyle: {
+            color: '#FFFFFF',
+          },
+        }}
+      />
+      <Stack.Screen
+        name={"Album"}
+        component={Album}
+        options={{
+          headerShown: true,
+          headerTransparent: true,
+          title: '', // Ensure no default title from navigation
+          headerBackVisible: false, // Hide native back button
+          headerStyle: {
+            backgroundColor: 'transparent',
+          },
+          headerTintColor: '#FFFFFF',
+          headerTitleStyle: {
+            color: '#FFFFFF',
+          },
+        }}
+      />
       <Stack.Screen  name="Search" component={SearchPage} />
       <Stack.Screen name={"LikedSongs"} component={LikedSongPage}/>
       <Stack.Screen name={"LikedPlaylists"} component={LikedPlaylistPage}/>

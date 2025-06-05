@@ -5,7 +5,8 @@ import { SpaceBetween } from "../../Layout/SpaceBetween";
 import FontAwesome5 from "react-native-vector-icons/FontAwesome5";
 import FastImage from "react-native-fast-image";
 import { memo, useMemo } from "react";
-import { useNavigation, useTheme } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
+import { useThemeContext } from "../../Context/ThemeContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LanguageTag } from "./LanguageTag";
 
@@ -34,7 +35,7 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
   navigationSource,
   style
 }){
-  const theme = useTheme()
+  const { theme } = useThemeContext();
   const navigation = useNavigation()
   const { width, height } = Dimensions.get('window');
   
@@ -204,7 +205,7 @@ export const EachPlaylistCard = memo(function EachPlaylistCard ({
             maxLine={1} // Only one line for follower count
           />
         </View>
-        <FontAwesome5 name={"play"} size={15} color={theme.colors.text}/>
+        <FontAwesome5 name={"play"} size={15} color={theme.colors.primary}/>
       </SpaceBetween>
     </Pressable>
   );

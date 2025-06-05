@@ -25,7 +25,7 @@ import { PermissionsAndroid, Platform, ToastAndroid, DeviceEventEmitter } from "
 import DeviceInfo from "react-native-device-info";
 import { GetDownloadPath } from "../../LocalStorage/AppSettings";
 import TrackPlayer from 'react-native-track-player';
-import VolumeControl, { VolumeControlEvents } from 'react-native-volume-control';
+import VolumeManager from 'react-native-volume-manager';
 import NetInfo from "@react-native-community/netinfo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTrackPlayerEvents } from "react-native-track-player";
@@ -679,30 +679,24 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
   useEffect(() => {
     const getInitialVolume = async () => {
       try {
-        const vol = await VolumeControl.getVolume();
+        const vol = await VolumeManager.getVolume();
         setCurrentVolume(vol);
         lastVolume.value = vol;
       } catch (error) {
-        console.log("Error getting volume:", error);
+        console.log("Error getting initial volume:", error);
       }
     };
 
-    // Create a custom event emitter wrapper to fix the warning
-    const volumeListener = VolumeControlEvents.addListener('volumeChange', (volume) => {
-      setCurrentVolume(volume);
+    // Listen for volume changes with VolumeManager
+    const volumeChangeListener = DeviceEventEmitter.addListener('VolumeChanged', (data) => {
+      setCurrentVolume(data.volume);
     });
 
-    // Add removeListeners method to fix the warning
-    if (!VolumeControlEvents.removeListeners) {
-      VolumeControlEvents.removeListeners = function() {
-      
-      };
-    }
     getInitialVolume();
     return () => {
       // Properly clean up the listener
-      if (volumeListener && typeof volumeListener.remove === 'function') {
-        volumeListener.remove();
+      if (volumeChangeListener) {
+        volumeChangeListener.remove();
       }
     };
   }, []);
@@ -734,7 +728,7 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
         // Update TrackPlayer volume first for immediate audio feedback
         await TrackPlayer.setVolume(clampedVolume);
         // Then update system volume
-        await VolumeControl.change(clampedVolume);
+        await VolumeManager.setVolume(clampedVolume);
       } catch (error) {
         console.log("Error adjusting volume:", error);
       }
@@ -1320,6 +1314,11 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
             const percentage = Math.floor((received / total) * 100);
             setDownloadProgress(percentage);
             console.log(`Download progress event received: ${percentage}% for ${currentPlaying?.title}`);
+          })
+          .catch(err => {
+            console.error('ReactNativeBlobUtil.fetch failed directly:', err);
+            // Re-throw to be caught by the outer try/catch for consistent error handling
+            throw err;
           });
 
         console.log("Download completed with status:", res.info().status);
@@ -2088,4 +2087,3 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     </Animated.View>
   );
 };
-

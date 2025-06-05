@@ -22,3 +22,10 @@ buildscript {
 }
 
 apply plugin: "com.facebook.react.rootproject"
+
+// Exclude problematic packages for all subprojects
+allprojects {
+    configurations.all {
+        exclude group: 'com.rtmalone', module: 'react-native-volume-control'
+    }
+}

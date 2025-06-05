@@ -86,6 +86,7 @@ export const HorizontalScrollSongs = ({id}) => {
                 title={truncateText(e?.name, 30)}  
                 url={e?.downloadUrl}
                 titleandartistwidth={width * 0.5}
+                showNumber={false} // Explicitly set to false for homescreen
               />
             </View>)}
           </View>
@@ -106,6 +107,7 @@ export const HorizontalScrollSongs = ({id}) => {
                 title={truncateText(e?.name, 30)}  
                 url={e?.downloadUrl} 
                 titleandartistwidth={width * 0.5}
+                showNumber={false} // Explicitly set to false for homescreen
               />
             </View>)}
           </View>

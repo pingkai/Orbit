@@ -15,11 +15,13 @@ import TrackPlayer from 'react-native-track-player';
 const DEFAULT_MUSIC_IMAGE = require('../../Images/Music.jpeg');
 
 export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
+
   const { updateTrack, setVisible, setIndex, setPreviousScreen, setMusicPreviousScreen } = useContext(Context);
   const currentPlaying = useActiveTrack();
   const playerState = usePlaybackState();
   const menuButtonRef = useRef(null);
   const theme = useTheme();
+  const styles = getThemedStyles(theme.colors, theme.dark);
   const [albumArt, setAlbumArt] = useState(null);
   const navigation = useNavigation();
   const [fullNavPath, setFullNavPath] = useState('');
@@ -360,9 +362,9 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
       onPress={handlePress} 
       style={({pressed}) => [
         styles.container,
-        pressed && {backgroundColor: 'rgba(255,255,255,0.12)'}
+        pressed && {backgroundColor: theme.dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.05)' }
       ]}
-      android_ripple={{color: 'rgba(255,255,255,0.15)'}}
+      android_ripple={{color: theme.dark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)'}}
     >
       <View style={styles.songInfo}>
         <View style={styles.imageContainer}>
@@ -393,20 +395,20 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
         hitSlop={8}
         style={styles.menuButton}
       >
-        <MaterialCommunityIcons name="dots-vertical" size={24} color="white"/>
+        <MaterialCommunityIcons name="dots-vertical" size={24} color={theme.colors.text}/>
       </Pressable>
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+const getThemedStyles = (colors, dark) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: colors.border,
     justifyContent: 'space-between',
   },
   songInfo: {
@@ -431,12 +433,12 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 16,
-    color: 'white',
+    color: colors.text,
     marginBottom: 4,
   },
   artist: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
+    color: colors.textSecondary,
   },
   menuButton: {
     padding: 8,

@@ -1,4 +1,7 @@
-import analytics from '@react-native-firebase/analytics';
+import { getApp } from '@react-native-firebase/app';
+import { getAnalytics, FirebaseAnalyticsTypes } from '@react-native-firebase/analytics';
+
+const analyticsInstance: FirebaseAnalyticsTypes.Module = getAnalytics(getApp());
 
 // Analytics event types
 export enum AnalyticsEvents {
@@ -23,13 +26,26 @@ export enum UserProperties {
 
 class AnalyticsService {
   /**
+   * Enable or disable analytics collection.
+   * @param enabled boolean to enable/disable collection
+   */
+  setAnalyticsCollectionEnabled = async (enabled: boolean) => {
+    try {
+      await analyticsInstance.setAnalyticsCollectionEnabled(enabled);
+      console.log(`Analytics collection enabled: ${enabled}`);
+    } catch (error) {
+      console.error('Error setting analytics collection state:', error);
+    }
+  };
+
+  /**
    * Log a screen view event
    * @param screenName The name of the screen
    * @param screenClass The class of the screen (optional)
    */
   logScreenView = async (screenName: string, screenClass?: string) => {
     try {
-      await analytics().logScreenView({
+      await analyticsInstance.logScreenView({
         screen_name: screenName,
         screen_class: screenClass || screenName,
       });
@@ -46,7 +62,7 @@ class AnalyticsService {
    */
   logEvent = async (eventName: string, params?: Record<string, any>) => {
     try {
-      await analytics().logEvent(eventName, params);
+      await analyticsInstance.logEvent(eventName, params);
       console.log(`Event logged: ${eventName}`, params);
     } catch (error) {
       console.error(`Error logging event ${eventName}:`, error);
@@ -60,7 +76,7 @@ class AnalyticsService {
    */
   setUserProperty = async (name: string, value: string) => {
     try {
-      await analytics().setUserProperty(name, value);
+      await analyticsInstance.setUserProperty(name, value);
       console.log(`User property set: ${name}=${value}`);
     } catch (error) {
       console.error(`Error setting user property ${name}:`, error);

@@ -460,14 +460,14 @@ export const RootRoute = () => {
   return (
     <View style={{ flex: 1 }}>
       {Index === 1 ? (
-        <FullScreenMusic setIndex={setIndex} Index={Index} color="#151515" />
+        <FullScreenMusic setIndex={setIndex} Index={Index} />
       ) : (
         <>
           <Tab.Navigator 
             initialRouteName="Home"
             tabBar={(props) => (
               <>
-                <BottomSheetMusic color="#151515"/>
+                <BottomSheetMusic />
                 <CustomTabBar {...props}/>
               </>
             )} 

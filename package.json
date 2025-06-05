@@ -31,6 +31,7 @@
     "react-native-blob-util": "^0.19.8",
     "react-native-bouncy-checkbox": "^3.0.7",
     "react-native-code-push": "^8.2.1",
+    "react-native-color-picker": "^0.6.0",
     "react-native-device-info": "^10.13.1",
     "react-native-draggable-flatlist": "^4.0.1",
     "react-native-element-dropdown": "^2.10.2",
@@ -51,7 +52,6 @@
     "react-native-system-setting": "^1.7.6",
     "react-native-track-player": "^4.0.1",
     "react-native-vector-icons": "^10.2.0",
-    "react-native-volume-control": "^1.0.1",
     "react-native-volume-manager": "^2.0.8",
     "react-redux": "^9.2.0"
   },

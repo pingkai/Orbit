@@ -1,5 +1,6 @@
 import { Dimensions, Text } from "react-native";
 import { useTheme } from "@react-navigation/native";
+import { StyleSheet } from 'react-native';
 import { useEffect, useState, useContext } from "react";
 import { GetFontSizeValue } from "../../LocalStorage/AppSettings";
 import { useActiveTrack, usePlaybackState } from "react-native-track-player";
@@ -41,7 +42,7 @@ export const PlainText = ({text, style, numberOfLine, songId, isSongTitle}) => {
       letterSpacing: isSongTitle ? 0.3 : 0, // Slight letter spacing for song titles for better readability
       paddingRight: 10,
       fontFamily: 'roboto',
-      ...style,
+      ...StyleSheet.flatten(style),
     }}>{text}</Text>
   );
 };

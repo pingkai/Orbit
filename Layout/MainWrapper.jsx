@@ -23,7 +23,11 @@ export const MainWrapper = memo(function MainWrapper({children}) {
   
   return (
     <SafeAreaView style={{flex:1,backgroundColor:theme.colors.background}}>
-      <StatusBar backgroundColor={theme.colors.background} animated={true}/>
+      <StatusBar 
+        backgroundColor={theme.colors.background} 
+        barStyle={theme.dark ? "light-content" : "dark-content"}
+        animated={true}
+      />
       {children}
       <PlaylistSelectorWrapper ref={playlistSelectorRef} />
     </SafeAreaView>

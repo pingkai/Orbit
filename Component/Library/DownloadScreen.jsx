@@ -6,22 +6,16 @@ import RNFS from 'react-native-fs';
 import { PlainText } from '../Global/PlainText';
 import { DownloadedSongCard } from './DownloadedSongCard';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useTheme } from '@react-navigation/native';
 import { StorageManager } from '../../Utils/StorageManager';
 import { safePath, safeExists } from '../../Utils/FileUtils';
 import { analyticsService } from '../../Utils/AnalyticsUtils';
 
-// Hard-coded colors until we find the correct import
-const AppColors = {
-  backgroundColor: '#121212',
-  primary: '#1DB954',
-  white: '#FFFFFF',
-  gray: '#9E9E9E'
-};
-
 const { width, height } = Dimensions.get('window');
 
 export default function DownloadScreen(props) {
+  const { colors, dark } = useTheme();
+  const styles = getStyles(colors, dark);
   const [downloadedSongs, setDownloadedSongs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -338,24 +332,24 @@ export default function DownloadScreen(props) {
             <TextInput
               style={styles.searchInput}
               placeholder="Search..."
-              placeholderTextColor={AppColors.gray}
+              placeholderTextColor={colors.placeholder}
               value={searchQuery}
               onChangeText={setSearchQuery}
               returnKeyType="search"
               autoCapitalize="none"
-              selectionColor={AppColors.primary}
+              selectionColor={colors.primary}
               autoFocus={true}
             />
             <TouchableOpacity onPress={() => {
               setShowSearch(false);
               setSearchQuery('');
             }}>
-              <MaterialIcons name="close" size={24} color={AppColors.gray} />
+              <MaterialIcons name="close" size={24} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
         ) : (
           <TouchableOpacity onPress={() => setShowSearch(true)} style={styles.searchIcon}>
-            <MaterialIcons name="search" size={24} color={AppColors.white} />
+            <MaterialIcons name="search" size={24} color={colors.text} />
           </TouchableOpacity>
         )}
       </View>
@@ -374,7 +368,7 @@ export default function DownloadScreen(props) {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <MaterialIcons name="music-off" size={50} color={AppColors.gray} />
+            <MaterialIcons name="music-off" size={50} color={colors.textSecondary} />
             <Text style={styles.emptyText}>
               {searchQuery 
                 ? `No downloads matching "${searchQuery}"` 
@@ -391,8 +385,8 @@ export default function DownloadScreen(props) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[AppColors.primary]}
-            tintColor={AppColors.primary}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
           />
         }
       />
@@ -400,15 +394,15 @@ export default function DownloadScreen(props) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors, dark) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: AppColors.backgroundColor,
+    backgroundColor: dark ? '#121212' : '#FFFFFF',
   },
   header: {
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -416,7 +410,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: AppColors.white,
+    color: colors.text,
   },
   searchIcon: {
     padding: 4,
@@ -425,7 +419,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#242424',
+    backgroundColor: dark ? '#242424' : '#EFEFEF',
     borderRadius: 8,
     paddingHorizontal: 12,
     marginLeft: 16,
@@ -434,7 +428,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     height: 40,
-    color: AppColors.white,
+    color: colors.text,
     fontSize: 16,
   },
   songsList: {
@@ -448,13 +442,13 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
-    color: AppColors.white,
+    color: colors.text,
     marginTop: 16,
     textAlign: 'center',
   },
   emptySubText: {
     fontSize: 14,
-    color: AppColors.gray,
+    color: colors.textSecondary,
     marginTop: 8,
     textAlign: 'center',
   },

@@ -62,10 +62,10 @@ export const LikedSongPage = () => {
       backgroundColor:"rgba(0,0,0)",
     }}>
       <LikedPagesTopHeader AnimatedRef={AnimatedRef} url={require("../../Images/likedMusic.webp")} />
-      <LikedDetails name={"Liked Songs"} Data={LikedSongs}/>
+      <LikedDetails name={"Liked Songs"} Data={LikedSongs} textStyle={!theme.dark ? { color: '#FFFFFF' } : {}}/>
      <View style={{paddingHorizontal:10, backgroundColor:theme.colors.background}}>
        {LikedSongs.map((e,i) =>{
-         return <EachSongCard width={width * 0.95} Data={LikedSongs} index={i}  url={e?.url} id={e?.id} title={e?.title} artist={e?.artist} image={e?.artwork} language={e?.language} duration={e?.duration} artistID={e?.artistID} key={i}/>
+         return <EachSongCard width={width * 0.95} Data={LikedSongs} index={i} showNumber={false} url={e?.url} id={e?.id} title={e?.title} artist={e?.artist} image={e?.artwork} language={e?.language} duration={e?.duration} artistID={e?.artistID} key={i}/>
        })}
      </View>
     </Animated.ScrollView>

@@ -1,6 +1,6 @@
 import { Dimensions, Pressable, View, Animated } from "react-native";
 import { PlainText } from "../Global/PlainText";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useTheme } from "@react-navigation/native";
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useRef } from "react";
 
@@ -9,6 +9,7 @@ export const EachLibraryCard = ({ icon, text, navigate }) => {
   const containerWidth = width * 0.9; // Adjusted for one card per row
   const navigation = useNavigation();
   const scaleValue = useRef(new Animated.Value(1)).current;
+  const { colors } = useTheme();
 
   const handlePressIn = () => {
     Animated.spring(scaleValue, {
@@ -41,7 +42,7 @@ export const EachLibraryCard = ({ icon, text, navigate }) => {
           paddingHorizontal: 15,
         }}
       >
-        <MaterialCommunityIcons name={icon} size={25} color="white" />
+        <MaterialCommunityIcons name={icon} size={25} color={colors.primary} />
         <View style={{
           marginLeft: 20, // Increased space between icon and text
         }}>

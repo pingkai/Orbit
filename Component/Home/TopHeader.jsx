@@ -18,12 +18,23 @@ export const TopHeader = memo(({showHeader}) => {
   const theme = useTheme()
   return (
     <>
-      {showHeader && <Animated.View entering={FadeInUp} exiting={FadeOutUp} style={{height:50,width:"100%", backgroundColor:"rgba(0,0,0,0)", position:"absolute", zIndex:100}}>
-        <LinearGradient start={{x: 0, y: 1}} end={{x: 0, y: 0}} colors={["rgba(19,19,19,0.87)", "rgba(19,19,19,0.98)"]} style={{
-         flex:1,
-         height:50,
-          justifyContent:"flex-end",
-        }}>
+      {showHeader && <Animated.View entering={FadeInUp} exiting={FadeOutUp} style={{height:50,width:"100%", backgroundColor:"transparent", position:"absolute", zIndex:100}}>
+        <LinearGradient 
+          start={{x: 0, y: 1}} 
+          end={{x: 0, y: 0}} 
+          colors={[
+            theme.dark 
+              ? "rgba(16,16,16,0.87)" 
+              : "rgba(244,245,252,0.87)", 
+            theme.dark 
+              ? "rgba(16,16,16,0.98)" 
+              : "rgba(244,245,252,0.98)"
+          ]} 
+          style={{
+            flex:1,
+            height:50,
+            justifyContent:"flex-end",
+          }}>
         <PaddingConatiner>
           <SpaceBetween>
             <View style={{flex:1}}>
@@ -31,7 +42,7 @@ export const TopHeader = memo(({showHeader}) => {
             </View>
             <Pressable style={{
               padding:5,
-              backgroundColor:"rgba(0,0,0,0)",
+              backgroundColor:"transparent",
               borderRadius:10,
             }} onPress={()=>{
               navigation.navigate("Search")
@@ -40,7 +51,7 @@ export const TopHeader = memo(({showHeader}) => {
               navigation.navigate("Settings")
             }} style={{
               padding:5,
-              backgroundColor:"rgba(0,0,0,0)",
+              backgroundColor:"transparent",
               borderRadius:10,
             }}>
               <SimpleLineIcons name={"settings"} size={width * 0.055} color={theme.colors.text}/>

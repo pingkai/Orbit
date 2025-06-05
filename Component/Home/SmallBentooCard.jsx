@@ -4,6 +4,7 @@ import { useNavigation, useTheme } from "@react-navigation/native";
 export const SmallBentooCard = ({width , image , text, navigate}) => {
   const navigation = useNavigation()
   const theme = useTheme()
+  const { dark } = theme
   return (
     <Pressable onPress={()=>{
       navigation.navigate("ShowPlaylistofType",{Searchtext:navigate.toLowerCase()})
@@ -24,18 +25,18 @@ export const SmallBentooCard = ({width , image , text, navigate}) => {
         height:"100%",
         alignItems:"center",
         justifyContent:"center",
-        backgroundColor:"rgba(9,9,9,0.67)",
+        backgroundColor: "rgba(0, 0, 0, 0.6)", // Consistent dark overlay
       }}>
         <Text style={{
           textAlign:"center",
           fontSize:20,
           fontWeight:"bold",
-          color:"rgb(225,225,225)",
+          color: '#FFFFFF', // Consistent white text
         }}>{text}</Text>
         <Text style={{
           textAlign:"center",
           fontSize:10,
-          color:"white",
+          color: '#FFFFFF',
         }}>Listen Now</Text>
       </View>
     </Pressable>

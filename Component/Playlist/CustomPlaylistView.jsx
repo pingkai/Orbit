@@ -9,7 +9,7 @@ import Context from '../../Context/Context';
 import Modal from "react-native-modal";
 import { GetCustomPlaylists, AddSongToCustomPlaylist, CreateCustomPlaylist } from '../../LocalStorage/CustomPlaylists';
 import { StyleSheet } from 'react-native';
-import { useNavigation, CommonActions, useFocusEffect } from "@react-navigation/native";
+import { useNavigation, CommonActions, useFocusEffect, useTheme } from "@react-navigation/native";
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { PlainText } from '../Global/PlainText';
@@ -22,7 +22,7 @@ import { CustomPlaylistPlay } from './CustomPlaylistPlay';
 const DEFAULT_MUSIC_IMAGE = require('../../Images/default.jpg');
 
 // Performance optimization: Create memoized styles outside component
-const styles = StyleSheet.create({
+const staticStyles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#121212',
@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     marginLeft: 12,
-    color: '#FFFFFF',
+    // color will be applied dynamically using theme
     flex: 1,
     fontWeight: '600',
   },
@@ -65,13 +65,15 @@ const styles = StyleSheet.create({
   },
   playlistTitle: {
     fontSize: 24,
-    color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: 'bold',
+    // color: '#FFFFFF', // Applied dynamically
     marginBottom: 4,
+    marginTop: 12,
+    textAlign: 'left',
   },
   songCount: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
+    // color: 'rgba(255,255,255,0.7)', // Applied dynamically
     marginBottom: 20,
   },
   playButton: {
@@ -97,13 +99,14 @@ const styles = StyleSheet.create({
   },
   songCard: {
     flexDirection: 'row',
-    padding: 12,
     alignItems: 'center',
-    borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    // borderBottomColor: 'rgba(255,255,255,0.1)', // Applied dynamically
   },
   activeSongCard: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    // backgroundColor: 'rgba(255,255,255,0.05)', // Applied dynamically
   },
   thumbnail: {
     width: 50,
@@ -117,12 +120,12 @@ const styles = StyleSheet.create({
   },
   songTitle: {
     fontSize: 16,
-    color: '#FFFFFF',
+    // color: '#FFFFFF', // Applied dynamically
     marginBottom: 4,
   },
   songArtist: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+    // color: 'rgba(255,255,255,0.7)', // Applied dynamically
   },
   songControls: {
     flexDirection: 'row',
@@ -139,7 +142,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   menuContainer: {
-    backgroundColor: '#1E1E1E',
+    // backgroundColor: '#1E1E1E', // Applied dynamically
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
     padding: 16,
@@ -151,37 +154,42 @@ const styles = StyleSheet.create({
   },
   menuText: {
     marginLeft: 16,
-    color: '#FFFFFF',
+    // color: '#FFFFFF', // Applied dynamically
     fontSize: 16,
   },
   menuCancel: {
     alignItems: 'center',
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
+    // borderTopColor: 'rgba(255,255,255,0.1)', // Applied dynamically
     marginTop: 8,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#121212',
+    // backgroundColor will be applied dynamically using theme
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#121212',
-    padding: 20,
+    // backgroundColor will be applied dynamically using theme
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   emptyText: {
-    color: '#FFFFFF',
-    marginTop: 20,
+    fontSize: 16,
+    // color: '#FFFFFF', // Applied dynamically
+    marginTop: 12,
     textAlign: 'center',
   },
 });
 
 export const CustomPlaylistView = (props) => {
+  const theme = useTheme();
   const [Songs, setSongs] = useState([]);
   const [playlistName, setPlaylistName] = useState("");
   const [playlistId, setPlaylistId] = useState(null);
@@ -198,7 +206,8 @@ export const CustomPlaylistView = (props) => {
   const [isPlaying, setIsPlaying] = useState(false);
   
   const navigation = useNavigation();
-  const { Queue, setQueue, setCurrentPlaying, currentPlaying, updateTrack } = useContext(Context);
+  // const theme = useTheme(); // Already added in previous step
+  const { Queue, setQueue, setCurrentPlaying, currentPlaying, updateTrack, isFullscreenPlayer } = useContext(Context);
   const initializationComplete = useRef(false);
   const chunkedRefs = useRef({});
   const flatListRef = useRef(null);
@@ -222,6 +231,8 @@ export const CustomPlaylistView = (props) => {
   // Focus effect to reload component when it comes back into focus
   useFocusEffect(
     useCallback(() => {
+      StatusBar.setBarStyle(theme.dark ? 'light-content' : 'dark-content');
+      StatusBar.setBackgroundColor(theme.colors.background, true);
       InteractionManager.runAfterInteractions(() => {
         if (isMounted.current) {
           if (!initializationComplete.current) {
@@ -804,35 +815,36 @@ export const CustomPlaylistView = (props) => {
       <Pressable
         key={songKey}
         style={[
-          styles.songCard,
-          isCurrentPlaying && styles.activeSongCard
+          staticStyles.songCard,
+          { borderBottomColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' },
+          isCurrentPlaying && [staticStyles.activeSongCard, { backgroundColor: theme.dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]
         ]}
         onPress={handlePress}
-        android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
+        android_ripple={{ color: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }}
       >
         <FastImage
           source={getSafeImageSource(item)}
-          style={styles.thumbnail}
+          style={staticStyles.thumbnail}
           resizeMode={FastImage.resizeMode.cover}
           defaultSource={DEFAULT_MUSIC_IMAGE}
         />
-        <View style={styles.songInfo}>
-          <Text style={styles.songTitle} numberOfLines={1}>
+        <View style={staticStyles.songInfo}>
+          <Text style={[staticStyles.songTitle, { color: theme.colors.text }]} numberOfLines={1}>
             {truncateText(item.title || 'Unknown', 20)}
           </Text>
-          <Text style={styles.songArtist} numberOfLines={1}>
+          <Text style={[staticStyles.songArtist, { color: theme.colors.textSecondary }]} numberOfLines={1}>
             {truncateText(item.artist || 'Unknown Artist', 18)}
           </Text>
         </View>
         
-        <View style={styles.songControls}>
+        <View style={staticStyles.songControls}>
           {/* Options button */}
           <Pressable
             onPress={handleOptions}
-            style={styles.menuButton}
+            style={staticStyles.menuButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <MaterialCommunityIcons name="dots-vertical" size={24} color="#FFFFFF" />
+            <MaterialCommunityIcons name="dots-vertical" size={24} color={theme.colors.text} />
           </Pressable>
         </View>
       </Pressable>
@@ -845,9 +857,9 @@ export const CustomPlaylistView = (props) => {
   // Render loading state when needed
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1DB954" />
-        <Text style={{ color: '#FFFFFF', marginTop: 16 }}>Loading playlist...</Text>
+      <View style={[staticStyles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={{ color: theme.colors.text, marginTop: 16 }}>Loading playlist...</Text>
       </View>
     );
   }
@@ -855,16 +867,16 @@ export const CustomPlaylistView = (props) => {
   // Show a placeholder when there are no songs
   if (!Songs || Songs.length === 0) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Pressable onPress={handleGoBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+      <View style={[staticStyles.container, { backgroundColor: theme.colors.background }]}>
+        <View style={staticStyles.header}>
+          <Pressable onPress={handleGoBack} style={staticStyles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
           </Pressable>
-          <PlainText text={truncateText(playlistName, 35)} style={styles.title} />
+          <PlainText text={truncateText(playlistName, 35)} style={[staticStyles.title, { color: theme.colors.text }]} />
         </View>
-        <View style={styles.emptyContainer}>
-          <Ionicons name="musical-notes-outline" size={50} color="rgba(255,255,255,0.5)" />
-          <Text style={styles.emptyText}>
+        <View style={[staticStyles.emptyContainer, { backgroundColor: theme.colors.background }]}>
+          <Ionicons name="musical-notes-outline" size={50} color={theme.colors.textSecondary} />
+          <Text style={[staticStyles.emptyText, { color: theme.colors.textSecondary }]}>
             No songs in this playlist
           </Text>
         </View>
@@ -874,16 +886,16 @@ export const CustomPlaylistView = (props) => {
   
   // Main render of the component
   return (
-    <View style={styles.container}>
+    <View style={[staticStyles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       
-      <View style={styles.header}>
-        <Pressable onPress={handleGoBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+      <View style={staticStyles.header}>
+        <Pressable onPress={handleGoBack} style={staticStyles.backButton}>
+          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </Pressable>
         <PlainText 
           text={truncateText(playlistName, 28)} 
-          style={styles.title}
+          style={[staticStyles.title, { color: theme.colors.text }]}
           numberOfLines={1}
         />
       </View>
@@ -900,21 +912,21 @@ export const CustomPlaylistView = (props) => {
         windowSize={11}
         removeClippedSubviews={true}
         ListHeaderComponent={
-          <View style={styles.coverContainer}>
-            <View style={styles.playlistInfoSection}>
+          <View style={[staticStyles.coverContainer, { borderBottomColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}>
+            <View style={staticStyles.playlistInfoSection}>
               <FastImage
                 source={getSafeImageSource(Songs[0] || {})}
-                style={styles.coverImage}
+                style={staticStyles.coverImage}
                 defaultSource={DEFAULT_MUSIC_IMAGE}
               />
-              <View style={styles.playlistInfoContainer}>
+              <View style={staticStyles.playlistInfoContainer}>
                 <Text 
-                  style={styles.playlistTitle}
+                  style={[staticStyles.playlistTitle, { color: theme.colors.text }]}
                   numberOfLines={2}
                 >
                   {truncateText(playlistName, 40)}
                 </Text>
-                <Text style={styles.songCount}>
+                <Text style={[staticStyles.songCount, { color: theme.colors.textSecondary }]}>
                   {Songs.length} {Songs.length === 1 ? 'song' : 'songs'}
                 </Text>
                 <CustomPlaylistPlay 
@@ -930,8 +942,8 @@ export const CustomPlaylistView = (props) => {
         ListFooterComponent={
           chunkLoading && visibleSongs.length < Songs.length ? (
             <View style={{ padding: 20, alignItems: 'center' }}>
-              <ActivityIndicator size="small" color="#1DB954" />
-              <Text style={{ color: '#FFFFFF', marginTop: 8 }}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text style={{ color: theme.colors.text, marginTop: 8 }}>
                 Loading more songs...
               </Text>
             </View>
@@ -943,20 +955,20 @@ export const CustomPlaylistView = (props) => {
       <Modal
         isVisible={menuVisible}
         onBackdropPress={() => setMenuVisible(false)}
-        style={styles.menuModal}
+        style={staticStyles.menuModal}
         backdropTransitionOutTiming={0}
         animationIn="slideInUp"
         animationOut="slideOutDown"
       >
-        <View style={styles.menuContainer}>
+        <View style={[staticStyles.menuContainer, { backgroundColor: theme.colors.card }]}>
           {selectedSong && (
             <>
-              <Text style={{ color: '#FFFFFF', fontSize: 18, marginBottom: 16 }}>
+              <Text style={{ color: theme.colors.text, fontSize: 18, marginBottom: 16, paddingHorizontal: 16 }}>
                 {truncateText(selectedSong.title, 40)}
               </Text>
               
               <Pressable
-                style={styles.menuOption}
+                style={[staticStyles.menuOption, { paddingHorizontal: 16 }]}
                 onPress={async () => {
                   setMenuVisible(false);
                   try {
@@ -998,13 +1010,13 @@ export const CustomPlaylistView = (props) => {
                   }
                 }}
               >
-                <MaterialCommunityIcons name="playlist-play" size={24} color="#FFFFFF" />
-                <Text style={styles.menuText}>Play Next</Text>
+                <MaterialCommunityIcons name="playlist-play" size={24} color={theme.colors.text} />
+                <Text style={[staticStyles.menuText, { color: theme.colors.text }]}>Play Next</Text>
               </Pressable>
               
               {isUserPlaylist && (
                 <Pressable
-                  style={styles.menuOption}
+                  style={[staticStyles.menuOption, { paddingHorizontal: 16 }]}
                   onPress={async () => {
                     setMenuVisible(false);
                     try {
@@ -1032,16 +1044,16 @@ export const CustomPlaylistView = (props) => {
                     }
                   }}
                 >
-                  <MaterialCommunityIcons name="playlist-remove" size={24} color="#FFFFFF" />
-                  <Text style={styles.menuText}>Remove from Playlist</Text>
+                  <MaterialCommunityIcons name="playlist-remove" size={24} color={theme.colors.text} />
+                  <Text style={[staticStyles.menuText, { color: theme.colors.text }]}>Remove from Playlist</Text>
                 </Pressable>
               )}
               
               <Pressable
-                style={styles.menuCancel}
+                style={[staticStyles.menuCancel, { borderTopColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}
                 onPress={() => setMenuVisible(false)}
               >
-                <Text style={{ color: '#1DB954', fontSize: 16 }}>Cancel</Text>
+                <Text style={{ color: theme.colors.primary, fontSize: 16 }}>Cancel</Text>
               </Pressable>
             </>
           )}

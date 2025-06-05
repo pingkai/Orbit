@@ -120,6 +120,7 @@ export const Search = ({route}) => {
     <EachSongCard
       item={item}
       source={{ type: 'search', query: searchText }}
+      showNumber={false}
     />
   );
   

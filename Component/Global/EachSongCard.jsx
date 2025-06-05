@@ -2,6 +2,7 @@ import { Dimensions, Pressable, View, Image } from "react-native";
 import { PlainText } from "./PlainText";
 import { SmallText } from "./SmallText";
 import { AddPlaylist, getIndexQuality, PlayOneSong } from "../../MusicPlayerFunctions";
+import { useTheme } from "@react-navigation/native";
 import { memo, useContext, useState, useEffect } from "react";
 import Context from "../../Context/Context";
 import { useActiveTrack, usePlaybackState } from "react-native-track-player";
@@ -20,7 +21,9 @@ import { PermissionsAndroid, Platform, ToastAndroid, Alert } from "react-native"
 import DeviceInfo from "react-native-device-info";
 import { safePath, safeExists, safeDownloadFile, ensureDirectoryExists, safeUnlink } from '../../Utils/FileUtils';
 
-export const EachSongCard = memo(function EachSongCard({title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index}) {
+export const EachSongCard = memo(function EachSongCard({title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false}) {
+  const theme = useTheme();
+  const { colors } = theme;
   const width1 = Dimensions.get("window").width;
   const {updateTrack, setVisible} = useContext(Context)
   const currentPlaying = useActiveTrack()
@@ -487,6 +490,7 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
   
   return (
     <>
+      {/* Main container with explicit background color */}
       <View style={{
         flexDirection:'row',
         width:width ? width : width1,
@@ -496,9 +500,10 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
         paddingVertical: 4,
         justifyContent: 'space-between',
         paddingHorizontal: isFromAlbum ? 5 : (isFromPlaylist ? 6 : 4),
-        borderRadius: 8,
+        borderRadius: 0,
         overflow: 'hidden',
-        marginVertical: 0
+        marginVertical: 0,
+        backgroundColor: theme.dark ? 'transparent' : '#FFFFFF',
       }}>
         <Pressable 
           onPress={AddSongToPlayer}
@@ -508,32 +513,51 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
             gap:10,
             alignItems:"center",
             maxHeight:60,
-            elevation:10,
             flex:1,
             padding: 6,
+            paddingLeft: isFromAlbum ? 8 : (isFromPlaylist ? 0 : 5), // Album: 8, Playlist: 5, Default: 12
           }}
         >
+          {/* Track number - show ONLY when explicit showNumber prop is true */}
+          {showNumber === true && index !== undefined && (
+            <View style={{ 
+              width: 24, 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              marginRight: isFromAlbum ? 10 : (isFromPlaylist ? 10 : 8)
+            }}>
+              <SmallText 
+                text={`${index + 1}`} 
+                style={{ 
+                  fontWeight: '700',
+                  color: id === (currentPlaying?.id ?? "") ? colors.primary : colors.textSecondary,
+                  fontSize: width1 * 0.034
+                }}
+              />
+            </View>
+          )}
           <View style={{ position: 'relative' }}>
             <Image 
               source={imageSource} 
               style={{
-                height:50,
-                width:50,
+                height:48,
+                width:48,
                 borderRadius:4,
               }}
             />
           </View>
           <View style={{
             flex:1,
-            marginRight: isFromAlbum ? 5 : (isFromPlaylist ? 10 : 8),
+            marginRight: isFromAlbum ? 5 : (isFromPlaylist ? 6 : 8),
           }}>
             <PlainText 
               text={formatText(title)} 
               songId={id} 
               isSongTitle={true} 
               style={{
-                width: titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.62 : (isFromPlaylist ? 0.62 : 0.63)),
-                marginBottom: 2
+                width: titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.62 : (isFromPlaylist ? 0.60 : 0.63)),
+                marginBottom: 2,
+                color: theme.dark ? colors.text : '#333333' // Ensure text is visible in light theme
               }}
               numberOfLines={1}
               ellipsizeMode="tail"
@@ -542,7 +566,8 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
               text={formatText(artist)} 
               isArtistName={true}
               style={{
-                width: titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.60 : (isFromPlaylist ? 0.58 : 0.60))
+                width: titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.60 : (isFromPlaylist ? 0.56 : 0.60)),
+                color: theme.dark ? colors.textSecondary : '#666666' // Ensure artist name is visible in light theme
               }}
               numberOfLines={1}
               ellipsizeMode="tail"
@@ -555,14 +580,14 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
           alignItems: 'center',
           minWidth: isFromAlbum ? 80 : (isFromPlaylist ? 80 : 75),
           paddingLeft: isFromAlbum ? 0 : (isFromPlaylist ? 3 : 2),
-          marginRight: isFromAlbum ? 0 : (isFromPlaylist ? 2 : 0),
+          marginRight: isFromAlbum ? 5 : (isFromPlaylist ? 5 : 0),
         }}>
           {/* Download Button - shown in both album and playlist views */}
           <Pressable 
             onPress={handleDownload}
             style={{
               padding: 6,
-              marginRight: 8
+              marginRight: isFromAlbum ? 10 : (isFromPlaylist ? 10 : 8)
             }}
           >
             {isDownloaded ? (
@@ -570,7 +595,7 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
             ) : downloadInProgress ? (
               <MaterialCommunityIcons name="loading" size={24} color="#FFA500" />
             ) : (
-              <Octicons name="download" size={22} color="#FFFFFF" />
+              <Octicons name="download" size={22} color={theme.dark ? "#ffffff" : "#333333"} />
             )}
           </Pressable>
           

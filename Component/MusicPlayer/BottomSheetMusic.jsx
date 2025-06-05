@@ -4,12 +4,13 @@ import BottomSheet, {BottomSheetView} from '@gorhom/bottom-sheet';
 import { MinimizedMusic } from "./MinimizedMusic";
 import { FullScreenMusic } from "./FullScreenMusic";
 import Context from "../../Context/Context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useTheme } from "@react-navigation/native";
 
 const BottomSheetMusic = ({color}) => {
   const bottomSheetRef = useRef(null)
   const {Index, setIndex, previousScreen, musicPreviousScreen} = useContext(Context)
   const navigation = useNavigation();
+  const { colors } = useTheme();
 
   // Function to specifically navigate to MyMusicPage
   const navigateToMyMusicPage = useCallback(() => {
@@ -234,7 +235,7 @@ const BottomSheetMusic = ({color}) => {
         backgroundColor:"rgba(0,0,0,0)",
       }}
         backgroundStyle={{
-          backgroundColor:color,
+          backgroundColor: color || colors.musicPlayerBg,
         }}
         // handleComponent={props => <MinimizedMusic  setIndex={updateIndex} color={color}/>}
         handleHeight={5}
@@ -247,10 +248,10 @@ const BottomSheetMusic = ({color}) => {
         onChange={handleSheetChanges}>
         <BottomSheetView  style={{
           ...styles.contentContainer,
-          backgroundColor:color,
+          backgroundColor: color || colors.musicPlayerBg,
         }}>
-          {Index !== 1 &&  <MinimizedMusic  setIndex={updateIndex}/>}
-          {Index === 1 &&  <FullScreenMusic color={color} Index={Index} setIndex={updateIndex}/>}
+          {Index !== 1 &&  <MinimizedMusic setIndex={updateIndex} color={colors.musicPlayerBg} />}
+          {Index === 1 &&  <FullScreenMusic color={color || colors.musicPlayerBg} Index={Index} setIndex={updateIndex}/>}
         </BottomSheetView>
       </BottomSheet>
   );
@@ -259,7 +260,6 @@ const BottomSheetMusic = ({color}) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "rgb(21,21,21)",
   },
   contentContainer: {
     flex: 1,

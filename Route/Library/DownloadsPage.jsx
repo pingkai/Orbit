@@ -187,6 +187,7 @@ export const DownloadsPage = () => {
               duration={item.duration}
               isLocal={true}
               index={index}
+              showNumber={false}
               allSongs={downloads}
               downloadUrl={item.downloadUrl}
             />

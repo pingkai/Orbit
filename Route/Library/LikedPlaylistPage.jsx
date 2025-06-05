@@ -66,7 +66,7 @@ export const LikedPlaylistPage = () => {
       }}
     >
       <LikedPagesTopHeader AnimatedRef={AnimatedRef} url={require("../../Images/LikedPlaylist.png")} />
-      <LikedDetails name={"Liked Playlists"} dontShowPlayButton={true}/>
+      <LikedDetails name={"Liked Playlists"} dontShowPlayButton={true} textStyle={!theme.dark ? { color: '#FFFFFF' } : {}}/>
       <PaddingConatiner>
         <View style={styles.playlistContainer}>
           {LikedPlaylist.map((e, i) => {

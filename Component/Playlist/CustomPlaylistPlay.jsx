@@ -1,12 +1,26 @@
 import React, { useContext, useEffect, useState } from 'react';
+import { useTheme } from '@react-navigation/native';
 import { TouchableOpacity, Text, View, StyleSheet } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import TrackPlayer from 'react-native-track-player';
 import Context from '../../Context/Context';
 
 export const CustomPlaylistPlay = ({ onPress, songs = [], playlistId = '', playlistName = 'Playlist' }) => {
+  const theme = useTheme();
   const [isPlaying, setIsPlaying] = useState(false);
   const { currentPlaying } = useContext(Context);
+
+  const getContrastingTextColor = (hexColor) => {
+    if (!hexColor || hexColor.length < 7) return '#000000'; // Default to black if invalid color
+    const r = parseInt(hexColor.slice(1, 3), 16);
+    const g = parseInt(hexColor.slice(3, 5), 16);
+    const b = parseInt(hexColor.slice(5, 7), 16);
+    // http://www.w3.org/TR/AERT#color-contrast
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness > 150 ? '#000000' : '#FFFFFF'; // Adjusted threshold for better visibility
+  };
+
+  const contrastingColor = getContrastingTextColor(theme.colors.primary);
   
   // Check if this playlist is currently playing
   useEffect(() => {
@@ -80,12 +94,12 @@ export const CustomPlaylistPlay = ({ onPress, songs = [], playlistId = '', playl
   return (
     <View style={styles.buttonContainer}>
       <TouchableOpacity
-        style={styles.playButton}
+        style={[styles.playButton, { backgroundColor: theme.colors.primary }]}
         onPress={handlePress}
         activeOpacity={0.8}
       >
-        <Ionicons name={isPlaying ? "pause" : "play"} size={20} color="#000000" />
-        <Text style={styles.playButtonText}>{isPlaying ? 'Pause' : 'Play'}</Text>
+        <Ionicons name={isPlaying ? "pause" : "play"} size={20} color={contrastingColor} />
+        <Text style={[styles.playButtonText, { color: contrastingColor }]}>{isPlaying ? 'Pause' : 'Play'}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -101,7 +115,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    // backgroundColor: '#FFFFFF', // Applied dynamically
     paddingVertical: 12,
     paddingHorizontal: 32,
     borderRadius: 30,
@@ -113,7 +127,7 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   playButtonText: {
-    color: '#000000',
+    // color: '#000000', // Applied dynamically
     fontSize: 15,
     fontWeight: '700',
     marginLeft: 8,

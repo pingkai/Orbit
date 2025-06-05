@@ -19,8 +19,8 @@ export const SearchBar = ({onChange, navigation}) => {
         backgroundColor:"rgba(0,0,0,0)",
         borderTopLeftRadius:10,
         borderBottomLeftRadius:10}}>
-        <TextInput cursorColor={"rgb(255,255,255)"} placeholder={"Type to search..."} style={{
-          color:"white",
+        <TextInput cursorColor={theme.colors.text} placeholder={"Type to search..."} placeholderTextColor={theme.colors.placeholder || theme.colors.textSecondary} style={{
+          color: theme.colors.text,
           fontSize:25,
           fontFamily:"roboto",
         }} onChangeText={onChange} autoFocus={true}/>

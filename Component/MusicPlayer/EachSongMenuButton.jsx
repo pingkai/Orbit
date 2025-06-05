@@ -2,6 +2,7 @@ import { Pressable, findNodeHandle, UIManager, View, Modal, Text, TouchableOpaci
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Octicons from 'react-native-vector-icons/Octicons';
 import React, { useRef, useState, useContext, useEffect } from "react";
+import { useTheme } from "@react-navigation/native";
 import { StorageManager } from '../../Utils/StorageManager';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import TrackPlayer from 'react-native-track-player';
@@ -65,6 +66,7 @@ export const EachSongMenuButton = ({
   isFromPlaylist = false,
   isDownloaded: propIsDownloaded = null // Accept isDownloaded as a prop
 }) => {
+  const { dark, colors } = useTheme();
   const buttonRef = useRef(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 20 });
@@ -566,26 +568,26 @@ export const EachSongMenuButton = ({
       animationType="fade"
     >
       <Pressable style={styles.modalOverlay} onPress={closeMenu}>
-        <View style={[styles.menuContainer, { top: menuPosition.top, right: menuPosition.right }]}>
+        <View style={[styles.menuContainer, { top: menuPosition.top, right: menuPosition.right, backgroundColor: dark ? '#1E1E1E' : '#FFFFFF' }]}>
           <TouchableOpacity style={styles.menuItem} onPress={addToQueue}>
-            <MaterialCommunityIcons name="playlist-plus" size={24} color="white" />
-            <Text style={styles.menuText}>Add to queue</Text>
+            <MaterialCommunityIcons name="playlist-plus" size={24} color={colors.text} />
+            <Text style={[styles.menuText, { color: colors.text }]}>Add to queue</Text>
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.menuItem} onPress={playNext}>
-            <MaterialCommunityIcons name="play-speed" size={24} color="white" />
-            <Text style={styles.menuText}>Play next</Text>
+            <MaterialCommunityIcons name="play-speed" size={24} color={colors.text} />
+            <Text style={[styles.menuText, { color: colors.text }]}>Play next</Text>
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.menuItem} onPress={addToPlaylist}>
-            <MaterialCommunityIcons name="playlist-music" size={24} color="white" />
-            <Text style={styles.menuText}>Add to playlist</Text>
+            <MaterialCommunityIcons name="playlist-music" size={24} color={colors.text} />
+            <Text style={[styles.menuText, { color: colors.text }]}>Add to playlist</Text>
           </TouchableOpacity>
           
           {!isDownloaded && (
             <TouchableOpacity style={styles.menuItem} onPress={downloadSong}>
-              <Octicons name="download" size={24} color="white" />
-              <Text style={styles.menuText}>Download</Text>
+              <Octicons name="download" size={24} color={colors.text} />
+              <Text style={[styles.menuText, { color: colors.text }]}>Download</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -621,7 +623,7 @@ export const EachSongMenuButton = ({
           <MaterialCommunityIcons
             name="dots-vertical"
             size={isFromAlbum ? 24 : 20}
-            color="#FFFFFF" 
+            color={colors.text} 
           />
         </Pressable>
       </View>
@@ -647,7 +649,7 @@ const styles = StyleSheet.create({
   menuContainer: {
     position: 'absolute',
     right: 20,
-    backgroundColor: '#1E1E1E',
+    // backgroundColor: '#1E1E1E', // Will be set dynamically
     borderRadius: 8,
     padding: 8,
     minWidth: 180,
@@ -659,7 +661,6 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   menuText: {
-    color: 'white',
     marginLeft: 10,
     fontSize: 14,
   },

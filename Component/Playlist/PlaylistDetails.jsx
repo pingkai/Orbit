@@ -4,7 +4,7 @@ import { SmallText } from "../Global/SmallText";
 import { Spacer } from "../Global/Spacer";
 import { PlayButton } from "./PlayButton";
 import LinearGradient from "react-native-linear-gradient";
-import { useTheme } from "@react-navigation/native";
+import { useThemeContext } from "../../Context/ThemeContext";
 import { AddPlaylist, getIndexQuality } from "../../MusicPlayerFunctions";
 import { useContext, useState, useEffect } from "react";
 import Context from "../../Context/Context";
@@ -72,7 +72,7 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
   const {updateTrack, currentPlaying} = useContext(Context);
   const [isPlaying, setIsPlaying] = useState(false);
   const [loading, setLoading] = useState(Loading);
-  const theme = useTheme();
+  const { theme } = useThemeContext();
   const width = Dimensions.get('window').width;
   const [playlistData, setPlaylistData] = useState(Data);
   
@@ -362,7 +362,7 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
         <LinearGradient 
           start={{x: 0, y: 0}} 
           end={{x: 0, y: 1}} 
-          colors={['rgba(44,44,44,0)', 'rgb(23,23,23)', '#121212']} 
+          colors={['rgba(44,44,44,0)', theme.colors.card, theme.colors.background]} 
           style={styles.gradientContainer}
         >
           {/* Playlist info on the left */}

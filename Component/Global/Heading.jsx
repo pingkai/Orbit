@@ -1,4 +1,4 @@
-import { Dimensions, Text } from "react-native";
+import { Dimensions, Text, StyleSheet } from "react-native";
 import { useTheme } from "@react-navigation/native";
 import { Spacer } from "./Spacer";
 import { useEffect, useState } from "react";
@@ -30,7 +30,7 @@ export const Heading = ({text, style, nospace}) => {
        color:theme.colors.text,
        fontSize:Size,
        fontFamily:'roboto',
-       ...style,
+       ...StyleSheet.flatten(style),
      }}>{text}</Text>
      {!nospace && <Spacer/>}
    </>

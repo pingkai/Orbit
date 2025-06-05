@@ -1,7 +1,7 @@
 import { MainWrapper } from "../Layout/MainWrapper";
 import Animated, { useAnimatedRef} from "react-native-reanimated";
 import { PlaylistTopHeader } from "../Component/Playlist/PlaylistTopHeader";
-import { PlaylistDetails } from "../Component/Playlist/PlaylistDetails";
+
 import { View, BackHandler, Pressable, ActivityIndicator, StyleSheet, Dimensions, Text } from "react-native";
 import { EachSongCard } from "../Component/Global/EachSongCard";
 import { useEffect, useState, useCallback } from "react";
@@ -10,7 +10,7 @@ import { LoadingComponent } from "../Component/Global/Loading";
 import { PlainText } from "../Component/Global/PlainText";
 import { SmallText } from "../Component/Global/SmallText";
 import FormatArtist from "../Utils/FormatArtists";
-import { useNavigation, CommonActions } from "@react-navigation/native";
+import { useNavigation, CommonActions, useTheme } from "@react-navigation/native";
 import { Spacer } from "../Component/Global/Spacer";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -87,6 +87,7 @@ export const Playlist = ({route}) => {
   const [Data, setData] = useState({});
   const navigation = useNavigation();
   const { width, height } = Dimensions.get('window');
+  const theme = useTheme();
   
   // Safely destructure route.params with default values
   const {id: routeId, image: routeImage, name: routeName, follower: routeFollower, navigationSource: routeNavigationSource} = route?.params || {};
@@ -418,7 +419,13 @@ export const Playlist = ({route}) => {
         <Animated.ScrollView 
           scrollEventThrottle={16} 
           ref={AnimatedRef} 
-          contentContainerStyle={styles.scrollViewContent}
+          contentContainerStyle={{
+            paddingBottom: 120,
+            backgroundColor: theme.dark ? theme.colors.background : "#FFFFFF",
+          }}
+          style={{
+            backgroundColor: 'transparent', // Keep transparent to allow header background to show
+          }}
         >
           <PlaylistTopHeader 
             AnimatedRef={AnimatedRef} 
@@ -426,17 +433,19 @@ export const Playlist = ({route}) => {
             playlistId={id ? id.replace('album_', '') : id} 
             name={name || Data?.data?.name || "Playlist"}
             follower={follower || Data?.data?.follower || ""}
+            style={{ position: 'relative' }}
+            // New props for details display
+            detailsName={truncateText(name || Data?.data?.name || "Playlist")}
+            songsData={Data?.data?.songs}
+            contentIdForPlayer={id} // Assuming 'id' is the playlistId for the player
+            playerLoading={Loading} // Placeholder: Replace with actual player loading state if different
+            isPlayingState={false} // Placeholder: Replace with actual isPlaying state
+            onPlayPress={() => console.log('Play pressed - Placeholder')} // Placeholder: Replace with actual handlePlayPause function
+            isAlbumScreen={false}
+            releaseYear={null}
           />
-          <PlaylistDetails 
-            name={truncateText(name || Data?.data?.name || "Playlist")} 
-            follower={follower || Data?.data?.follower || ""} 
-            total={Data?.data?.songs?.length || 0} 
-            Data={Data}
-            Loading={Loading}
-            id={id}
-            image={image}
-          />
-          <View style={styles.songsContainer}>
+
+          <View style={[styles.songsContainer, { backgroundColor: theme.dark ? 'rgb(16,16,16)' : '#FFFFFF' }]}>
             {Data?.data?.songs?.map((e, i) => {
               // Process artist data to avoid [object Object] display
               const artistData = e?.artists || e?.primary_artists;
@@ -463,6 +472,7 @@ export const Playlist = ({route}) => {
                   url={downloadUrlData}
                   title={truncateText(e?.song || e?.name, 22)} // Update to 22 chars to match other truncations
                   style={styles.songCard}
+                  showNumber={true} // Explicitly show numbers in playlist view
                 />
               );
             })}
@@ -497,11 +507,12 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   scrollViewContent: {
-    backgroundColor: "#101010",
+    backgroundColor: "transparent",
   },
   songsContainer: {
     paddingHorizontal: 15,
-    backgroundColor: "#101010",
+    paddingTop: 15, // Added top padding for space below header
+    backgroundColor: "transparent",
     gap: 8,
     paddingBottom: 5,
   },
@@ -511,7 +522,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   bottomSpacer: {
-    height: 100,
-    backgroundColor: "#101010",
+    height: 60, // Reduced from 100 to 60
+    backgroundColor: "transparent",
   }
 });

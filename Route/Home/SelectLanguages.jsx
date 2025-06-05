@@ -13,9 +13,9 @@ export const SelectLanguages = ({navigation}) => {
   const [Languages, setLanguages] = useState([]);
   const theme = useTheme()
   async function onConfirmPress(language){
-    if (language.length < 2){
+    if (language.length < 1){
       // eslint-disable-next-line no-alert
-      alert("Please select atleast 2 language")
+      alert("Please select atleast 1 language")
     } else {
       const Lang =  language.join(",")
       await SetLanguageValue(Lang)
@@ -39,7 +39,7 @@ export const SelectLanguages = ({navigation}) => {
           borderRadius:100,
         }}/></Animated.View>
         <Spacer/>
-        <Animated.View entering={FadeInDown.delay(750)}><PlainText text={"select atleast 2 language"}/></Animated.View>
+        <Animated.View entering={FadeInDown.delay(750)}><PlainText text={"Select atleast 1 language"}/></Animated.View>
       </View>
       <View style={{
         flex:1,

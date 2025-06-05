@@ -1,7 +1,7 @@
 import { MainWrapper } from "../Layout/MainWrapper";
 import Animated, { useAnimatedRef} from "react-native-reanimated";
 import { PlaylistTopHeader } from "../Component/Playlist/PlaylistTopHeader";
-import { View, BackHandler } from "react-native";
+import { View, BackHandler, Image } from "react-native";
 import { EachSongCard } from "../Component/Global/EachSongCard";
 import { useEffect, useState } from "react";
 import { LoadingComponent } from "../Component/Global/Loading";
@@ -9,9 +9,10 @@ import { useTheme, useNavigation } from "@react-navigation/native";
 import { PlainText } from "../Component/Global/PlainText";
 import { SmallText } from "../Component/Global/SmallText";
 import { getAlbumData } from "../Api/Album";
-import { AlbumDetails } from "../Component/Album/AlbumDetails";
+
 import FormatArtist from "../Utils/FormatArtists";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import LinearGradient from "react-native-linear-gradient";
 
 // AsyncStorage keys
 const CURRENT_ALBUM_ID_KEY = "orbit_current_album_id";
@@ -19,11 +20,7 @@ const CURRENT_ALBUM_DATA_KEY = "orbit_current_album_data";
 const CURRENT_PLAYLIST_ID_KEY = "orbit_current_playlist_id";
 const CURRENT_PLAYLIST_DATA_KEY = "orbit_current_playlist_data";
 
-// Utility function to truncate text
-const truncateText = (text, limit = 30) => {
-  if (!text) return '';
-  return text.length > limit ? text.substring(0, limit) + '...' : text;
-};
+
 
 // Utility function to validate image URLs
 const getValidImageUrl = (url) => {
@@ -248,26 +245,96 @@ export const Album = ({route}) => {
         </View>
       )}
       {!Loading && Data?.data?.songs?.length > 0 && 
-        <Animated.ScrollView 
-          scrollEventThrottle={16} 
-          ref={AnimatedRef} 
-          contentContainerStyle={{
-            paddingBottom: 120, // Extra padding to completely hide the watermark
-            backgroundColor: "#101010",
-          }}
-        >
+        <View style={{ flex: 1, position: 'relative', backgroundColor: theme.dark ? theme.colors.background : '#FFFFFF' }}>
+          {/* Background blurred image */}
+          {Data?.data?.image && Data?.data?.image[2]?.url && (
+            <View style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: -1,
+              overflow: 'hidden',
+            }}>
+              <Image 
+                source={{ uri: getValidImageUrl(Data?.data?.image[2]?.url) }}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  opacity: theme.dark ? 0.2 : 0.15, // Slightly more visible in dark mode
+                }}
+                blurRadius={25} // Increased blur for smoother effect
+                resizeMode="cover"
+              />
+              {/* Gradient overlay for better contrast */}
+              <LinearGradient
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 150, // Height of the top gradient overlay
+                }}
+                start={{x: 0, y: 1}}
+                end={{x: 0, y: 0}}
+                colors={theme.dark ? 
+                  ['rgba(16,16,16,0)', 'rgba(16,16,16,0.8)'] : 
+                  ['rgba(255,255,255,0)', 'rgba(255,255,255,0.9)']}
+              />
+              <View style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: theme.dark ? 'rgba(16,16,16,0.85)' : 'rgba(255,255,255,0.88)', // More transparent overlay
+              }} />
+            </View>
+          )}
+          <Animated.ScrollView 
+            scrollEventThrottle={16} 
+            ref={AnimatedRef} 
+            contentContainerStyle={{
+              paddingBottom: 120,
+              backgroundColor: theme.dark ? theme.colors.background : "#FFFFFF",
+            }}
+            style={{
+              backgroundColor: 'transparent', // Keep transparent to allow header background to show
+            }}
+          >
           <PlaylistTopHeader 
             AnimatedRef={AnimatedRef} 
             url={getValidImageUrl(Data?.data?.image[2]?.url ?? "")} 
             playlistId={"album_" + (Data?.data?.id || route?.params?.id)} 
             name={Data?.data?.name || "Album"}
             follower=""
+            style={{
+              position: 'relative',
+              marginTop: 0,
+              marginBottom: 0
+            }}
+            // New props for details display
+            detailsName={Data?.data?.name || "Album"}
+            releaseYear={Data?.data?.year || ""}
+            songsData={Data?.data?.songs}
+            contentIdForPlayer={Data?.data?.id || route?.params?.id}
+            playerLoading={Loading} // Placeholder: Replace with actual player loading state
+            isPlayingState={false} // Placeholder: Replace with actual isPlaying state
+            onPlayPress={() => console.log('Play pressed on Album - Placeholder')} // Placeholder: Replace with actual play/pause handler
+            isAlbumScreen={true}
           />
-          <AlbumDetails name={Data?.data?.name ?? ""} liked={false} releaseData={Data?.data?.year ?? ""}  Data={Data}/>
+
           {<View style={{
-            paddingHorizontal: 8,
-            backgroundColor: "#101010",
-            gap: 7,
+            paddingHorizontal: 0, // No horizontal padding
+            paddingTop: 15, // Added top padding for space below header
+            backgroundColor: theme.dark ? 'rgb(16,16,16)' : '#FFFFFF', // Solid background in dark mode
+            gap: 0, // No gap between song cards
           }}>
             {Data?.data?.songs?.map((e,i)=>
               <EachSongCard 
@@ -287,15 +354,16 @@ export const Album = ({route}) => {
                 title={e?.name}  
                 url={e?.downloadUrl} 
                 style={{
-                  marginBottom: 12,
-                  borderRadius: 8,
-                  elevation: 2,
+                  marginBottom: 0, // Remove bottom margin
+                  borderRadius: 0, // Remove border radius
                   marginRight: 0
                 }}
+                showNumber={true} // Explicitly show numbers in album view
               />
             )}
           </View>}
         </Animated.ScrollView>
+        </View>
       }
     </MainWrapper>
   );

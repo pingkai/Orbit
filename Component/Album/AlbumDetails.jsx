@@ -4,7 +4,7 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import { SmallText } from "../Global/SmallText";
 import { Spacer } from "../Global/Spacer";
 import LinearGradient from "react-native-linear-gradient";
-import { useTheme } from "@react-navigation/native";
+import { useThemeContext } from "../../Context/ThemeContext";
 import { AddPlaylist, PlaySong, PauseSong, getIndexQuality } from "../../MusicPlayerFunctions";
 import { PlayButton } from "../Playlist/PlayButton";
 import { useContext, useState, useEffect } from "react";
@@ -24,7 +24,7 @@ import EventRegister from '../../Utils/EventRegister';
 import { DownloadButton } from "../Global/DownloadButton";
 
 // Circular progress component for download indicator
-const CircularProgress = ({ progress, size = 20, thickness = 2, color = '#1DB954' }) => {
+const CircularProgress = ({ progress, size = 20, thickness = 2, color }) => {
   return (
     <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
       {/* Background circle */}
@@ -74,6 +74,7 @@ const truncateText = (text, limit = 20) => {
 
 export const AlbumDetails = ({name,releaseData,liked,Data}) => {
   const {updateTrack, currentPlaying} = useContext(Context);
+  const { theme } = useThemeContext();
   const [isCurrentlyPlaying, setIsCurrentlyPlaying] = useState(false);
   const [downloadStatus, setDownloadStatus] = useState({});
   const [isDownloading, setIsDownloading] = useState(false);
@@ -381,7 +382,6 @@ export const AlbumDetails = ({name,releaseData,liked,Data}) => {
     }
   };
   
-  const theme = useTheme();
   const width = Dimensions.get('window').width;
   
   // Render download button or progress indicator
@@ -394,7 +394,7 @@ export const AlbumDetails = ({name,releaseData,liked,Data}) => {
           justifyContent: 'center', 
           alignItems: 'center' 
         }}>
-          <CircularProgress progress={overallProgress} size={32} thickness={2} />
+          <CircularProgress progress={overallProgress} size={32} thickness={2} color={theme.colors.primary} />
         </View>
       );
     }
@@ -404,34 +404,57 @@ export const AlbumDetails = ({name,releaseData,liked,Data}) => {
     
     if (allDownloaded) {
       return (
-        <AntDesign name="checkcircle" size={26} color="#4CAF50" />
+        <AntDesign name="checkcircle" size={26} color={theme.colors.primary} />
       );
     }
     
     // Show download button
     return (
-      <AntDesign name="download" size={26} color="#FFFFFF" />
+      <AntDesign name="download" size={26} color={theme.colors.text} />
     );
   };
   
   return (
-    <LinearGradient start={{x: 0, y: 0}} end={{x: 0, y: 1}} colors={['rgba(44,44,44,0)', 'rgb(23,23,23)', theme.colors.background]} style={{
-      padding: 14,
-      paddingVertical: 16,
-      alignItems: "center",
-      justifyContent: "space-between",
-      flexDirection: "row",
-    }}>
+    <LinearGradient 
+      start={{x: 0, y: 0}} 
+      end={{x: 0, y: 1}} 
+      colors={theme.dark ? 
+        ['rgba(0,0,0,0)', 'rgba(16,16,16,0.85)', theme.colors.background] : 
+        ['rgba(255,255,255,0)', 'rgba(255,255,255,0.9)', theme.colors.background]} 
+      style={{
+        padding: 14,
+        paddingVertical: 12, // Reduced vertical padding
+        alignItems: "center",
+        justifyContent: "space-between",
+        flexDirection: "row",
+      }}>
         {/* Album info on the left */}
         <View style={{
           flex: 1,
           paddingLeft: 4,
           paddingRight: 8,
         }}>
-          <Heading text={truncateText(name, 20)}/>
+          <Heading 
+            text={truncateText(name, 20)} 
+            style={{
+              fontWeight: 'bold',
+              fontSize: 18,
+              color: theme.dark ? '#FFFFFF' : '#000000',
+            }}
+          />
           <View style={{flexDirection: "row", gap: 5, marginTop: 3}}>
-            <Ionicons name={"musical-note"} size={16}/>
-            <SmallText text={"Released in " + releaseData }/>
+            <Ionicons 
+              name={"musical-note"} 
+              size={16} 
+              color={theme.dark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)'}
+            />
+            <SmallText 
+              text={"Released in " + releaseData } 
+              style={{
+                color: theme.dark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)',
+                fontWeight: '500',
+              }}
+            />
           </View>
         </View>
 
