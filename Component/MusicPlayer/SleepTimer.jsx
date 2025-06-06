@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Pressable, Modal, View, Text, StyleSheet, TextInput } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { PlaySong, PauseSong } from '../../MusicPlayerFunctions'; 
+import { useThemeContext } from '../../Context/ThemeContext'; // Added for theme support
 
 // Global timer state to persist across component unmounts
 let globalTimerRef = null;
@@ -9,7 +10,111 @@ let globalCountdownRef = null;
 let globalEndTime = 0;
 let isGlobalTimerActive = false;
 
+const getStyles = (theme, themeMode) => StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    marginTop: 15,
+  },
+  button: {
+    alignItems: 'center',
+  },
+  remainingTime: {
+    color: themeMode === 'light' ? theme.colors.text : 'white',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: themeMode === 'light' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: themeMode === 'light' ? theme.colors.card : '#282828',
+    padding: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  modalTitle: {
+    color: themeMode === 'light' ? theme.colors.text : 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  timerOption: {
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: themeMode === 'light' ? theme.colors.border : '#404040',
+  },
+  optionText: {
+    color: themeMode === 'light' ? theme.colors.text : 'white',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  customTimerContainer: {
+    marginTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: themeMode === 'light' ? theme.colors.border : '#404040',
+    paddingTop: 15,
+  },
+  customTimerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  customTimerInput: {
+    flex: 1,
+    backgroundColor: themeMode === 'light' ? theme.colors.searchBar : '#363636',
+    color: themeMode === 'light' ? theme.colors.text : 'white',
+    padding: 12,
+    borderRadius: 8,
+    fontSize: 16,
+    textAlign: 'center',
+    marginRight: 10,
+  },
+  customTimerButton: {
+    backgroundColor: '#1DB954', // Consider theming this if needed
+    borderRadius: 8,
+    marginTop: 5,
+    borderBottomWidth: 0,
+  },
+  unitSelector: {
+    flexDirection: 'row',
+    backgroundColor: themeMode === 'light' ? theme.colors.searchBar : '#363636', // Updated this line
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  unitButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+  },
+  unitButtonActive: {
+    backgroundColor: '#1DB954', // Consider theming this if needed
+  },
+  unitButtonText: {
+    color: themeMode === 'light' ? theme.colors.placeholder : '#888',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  unitButtonTextActive: {
+    color: themeMode === 'light' ? theme.colors.primary : 'white',
+  },
+  cancelButton: {
+    marginTop: 20,
+    paddingVertical: 15,
+  },
+  cancelText: {
+    color: themeMode === 'light' ? theme.colors.notification : '#ff4444',
+    fontSize: 16,
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+});
+
 export const SleepTimerButton = ({ size = 25 }) => {
+  const { theme, themeMode } = useThemeContext(); // Added for theme support
+  const styles = getStyles(theme, themeMode);
   const [isTimerActive, setIsTimerActive] = useState(isGlobalTimerActive);
   const [modalVisible, setModalVisible] = useState(false); 
   const [customTime, setCustomTime] = useState(''); 
@@ -129,11 +234,7 @@ export const SleepTimerButton = ({ size = 25 }) => {
         onPress={() => (isTimerActive ? clearTimer() : setModalVisible(true))}
         style={styles.button}
       >
-        <MaterialCommunityIcons
-          name={isTimerActive ? 'timer' : 'timer-outline'}
-          size={size}
-          color={isTimerActive ? '#1DB954' : 'white'}
-        />
+        <MaterialCommunityIcons name={isTimerActive ? "timer-off" : "timer-outline"} size={size} color={isTimerActive ? theme.colors.primary : (themeMode === 'light' ? theme.colors.text : theme.colors.icon)} />
         {isTimerActive && (
           <Text style={styles.remainingTime}>
             {formatTime(remainingTime)}
@@ -229,107 +330,5 @@ export const SleepTimerButton = ({ size = 25 }) => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    marginTop: 15,
-  },
-  button: {
-    alignItems: 'center',
-  },
-  remainingTime: {
-    color: 'white',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    backgroundColor: '#282828',
-    padding: 20,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-  },
-  modalTitle: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  timerOption: {
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#404040',
-  },
-  optionText: {
-    color: 'white',
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  customTimerContainer: {
-    marginTop: 15,
-    borderTopWidth: 1,
-    borderTopColor: '#404040',
-    paddingTop: 15,
-  },
-  customTimerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  customTimerInput: {
-    flex: 1,
-    backgroundColor: '#363636',
-    color: 'white',
-    padding: 12,
-    borderRadius: 8,
-    fontSize: 16,
-    textAlign: 'center',
-    marginRight: 10,
-  },
-  customTimerButton: {
-    backgroundColor: '#1DB954',
-    borderRadius: 8,
-    marginTop: 5,
-    borderBottomWidth: 0,
-  },
-  unitSelector: {
-    flexDirection: 'row',
-    backgroundColor: '#363636',
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  unitButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-  },
-  unitButtonActive: {
-    backgroundColor: '#1DB954',
-  },
-  unitButtonText: {
-    color: '#888',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  unitButtonTextActive: {
-    color: 'white',
-  },
-  cancelButton: {
-    marginTop: 20,
-    paddingVertical: 15,
-  },
-  cancelText: {
-    color: '#ff4444',
-    fontSize: 16,
-    textAlign: 'center',
-    fontWeight: 'bold',
-  },
-});
 
 export default SleepTimerButton;

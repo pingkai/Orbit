@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTheme } from '@react-navigation/native';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, ToastAndroid, BackHandler, Dimensions, ScrollView } from 'react-native';
 import { getUserPlaylists, addSongToPlaylist, createPlaylist } from '../../Utils/PlaylistManager';
@@ -6,7 +6,6 @@ import { PlainText } from '../Global/PlainText';
 import { SmallText } from '../Global/SmallText';
 import FastImage from 'react-native-fast-image';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAX_MODAL_HEIGHT = SCREEN_HEIGHT * 0.7;
@@ -15,7 +14,6 @@ const MAX_MODAL_HEIGHT = SCREEN_HEIGHT * 0.7;
 const DEFAULT_WAVE_IMAGE = require('../../Images/wav.png');
 
 const staticStyles = StyleSheet.create({
-  // Styles that DO NOT use theme can remain here
   closeButton: {
     padding: 8,
   },
@@ -67,6 +65,108 @@ const staticStyles = StyleSheet.create({
   },
 });
 
+const getDynamicStyles = theme => StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: theme.dark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  centeredModalOverlay: {
+    flex: 1,
+    backgroundColor: theme.dark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  container: {
+    width: '100%',
+    maxHeight: MAX_MODAL_HEIGHT,
+    backgroundColor: theme.colors.card,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: 'hidden',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+  },
+  createNewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: theme.colors.card, 
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  createNewText: {
+    marginLeft: 12,
+    fontSize: 16,
+    color: theme.colors.primary,
+  },
+  playlistItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: theme.colors.background,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  playlistCover: {
+    width: 50,
+    height: 50,
+    borderRadius: 4,
+    backgroundColor: theme.colors.border,
+    overflow: 'hidden',
+  },
+  playlistName: {
+    fontSize: 16,
+    marginBottom: 4,
+    color: theme.colors.text,
+  },
+  songCount: {
+    color: theme.colors.textSecondary,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: theme.colors.textSecondary,
+    marginTop: 16,
+  },
+  emptySubtext: {
+    color: theme.colors.textSecondary,
+    opacity: 0.7,
+    marginTop: 8,
+  },
+  createPlaylistModalContent: {
+    width: '85%',
+    maxWidth: 400,
+    backgroundColor: theme.colors.card,
+    borderRadius: 12,
+    padding: 20,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+    color: theme.colors.text,
+  },
+  cancelButton: {
+    backgroundColor: theme.colors.border,
+  },
+  createButton: {
+    backgroundColor: theme.colors.primary,
+  },
+});
+
 export const PlaylistSelector = ({ visible, onClose, song }) => {
   const theme = useTheme();
   const [playlists, setPlaylists] = useState([]);
@@ -74,145 +174,20 @@ export const PlaylistSelector = ({ visible, onClose, song }) => {
   const [showNewPlaylistModal, setShowNewPlaylistModal] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
 
-  const getDynamicStyles = theme => StyleSheet.create({
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: theme.dark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)',
-      justifyContent: 'flex-end',
-    },
-    centeredModalOverlay: {
-      flex: 1,
-      backgroundColor: theme.dark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    container: {
-      width: '100%',
-      maxHeight: MAX_MODAL_HEIGHT,
-      backgroundColor: theme.colors.card,
-      borderTopLeftRadius: 16,
-      borderTopRightRadius: 16,
-      overflow: 'hidden',
-    },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.border,
-    },
-    title: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: theme.colors.text,
-    },
-    createNewButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: 16,
-      backgroundColor: theme.colors.card, 
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.border,
-    },
-    createNewText: {
-      marginLeft: 12,
-      fontSize: 16,
-      color: theme.colors.primary,
-    },
-    playlistItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: 12,
-      backgroundColor: theme.colors.background,
-      borderRadius: 8,
-      marginBottom: 8,
-    },
-    playlistCover: {
-      width: 50,
-      height: 50,
-      borderRadius: 4,
-      backgroundColor: theme.colors.border,
-      overflow: 'hidden',
-    },
-    playlistName: {
-      fontSize: 16,
-      marginBottom: 4,
-      color: theme.colors.text,
-    },
-    songCount: {
-      color: theme.colors.textSecondary,
-    },
-    emptyText: {
-      fontSize: 16,
-      color: theme.colors.textSecondary,
-      marginTop: 16,
-    },
-    emptySubtext: {
-      color: theme.colors.textSecondary,
-      opacity: 0.7,
-      marginTop: 8,
-    },
-    createPlaylistModalContent: {
-      width: '85%',
-      maxWidth: 400,
-      backgroundColor: theme.colors.card,
-      borderRadius: 12,
-      padding: 20,
-      elevation: 5,
-    },
-    modalTitle: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      marginBottom: 16,
-      textAlign: 'center',
-      color: theme.colors.text,
-    },
-    // input is in staticStyles, but specific theme props are applied inline
-    cancelButton: {
-      backgroundColor: theme.colors.border,
-    },
-    createButton: {
-      backgroundColor: theme.colors.primary,
-    },
-    // buttonText is in staticStyles, but color is applied inline
-  });
+  const styles = useMemo(() => getDynamicStyles(theme), [theme]);
 
-  const styles = getDynamicStyles(theme);
-
-  const getContrastingTextColor = (hexColor) => {
-    if (!hexColor || hexColor.length < 7) return '#000000';
+  const getContrastingTextColor = useCallback((hexColor) => {
+    if (!hexColor || typeof hexColor !== 'string' || !/^#[0-9A-F]{6}$/i.test(hexColor)) {
+      return theme.colors.text; 
+    }
     const r = parseInt(hexColor.slice(1, 3), 16);
     const g = parseInt(hexColor.slice(3, 5), 16);
     const b = parseInt(hexColor.slice(5, 7), 16);
-    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-    return brightness > 150 ? '#000000' : '#FFFFFF';
-  };
+    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    return (yiq >= 128) ? (theme.colors.black || '#000000') : (theme.colors.white || '#FFFFFF');
+  }, [theme]);
 
-
-  useEffect(() => {
-    if (visible) {
-      loadPlaylists();
-    }
-  }, [visible]);
-
-  useEffect(() => {
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (visible) {
-        if (showNewPlaylistModal) {
-          setShowNewPlaylistModal(false);
-          return true;
-        }
-        onClose();
-        return true;
-      }
-      return false;
-    });
-
-    return () => backHandler.remove();
-  }, [visible, showNewPlaylistModal, onClose]);
-
-  const loadPlaylists = async () => {
+  const loadPlaylists = useCallback(async () => {
     try {
       setIsLoading(true);
       const userPlaylists = await getUserPlaylists();
@@ -223,21 +198,46 @@ export const PlaylistSelector = ({ visible, onClose, song }) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []); // Dependencies: setIsLoading, setPlaylists, getUserPlaylists are stable
 
-  const handleAddToPlaylist = async (playlistId) => {
+  useEffect(() => {
+    if (visible) {
+      loadPlaylists();
+    }
+  }, [visible, loadPlaylists]);
+
+  useEffect(() => {
+    const backAction = () => {
+      if (showNewPlaylistModal) {
+        setShowNewPlaylistModal(false);
+        return true; 
+      }
+      // If main modal is open (visible=true), but not the new playlist modal, then onClose will close it.
+      // The BackHandler should consume the event if the main modal is visible.
+      if (visible) {
+          onClose();
+          return true;
+      }
+      return false; 
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [visible, showNewPlaylistModal, onClose, setShowNewPlaylistModal]);
+
+  const handleAddToPlaylist = useCallback(async (playlistId) => {
     try {
       const success = await addSongToPlaylist(playlistId, song);
       if (success) {
-        onClose();
+        onClose(); 
       }
     } catch (error) {
       console.error('Error adding song to playlist:', error);
       ToastAndroid.show('Failed to add to playlist', ToastAndroid.SHORT);
     }
-  };
+  }, [song, onClose]); // Dependencies: addSongToPlaylist, ToastAndroid.show, console.error are stable
 
-  const handleCreateNewPlaylist = async () => {
+  const handleCreateNewPlaylist = useCallback(async () => {
     if (!newPlaylistName.trim()) {
       ToastAndroid.show('Please enter a playlist name', ToastAndroid.SHORT);
       return;
@@ -248,15 +248,16 @@ export const PlaylistSelector = ({ visible, onClose, song }) => {
       if (success) {
         setShowNewPlaylistModal(false);
         setNewPlaylistName('');
-        onClose();
+        loadPlaylists(); // Refresh playlists after creating a new one
+        onClose(); 
       }
     } catch (error) {
       console.error('Error creating playlist:', error);
       ToastAndroid.show('Failed to create playlist', ToastAndroid.SHORT);
     }
-  };
+  }, [newPlaylistName, song, loadPlaylists, onClose]); // Dependencies: createPlaylist, setShowNewPlaylistModal, setNewPlaylistName, ToastAndroid.show, console.error are stable
 
-  const renderPlaylistItem = (item) => (
+  const renderPlaylistItem = useCallback((item) => (
     <TouchableOpacity 
       style={styles.playlistItem}
       onPress={() => handleAddToPlaylist(item.id)}
@@ -266,7 +267,7 @@ export const PlaylistSelector = ({ visible, onClose, song }) => {
         <FastImage 
           source={{ uri: item.coverImage }}
           style={styles.playlistCover}
-          defaultSource={DEFAULT_WAVE_IMAGE}
+          defaultSource={DEFAULT_WAVE_IMAGE} // Keep defaultSource for FastImage if desired
         />
       ) : (
         <View style={[styles.playlistCover, staticStyles.fallbackCover]}>
@@ -283,7 +284,7 @@ export const PlaylistSelector = ({ visible, onClose, song }) => {
       </View>
       <MaterialCommunityIcons name="plus-circle" size={24} color={theme.colors.primary} />
     </TouchableOpacity>
-  );
+  ), [styles, handleAddToPlaylist, theme.colors.primary]); // Dependencies: staticStyles, DEFAULT_WAVE_IMAGE are constants
 
   if (!visible) return null;
 
@@ -292,7 +293,7 @@ export const PlaylistSelector = ({ visible, onClose, song }) => {
       visible={visible}
       transparent={true}
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={onClose} // Main modal closes via this or back button logic
     >
       <View style={styles.modalOverlay}>
         <View style={styles.container}>
@@ -321,7 +322,7 @@ export const PlaylistSelector = ({ visible, onClose, song }) => {
                 <PlainText text="Loading playlists..." style={styles.emptyText} />
               </View>
             ) : playlists.length > 0 ? (
-              playlists.map((item) => renderPlaylistItem(item))
+              playlists.map(renderPlaylistItem) // Use the memoized renderPlaylistItem
             ) : (
               <View style={staticStyles.emptyState}>
                 <MaterialCommunityIcons name="playlist-music" size={48} color={theme.colors.textSecondary} />
@@ -338,7 +339,7 @@ export const PlaylistSelector = ({ visible, onClose, song }) => {
         visible={showNewPlaylistModal}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => setShowNewPlaylistModal(false)}
+        onRequestClose={() => setShowNewPlaylistModal(false)} // Specific close for this modal
       >
         <View style={styles.centeredModalOverlay}>
           <View style={styles.createPlaylistModalContent}>
@@ -378,161 +379,3 @@ export const PlaylistSelector = ({ visible, onClose, song }) => {
     </Modal>
   );
 };
-
-// All styles moved into getDynamicStyles or staticStyles
-/*
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: theme.dark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)', // Example backdrop
-    justifyContent: 'flex-end',
-  },
-  centeredModalOverlay: {
-    flex: 1,
-    backgroundColor: theme.dark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)', // Example backdrop
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  container: {
-    width: '100%',
-    maxHeight: MAX_MODAL_HEIGHT,
-    backgroundColor: theme.colors.card,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: theme.colors.text, // Added
-  },
-  closeButton: {
-    padding: 8,
-  },
-  createNewButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: theme.colors.card, // Or theme.colors.background for distinction
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  createNewText: {
-    marginLeft: 12,
-    fontSize: 16,
-    color: theme.colors.primary,
-  },
-  playlistListContainer: {
-    maxHeight: SCREEN_HEIGHT * 0.4,
-  },
-  playlistList: {
-    padding: 16,
-  },
-  playlistItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: theme.colors.background, // Or a slightly different shade from card
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  playlistCover: {
-    width: 50,
-    height: 50,
-    borderRadius: 4,
-    backgroundColor: theme.colors.border, // Fallback cover background
-    overflow: 'hidden',
-  },
-  fallbackCover: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  waveImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 4,
-  },
-  playlistInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  playlistName: {
-    fontSize: 16,
-    marginBottom: 4,
-    color: theme.colors.text, // Added
-  },
-  songCount: {
-    color: theme.colors.textSecondary,
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: 32,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: theme.colors.textSecondary,
-    marginTop: 16,
-  },
-  emptySubtext: {
-    color: theme.colors.textSecondary, // Or a more subtle variant if available
-    opacity: 0.7, // Make it a bit more subtle
-    marginTop: 8,
-  },
-  createPlaylistModalContent: {
-    width: '85%',
-    maxWidth: 400,
-    backgroundColor: theme.colors.card,
-    borderRadius: 12,
-    padding: 20,
-    elevation: 5,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textAlign: 'center',
-    color: theme.colors.text, // Added
-  },
-  input: {
-    height: 50,
-    borderWidth: 1,
-    // borderColor: '#333', // Applied dynamically
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    // color: 'white', // Applied dynamically
-    // backgroundColor: '#333', // Applied dynamically
-    marginBottom: 16,
-    fontSize: 16,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  modalButton: {
-    flex: 1,
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginHorizontal: 8,
-  },
-  cancelButton: {
-    backgroundColor: theme.colors.border, // Or a neutral grey from theme
-  },
-  createButton: {
-    backgroundColor: theme.colors.primary,
-  },
-  buttonText: {
-    // color: 'white', // Applied dynamically
-    fontSize: 16,
-    fontWeight: '500',
-  },
-});
-*/ 

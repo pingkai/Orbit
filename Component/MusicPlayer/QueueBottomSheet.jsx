@@ -25,7 +25,7 @@ const QueueBottomSheet = () => {
       onChange={handleSheetChange}
       enablePanDownToClose={false}
       animateOnMount={false}
-      snapPoints={[100, '50%']} // Increased height for better visibility
+      snapPoints={[40, '50%']} // Increased height for better visibility
       ref={bottomSheetRef}
       style={{
         backgroundColor,
@@ -40,7 +40,7 @@ const QueueBottomSheet = () => {
       }}
       handleComponent={() => (
         <View style={styles.handleContainer}>
-          <Octicons name={"dash"} size={40} color="#FFFFFF" />
+          <Octicons name={"chevron-down"} size={40} color="#FFFFFF" />
           <PlainText 
             text={"Queue"} 
             style={styles.headerText}
@@ -129,12 +129,12 @@ const styles = StyleSheet.create({
   headerText: {
     fontWeight: 'bold', 
     fontSize: 18,
-    marginTop: -8,
+    marginTop: -3,
     color: '#FFFFFF',
   },
   subHeaderText: {
     fontSize: 12,
-    color: '#FFFFFF', // Green highlight for instructions
+    color: '#FFFFFF', 
     marginTop: 4,
     fontWeight: '500',
   }

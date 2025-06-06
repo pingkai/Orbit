@@ -1,6 +1,7 @@
 import { Dimensions, ImageBackground, View, Pressable, BackHandler, Text, FlatList, TouchableOpacity, Image, ActivityIndicator, Alert } from "react-native";
 import FastImage from "react-native-fast-image";
 import React, { useState, useEffect, useCallback, useRef, useContext, memo } from "react";
+import { useThemeContext } from '../../Context/ThemeContext'; // Changed to useThemeContext
 import LinearGradient from "react-native-linear-gradient";
 import { Heading } from "../Global/Heading";
 import { SmallText } from "../Global/SmallText";
@@ -23,110 +24,27 @@ import { PlayNextSong, PlayPreviousSong } from "../../MusicPlayerFunctions";
 import ReactNativeBlobUtil from "react-native-blob-util";
 import { PermissionsAndroid, Platform, ToastAndroid, DeviceEventEmitter } from "react-native";
 import DeviceInfo from "react-native-device-info";
-import { GetDownloadPath } from "../../LocalStorage/AppSettings";
 import TrackPlayer from 'react-native-track-player';
 import VolumeManager from 'react-native-volume-manager';
 import NetInfo from "@react-native-community/netinfo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useTrackPlayerEvents } from "react-native-track-player";
-import { Event } from "react-native-track-player";
 import Context from "../../Context/Context";
 import { useNavigation, CommonActions } from "@react-navigation/native";
 import { StorageManager } from '../../Utils/StorageManager';
 import RNFS from "react-native-fs";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import { safePath, safeExists, safeDownloadFile, ensureDirectoryExists, safeUnlink } from '../../Utils/FileUtils';
-import { safeMkdir } from '../../Utils/FileUtils';
 import EventRegister from '../../Utils/EventRegister';
 import { isOfflineMode, setOfflineMode } from '../../Api/CacheManager';
+import CircularProgress from './CircularProgress'; // Import the new component
+import FullScreenLocalTrackItem from './FullScreenLocalTrackItem'; // Import the new local track item component
 
 // Import SleepTimerButton from its dedicated component file
 import { SleepTimerButton } from './SleepTimer';
+import useDynamicArtwork from '../../hooks/useDynamicArtwork.js';
 
-// Custom Circular Progress Component
-const CircularProgress = ({ progress, size = 24, thickness = 2, color = '#1DB954' }) => {
-  // Calculate how much of the circle to fill based on progress (0-100)
-  const rotation = progress * 3.6; // 360 degrees / 100 = 3.6
-  
-  return (
-    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
-      {/* Background Circle */}
-      <View style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        borderWidth: thickness,
-        borderColor: 'rgba(255,255,255,0.2)',
-        position: 'absolute'
-      }} />
-      
-      {/* Progress Circle - Using border trick for quarter segments */}
-      <View style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        position: 'absolute',
-        borderWidth: thickness,
-        borderTopColor: progress > 12.5 ? color : 'transparent',
-        borderRightColor: progress > 37.5 ? color : 'transparent',
-        borderBottomColor: progress > 62.5 ? color : 'transparent',
-        borderLeftColor: progress > 87.5 ? color : 'transparent',
-        transform: [{ rotate: `${rotation}deg` }]
-      }} />
-      
-      {/* Center Text */}
-      <Text style={{
-        color: 'white',
-        fontSize: size / 3,
-        fontWeight: 'bold'
-      }}>{Math.round(progress)}%</Text>
-    </View>
-  );
-};
 
-// Define LocalMusicCard component with the function properly in scope
-const LocalMusicCard = ({ song, index, allSongs, onPress }) => {
-  // Determine the source for the image
-  let imageSource;
-  if (song.isLocal || song.sourceType === 'mymusic') {
-    imageSource = require('../../Images/a.gif');
-  } else {
-    imageSource = song.artwork ? { uri: song.artwork } : require('../../Images/Music.jpeg');
-  }
-
-  return (
-    <TouchableOpacity
-      onPress={() => onPress(song)}
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 12,
-        borderBottomWidth: 0.5,
-        borderBottomColor: 'rgba(255,255,255,0.1)',
-        backgroundColor: 'rgba(0,0,0,0.2)',
-        borderRadius: 8,
-        marginBottom: 8
-      }}
-    >
-      <FastImage
-        source={imageSource}
-        style={{ width: 50, height: 50, borderRadius: 4 }}
-        resizeMode={FastImage.resizeMode.cover}
-      />
-      <View style={{ marginLeft: 15, flex: 1 }}>
-        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>
-          {song.title || 'Unknown Title'}
-        </Text>
-        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, marginTop: 4 }}>
-          {song.artist || 'Unknown Artist'}
-        </Text>
-      </View>
-      <Ionicons name="play-circle-outline" size={28} color="white" />
-    </TouchableOpacity>
-  );
-};
-
-export const FullScreenMusic = ({ color, Index, setIndex }) => {
+export const FullScreenMusic = ({ Index, setIndex }) => { // Removed 'color' prop as theme will be used
   const width = Dimensions.get("window").width;
   const height = Dimensions.get("window").height;
   const currentPlaying = useActiveTrack();
@@ -141,7 +59,9 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
   const [blur, setBlur] = useState(10); // Add blur state for the background image
   const [isDownloadedState, setIsDownloaded] = useState(false); // Track if current song is downloaded
   const { currentPlaylistData, musicPreviousScreen } = useContext(Context);
+  const { getArtworkSourceFromHook } = useDynamicArtwork();
   const navigation = useNavigation();
+  const { theme, themeMode } = useThemeContext(); // Changed to useThemeContext, added themeMode
 
   const volumeAdjustmentActive = useSharedValue(0);
   const startY = useSharedValue(0);
@@ -154,111 +74,6 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
   const volumeChangeRef = useRef(null); // Add missing ref for volume change timeout
   const isFullScreenRef = useRef(false); // Reference to track fullscreen mode
   const prevSongIdRef = useRef(null); // Reference to track previous song ID for local tracks
-
-  // Add state to track the current GIF
-  const [currentGif, setCurrentGif] = useState('a');
-  
-  // Create an array of GIF letters (excluding 'm' which is causing issues)
-  const availableGifs = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'];
-  
-  // Track the current song ID to detect song changes
-  const [currentSongId, setCurrentSongId] = useState(null);
-  
-  // Track the current position in the GIF sequence
-  const [gifIndex, setGifIndex] = useState(0);
-  
-  // Get the next GIF in sequence
-  const getNextSequentialGif = useCallback(() => {
-    // Get current gif from the sequence
-    const nextGif = availableGifs[gifIndex];
-    
-    // Increment index for next call, wrapping around when reaching the end
-    setGifIndex((prevIndex) => (prevIndex + 1) % availableGifs.length);
-    
-    console.log(`Sequential GIF assigned: ${nextGif} (index ${gifIndex})`);
-    return nextGif;
-  }, [availableGifs, gifIndex]);
-  
-  // Listen for track changes to assign the next sequential GIF when the song changes
-  useTrackPlayerEvents([Event.PlaybackTrackChanged], async (event) => {
-    try {
-      if (event.type === Event.PlaybackTrackChanged) {
-        const currentTrack = await TrackPlayer.getActiveTrack();
-        if (currentTrack && currentTrack.id !== currentSongId) {
-          // Only change GIF when the song changes (different ID)
-          console.log(`New song detected: ${currentTrack.title}`);
-          setCurrentSongId(currentTrack.id);
-          
-          // Only assign a new GIF if this is specifically a MyMusic track
-          if (currentTrack.sourceType === 'mymusic') {
-            console.log('This is a MyMusic track, assigning next sequential GIF');
-            // Assign the next sequential GIF
-            const nextGif = getNextSequentialGif();
-            setCurrentGif(nextGif);
-            console.log(`Assigned GIF ${nextGif} for song: ${currentTrack.title}`);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error in track change event handler:', error);
-    }
-  });
-  
-  // Initialize GIF when a MyMusic track starts playing for the first time
-  useEffect(() => {
-    if (currentPlaying && currentPlaying.sourceType === 'mymusic' && 
-       (!currentSongId || currentPlaying.id !== currentSongId)) {
-      setCurrentSongId(currentPlaying.id);
-      
-      // Assign the next sequential GIF
-      const nextGif = getNextSequentialGif();
-      setCurrentGif(nextGif);
-      console.log(`Assigned initial sequential GIF ${nextGif} for MyMusic song: ${currentPlaying.title || 'Unknown'}`);
-    }
-  }, [currentPlaying, currentSongId, getNextSequentialGif]);
-
-  // Create a more efficient mapping function for GIFs
-  const getGifModule = useCallback((letter) => {
-    // Define a map of letter to require statement
-    switch(letter) {
-      case 'a': return require('../../Images/a.gif');
-      case 'b': return require('../../Images/b.gif');
-      case 'c': return require('../../Images/c.gif');
-      case 'd': return require('../../Images/d.gif');
-      case 'e': return require('../../Images/e.gif');
-      case 'f': return require('../../Images/f.gif');
-      case 'g': return require('../../Images/g.gif');
-      case 'h': return require('../../Images/h.gif');
-      case 'i': return require('../../Images/i.gif');
-      case 'j': return require('../../Images/j.gif');
-      case 'k': return require('../../Images/k.gif');
-      case 'l': return require('../../Images/l.gif');
-      case 'n': return require('../../Images/n.gif');
-      case 'o': return require('../../Images/o.gif');
-      case 'p': return require('../../Images/p.gif');
-      case 'q': return require('../../Images/q.gif');
-      case 'r': return require('../../Images/r.gif');
-      case 's': return require('../../Images/s.gif');
-      case 't': return require('../../Images/t.gif');
-      case 'u': return require('../../Images/u.gif');
-      case 'v': return require('../../Images/v.gif');
-      case 'w': return require('../../Images/w.gif');
-      case 'x': return require('../../Images/x.gif');
-      case 'y': return require('../../Images/y.gif');
-      case 'z': return require('../../Images/z.gif');
-      default: return require('../../Images/a.gif'); // Default fallback
-    }
-  }, []);
-
-  // Safe function to get the appropriate GIF based on current state
-  const getGifSource = useCallback(() => {
-    try {
-      return getGifModule(currentGif);
-    } catch (error) {
-      console.error('Error loading GIF:', error);
-      return require('../../Images/a.gif'); // Direct fallback for more reliability
-    }
-  }, [currentGif, getGifModule]);
 
   // Add error handling for track loading
   useEffect(() => {
@@ -1166,6 +981,10 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
 
   // Make the renderDownloadControl function more robust against null values
   const renderDownloadControl = () => {
+    const iconColor = themeMode === 'light' ? theme.colors.text : '#ffffff';
+    const pressedBackgroundColor = themeMode === 'light' ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)';
+    const downloadIconColor = themeMode === 'light' ? (isOffline ? "#888888" : theme.colors.text) : (isOffline ? "#888888" : "#ffffff");
+
     // Always show checkmark in offline mode
     if (isOffline) {
       return (
@@ -1208,7 +1027,7 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
           style={({ pressed }) => [
             styles.controlIcon,
             {
-              backgroundColor: pressed ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+              backgroundColor: pressed ? pressedBackgroundColor : 'transparent',
               borderRadius: 20,
               padding: 8,
               overflow: 'hidden'
@@ -1220,7 +1039,7 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
           <MaterialIcons 
             name="file-download" 
             size={28} 
-            color={isOffline ? "#888888" : "#ffffff"} 
+            color={downloadIconColor} 
           />
         </Pressable>
       );
@@ -1545,10 +1364,8 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
             data={localTracks}
             keyExtractor={(item) => item.id}
             renderItem={({ item, index }) => (
-              <LocalMusicCard 
+              <FullScreenLocalTrackItem 
                 song={item} 
-                index={index} 
-                allSongs={localTracks} 
                 onPress={playLocalTrack}
               />
             )}
@@ -1655,6 +1472,38 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     }
   };
 
+const SafeImage = memo(({ track, style, resizeMode = FastImage.resizeMode.cover }) => {
+  const { getArtworkSourceFromHook } = useDynamicArtwork();
+  const artworkSource = getArtworkSourceFromHook(track);
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    setImageError(false); // Reset error on artwork change
+  }, [artworkSource]);
+
+  if (imageError || !artworkSource) {
+    // Fallback for error or no artwork
+    return (
+      <FastImage
+        source={require('../../Images/Music.jpeg')} // Default fallback
+        style={style}
+        resizeMode={resizeMode}
+        key={`fallback-image-${track?.id || 'no-track'}`}
+      />
+    );
+  }
+
+  return (
+    <FastImage
+      source={artworkSource}
+      style={style}
+      resizeMode={resizeMode}
+      onError={() => setImageError(true)}
+      key={JSON.stringify(artworkSource)} // Key based on the artwork source itself
+    />
+  );
+});
+
   // Add an effect to handle fullscreen transitions
   useEffect(() => {
     try {
@@ -1696,327 +1545,75 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
     }
   }, [Index]);
 
-  // Function to safely extract artwork based on track information
-  const getArtworkSource = useCallback((track) => {
-    if (!track) return require('../../Images/loading.gif'); // Default loading GIF when no track
-    
-    try {
-      // ONLY use animated GIFs for MyMusic tracks that don't have artwork
-      if (track.sourceType === 'mymusic') {
-          return getGifSource();
-        }
-        
-      // For downloaded songs and online songs, use the actual artwork if available
-        if (track.artwork && typeof track.artwork === 'string' && track.artwork.trim() !== '') {
-        // For local downloaded songs with file:// paths
-          if (track.artwork.startsWith('file://')) {
-            return { uri: track.artwork };
-          }
-          
-        // For local paths that need file:// prefix
-        if (track.isLocal && track.artwork.startsWith('/')) {
-            return { uri: `file://${track.artwork}` };
-          }
-          
-        // For remote URLs, ensure highest quality
-          if (track.artwork.startsWith('http')) {
-            try {
-              const url = new URL(track.artwork);
-              // Set quality to maximum
-              url.searchParams.set('quality', '100');
-              
-              // Special handling for JioSaavn and similar CDNs
-              if (track.artwork.includes('saavncdn.com')) {
-                // Replace any size with 500x500
-                const highQualitySaavnUrl = track.artwork.replace(/50x50|150x150|500x500/g, '500x500');
-                const finalUrl = new URL(highQualitySaavnUrl);
-                return { uri: finalUrl.toString() };
-              }
-              
-              return { uri: url.toString() };
-            } catch (e) {
-              // If URL parsing fails, try direct string replacement
-              if (track.artwork.includes('saavncdn.com')) {
-                return { uri: track.artwork.replace(/50x50|150x150|500x500/g, '500x500') };
-              }
-              
-              // Add quality parameter manually
-              if (track.artwork.includes('?')) {
-                return { uri: `${track.artwork}&quality=100` };
-              } else {
-                return { uri: `${track.artwork}?quality=100` };
-              }
-            }
-          }
-        
-        // Return whatever artwork URI we have
-          return { uri: track.artwork };
-        }
-      
-      // If track has no artwork but is from MyMusic, use GIF
-      if (track.sourceType === 'mymusic') {
-        return getGifSource();
-      }
-      
-      // Default fallback for all other cases
-      return require('../../Images/Music.jpeg');
-    } catch (error) {
-      console.log('Error getting artwork source:', error);
-      // Fallback to default music image
-      return require('../../Images/Music.jpeg');
-    }
-  }, [getGifSource]);
-
-  // Now create a simple SafeImage component that handles null sources properly
-  const SafeImage = memo(({ source, style, resizeMode = FastImage.resizeMode.cover }) => {
-    const [imageError, setImageError] = useState(false);
-    
-    // Only use GIF for MyMusic tracks
-    if (currentPlaying && currentPlaying.sourceType === 'mymusic') {
-      return (
-        <FastImage
-          source={getGifSource()}
-          style={style}
-          resizeMode={resizeMode}
-          key={`gif-${currentGif}`} // Add key to force refresh when GIF changes
-        />
-      );
-    }
-    
-    // Handle null source or source without uri
-    if (!source || imageError || (typeof source === 'object' && !source.uri)) {
-      // Show GIF for MyMusic tracks without artwork
-      if (currentPlaying && currentPlaying.sourceType === 'mymusic') {
-        return (
-          <FastImage
-            source={getGifSource()}
-            style={style}
-            resizeMode={resizeMode}
-            key={`gif-${currentGif}`}
-          />
-        );
-      }
-      
-      // Use default image for all other cases
-      return (
-        <FastImage
-          source={require('../../Images/Music.jpeg')}
-          style={style}
-          resizeMode={resizeMode}
-        />
-      );
-    }
-    
-    return (
+return (
+  <Animated.View entering={FadeInDown.delay(200)} style={{ backgroundColor: "rgb(0,0,0)", flex: 1 }}>
+    {/* Show dynamic artwork (GIF or image) when playing MyMusic tracks or in offline mode */}
+    {((currentPlaying && currentPlaying.sourceType === 'mymusic') || isOffline) && (
       <FastImage
-        source={source}
-        style={style}
-        resizeMode={resizeMode}
-        onError={() => setImageError(true)}
+        source={getArtworkSourceFromHook(currentPlaying)} // Use the hook
+        style={{ width: width, height: height, position: 'absolute', top: 0, left: 0 }}
+        resizeMode={FastImage.resizeMode.cover}
+        key={`dynamic-bg-${JSON.stringify(getArtworkSourceFromHook(currentPlaying))}`} // Key off the source from hook
       />
-    );
-  });
-
-  // Function to play a specific local track
-  const playLocalTrack = async (track) => {
-    try {
-      console.log(`Playing local track: ${track.title}`);
-      
-      // Check if player is already initialized
-      let playerState = null;
-      try {
-        playerState = await TrackPlayer.getState();
-      } catch (stateError) {
-        console.log('Error getting player state:', stateError);
-      }
-      
-      const isReady = playerState !== null;
-      let wasPlaying = playerState === State.Playing;
-
-      try {
-        // Setup player if needed
-        if (!isReady) {
-          console.log('Setting up player for local playback');
-          try {
-            await TrackPlayer.setupPlayer({
-              maxCacheSize: 50000
-            });
-          } catch (setupError) {
-            console.error('Player setup error:', setupError);
-          }
-        }
-        
-        // Build queue based on offline status
-        let queue;
-        if (isOffline) {
-          queue = await buildOfflineQueue(track);
-        } else {
-          queue = [
-            track,
-            ...localTracks.filter(t => t.id !== track.id)
-          ];
-        }
-        
-        console.log(`Adding ${queue.length} tracks to queue`);
-        
-        // Reset and add tracks to queue with proper error handling
-        try {
-          await TrackPlayer.reset();
-          await TrackPlayer.add(queue);
+    )}
+    <ShowLyrics Loading={Loading} Lyric={Lyric} setShowDailog={setShowDailog} ShowDailog={ShowDailog} />
+    {renderLocalTracksList()}
+    <ImageBackground
+      source={getArtworkSourceFromHook(currentPlaying)}
+      style={{ flex: 1 }}
+      resizeMode="cover"
+      blurRadius={currentPlaying && currentPlaying.sourceType === 'mymusic' ? 5 : blur} // Keep existing blur logic
+      onError={() => console.log('Background image failed to load')}
+      key={`bg-${JSON.stringify(getArtworkSourceFromHook(currentPlaying))}`}
+    >
+      <View style={{ flex: 1, backgroundColor: themeMode === 'light' ? 'rgba(255,255,255,0.1)' : "rgba(0,0,0,0.44)" }}>
+      {renderOfflineBanner()}
+        <LinearGradient start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} colors={themeMode === 'light' ? ['rgba(255,255,255,0.80)', 'rgba(255,255,255,0.9)', 'rgba(255,255,255,1)'] : ['rgba(4,4,4,0.23)', 'rgba(9,9,9,0.47)', 'rgba(0,0,0,0.65)', 'rgba(0,0,0,0.89)', 'rgba(0,0,0,0.9)', "rgba(0,0,0,1)"]} style={{ flex: 1, alignItems: "center" }}>
+          <Pressable
+            onPress={() => {
+              try {
+                console.log('Down arrow pressed in fullscreen player');
+                setIndex(0); // Just minimize the player
+              } catch (error) {
+                console.error('Error in down arrow press handler:', error);
+              }
+            }}
+            style={({ pressed }) => [
+              { 
+                position: 'absolute', 
+                top: 12, 
+                left: 20, 
+                zIndex: 10,
+                padding: 8,
+                borderRadius: 20,
+                backgroundColor: pressed ? (themeMode === 'light' ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)') : 'transparent',
+              }
+            ]}
+          >
+            <Ionicons name="chevron-down" size={30} color={themeMode === 'light' ? theme.colors.text : 'white'} />
+          </Pressable>
           
-          // Play the track
-          console.log('Starting playback');
-          await TrackPlayer.play().catch(playError => {
-            console.error('Play error:', playError);
-            // Try again after a short delay
-            setTimeout(() => {
-              TrackPlayer.play().catch(e => console.log('Second play attempt failed:', e));
-            }, 500);
-          });
-        } catch (queueError) {
-          console.error('Queue setup error:', queueError);
-          
-          // Last resort - try just the one track
-          try {
-            await TrackPlayer.reset();
-            await TrackPlayer.add([track]);
-            await TrackPlayer.play();
-          } catch (finalError) {
-            console.error('Final playback attempt failed:', finalError);
-            Alert.alert(
-              'Playback Error',
-              'Unable to play this track. Please try another one.'
-            );
-          }
-        }
-      } catch (error) {
-        console.error('Track player error:', error);
-      }
-      
-      // Close the tracks list
-      setShowLocalTracks(false);
-    } catch (error) {
-      console.error('Error in playLocalTrack function:', error);
-      Alert.alert(
-        'Playback Error',
-        'There was a problem playing this track. Please try again.'
-      );
-    }
-  };
-
-  // Add this effect to handle network errors in offline mode
-  useEffect(() => {
-    if (isOffline) {
-      // Suppress network errors in offline mode
-      const originalConsoleError = console.error;
-      console.error = (...args) => {
-        // Only log errors that aren't network-related
-        if (!args.some(arg => 
-          typeof arg === 'string' && 
-          (arg.includes('Network Error') || 
-           arg.includes('Network request failed') ||
-           arg.includes('Unable to resolve host'))
-        )) {
-          originalConsoleError.apply(console, args);
-        }
-      };
-
-      return () => {
-        console.error = originalConsoleError;
-      };
-    }
-  }, [isOffline]);
-
-  // Add an effect to force a sequential GIF when a MyMusic track is detected
-  useEffect(() => {
-    // Check if we have a MyMusic track playing
-    if (currentPlaying && currentPlaying.sourceType === 'mymusic' && !isOffline) {
-      // Assign a sequential GIF if one isn't already assigned
-      if (!currentGif || currentGif === 'a') {
-        const nextGif = getNextSequentialGif();
-        console.log(`Force assigning sequential GIF ${nextGif} for MyMusic track`);
-        setCurrentGif(nextGif);
-      }
-    }
-  }, [currentPlaying, isOffline, currentGif, getNextSequentialGif]);
-
-  return (
-    <Animated.View entering={FadeInDown.delay(200)} style={{ backgroundColor: "rgb(0,0,0)", flex: 1 }}>
-      {/* Show GIF when playing MyMusic tracks or in offline mode */}
-      {((currentPlaying && currentPlaying.sourceType === 'mymusic') || isOffline) && (
-        <FastImage
-          source={getGifSource()}
-          style={{ width: width, height: height, position: 'absolute', top: 0, left: 0 }}
-          resizeMode={FastImage.resizeMode.cover}
-          key={`background-gif-${currentGif}`}
-        />
-      )}
-      <ShowLyrics Loading={Loading} Lyric={Lyric} setShowDailog={setShowDailog} ShowDailog={ShowDailog} />
-      {renderLocalTracksList()}
-      <ImageBackground 
-        source={
-          // Use GIF for offline mode or MyMusic tracks
-          isOffline ? getGifSource() :
-          (currentPlaying && currentPlaying.sourceType === 'mymusic') ? 
-          getGifSource() :
-          // Use artwork for online songs and downloaded songs
-          currentPlaying ? getArtworkSource(currentPlaying) :
-          require('../../Images/loading.gif')
-        }
-        style={{ flex: 1 }}
-        resizeMode="cover"
-        blurRadius={currentPlaying && currentPlaying.sourceType === 'mymusic' ? 5 : blur}
-        onError={() => console.log('Background image failed to load')}
-        key={`background-${currentGif}-${currentPlaying?.id || 'none'}`} // Force refresh when GIF or song changes
-      >
-        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.44)" }}>
-        {renderOfflineBanner()}
-          <LinearGradient start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} colors={['rgba(4,4,4,0.23)', 'rgba(9,9,9,0.47)', 'rgba(0,0,0,0.65)', 'rgba(0,0,0,0.89)', 'rgba(0,0,0,0.9)', "rgba(0,0,0,1)"]} style={{ flex: 1, alignItems: "center" }}>
-            <Pressable
-              onPress={() => {
-                try {
-                  console.log('Down arrow pressed in fullscreen player');
-                  setIndex(0); // Just minimize the player
-                } catch (error) {
-                  console.error('Error in down arrow press handler:', error);
-                }
-              }}
-              style={({ pressed }) => [
-                { 
-                  position: 'absolute', 
-                  top: 12, 
-                  left: 20, 
-                  zIndex: 10,
-                  padding: 8,
-                  borderRadius: 20,
-                  backgroundColor: pressed ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
-                }
-              ]}
-            >
-              <Ionicons name="chevron-down" size={30} color="white" />
-            </Pressable>
-            
-            <View style={{ width: "90%", marginTop: 5, height: 60, alignItems: "center", justifyContent: "flex-end", flexDirection: "row" }}>
-              <GetLyricsButton onPress={GetLyrics} />
-            </View>
+          <View style={{ width: "90%", marginTop: 5, height: 60, alignItems: "center", justifyContent: "flex-end", flexDirection: "row" }}>
+            <GetLyricsButton onPress={GetLyrics} />
+          </View>
            <Spacer height={5} />
             <GestureDetector gesture={combinedGestures}>
               <View>
                 {/* Use our high-quality artwork function */}
                 <SafeImage
-                  source={currentPlaying ? getArtworkSource(currentPlaying) : require('../../Images/loading.gif')}
+                  track={currentPlaying}
                   style={{ height: width * 0.9, width: width * 0.9, borderRadius: 10 }}
                   resizeMode={FastImage.resizeMode.contain}
                 />
                 <Animated.View style={volumeOverlayStyle}>
-                  <Ionicons name={getVolumeIconName()} size={24} color="white" style={{ marginBottom: 10 }} />
+                  <Ionicons name={getVolumeIconName()} size={24} color={themeMode === 'light' ? theme.colors.text : 'white'} style={{ marginBottom: 10 }} />
                   <View style={volumeBarContainerStyle}>
                     <Animated.View style={volumeBarFillStyle}>
                       <View style={{
                         position: 'absolute',
                         width: '80%',
                         height: 1,
-                        backgroundColor: 'rgba(255,255,255,0.3)',
+                        backgroundColor: themeMode === 'light' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)',
                         left: '10%',
                         top: '25%'
                       }} />
@@ -2024,7 +1621,7 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
                         position: 'absolute',
                         width: '80%',
                         height: 1,
-                        backgroundColor: 'rgba(255,255,255,0.3)',
+                        backgroundColor: themeMode === 'light' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)',
                         left: '10%',
                         top: '50%'
                       }} />
@@ -2032,7 +1629,7 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
                         position: 'absolute',
                         width: '80%',
                         height: 1,
-                        backgroundColor: 'rgba(255,255,255,0.3)',
+                        backgroundColor: themeMode === 'light' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)',
                         left: '10%',
                         top: '75%'
                       }} />
@@ -2045,12 +1642,12 @@ export const FullScreenMusic = ({ color, Index, setIndex }) => {
             
             <Heading
               text={currentPlaying?.title?.length > 18 ? currentPlaying.title.substring(0, 18) + "..." : currentPlaying?.title || (isOffline ? "Offline Mode" : "No music :(")}
-              style={{ textAlign: "center", paddingHorizontal: 2, marginBottom: 5, marginTop: 3, fontSize: 30 }}
+              style={{ textAlign: "center", paddingHorizontal: 2, marginBottom: 5, marginTop: 3, fontSize: 30, color: theme.colors.text }}
               nospace={true}
             />
             <SmallText
               text={currentPlaying?.artist?.length > 20 ? currentPlaying.artist.substring(0, 20) + "..." : currentPlaying?.artist || (isOffline ? "Local Music Available" : "Explore now!")}
-              style={{ textAlign: "center", fontSize: 15 }}
+              style={{ textAlign: "center", fontSize: 15, color: themeMode === 'light' ? '#555555' : theme.colors.secondaryText }}
             />
             <Spacer />
             <ProgressBar />
