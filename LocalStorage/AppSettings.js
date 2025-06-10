@@ -49,7 +49,7 @@ async function GetDownloadPath(){
     if (value !== null) {
       return value
     } else {
-      return 'Music'
+      return 'Download'
     }
   } catch (e) {
     // error reading value

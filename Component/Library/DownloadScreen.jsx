@@ -165,140 +165,68 @@ export default function DownloadScreen(props) {
   const getDownloadedSongs = async () => {
     try {
       setIsLoading(true);
-      console.log('Fetching downloaded songs...');
-      
-      // Try multiple approaches to find downloaded songs
-      const songs = [];
-      
-      // APPROACH 1: Get songs from StorageManager - preferred method
-      try {
-        console.log('Trying StorageManager approach...');
-        const allMetadata = await StorageManager.getAllDownloadedSongsMetadata();
-        
-        if (allMetadata && Object.keys(allMetadata).length > 0) {
-          console.log(`Found ${Object.keys(allMetadata).length} songs in StorageManager`);
-          
-          // Track download count for analytics
-          analyticsService.trackDownloadCount(Object.keys(allMetadata).length);
-          
-          // Format tracks with metadata
-          const formattedTracks = await Promise.all(
-            Object.values(allMetadata).map(async (metadata) => {
-              try {
-                // Get artwork path and verify it exists
-                let artworkPath = metadata.localArtworkPath || StorageManager.getArtworkPath(metadata.id);
-                if (artworkPath && !artworkPath.startsWith('file://')) {
-                  artworkPath = `file://${artworkPath}`;
-                }
-                
-                // Verify artwork file exists
-                const artworkExists = await checkFileExists(artworkPath);
-                console.log(`Artwork exists at ${artworkPath}: ${artworkExists}`);
-                
-                // Get song path and verify it exists
-                let songPath = metadata.localSongPath || StorageManager.getSongPath(metadata.id);
-                if (songPath && !songPath.startsWith('file://')) {
-                  songPath = `file://${songPath}`;
-                }
-                
-                // Verify song file exists, use safeExists from FileUtils if available
-                let exists = false;
-                if (typeof safeExists === 'function') {
-                  exists = await safeExists(songPath);
-                } else {
-                  exists = await RNFS.exists(songPath);
-                }
-                
-                console.log(`Song exists at ${songPath}: ${exists}`);
-                
-                if (!exists) {
-                  console.log(`Song file not found at ${songPath}`);
-                  return null;
-                }
-                
-                // Make sure we have a valid title and artist
-                const songTitle = metadata.title || metadata.name || cleanupSongName(metadata.originalFilename) || 'Unknown Title';
-                const artistName = metadata.artist || metadata.artists || 'Unknown Artist';
-                
-                // Make sure all paths are strings
-                let songPathStr = typeof songPath === 'string' ? songPath : String(songPath || '');
-                let artworkPathStr = typeof artworkPath === 'string' ? artworkPath : String(artworkPath || '');
-                
-                // Safely check if path starts with file://
-                const hasFilePrefix = (path) => {
-                  try {
-                    return typeof path === 'string' && path.indexOf('file://') === 0;
-                  } catch (e) {
-                    return false;
-                  }
-                };
-                
-                // Ensure correct file:// prefix for paths
-                if (!hasFilePrefix(songPathStr)) {
-                  songPathStr = `file://${songPathStr}`;
-                }
-                
-                // Construct proper artwork URL
-                const artworkUrl = artworkExists 
-                  ? (hasFilePrefix(artworkPathStr) ? artworkPathStr : `file://${artworkPathStr}`)
-                  : metadata.artwork || getDefaultArtworkPath();
-                
-                return {
-                  id: metadata.id,
-                  title: songTitle,
-                  artist: artistName,
-                  name: songTitle,
-                  artists: artistName,
-                  image: artworkUrl,
-                  artwork: artworkUrl,
-                  duration: metadata.duration || 0,
-                  // Ensure file:// prefix for path
-                  url: hasFilePrefix(songPathStr) ? songPathStr : `file://${songPathStr}`,
-                  filePath: hasFilePrefix(songPathStr) ? songPathStr : `file://${songPathStr}`,
-                  isDownloaded: true,
-                  isLocal: true,
-                  localFilePath: songPathStr
-                };
-              } catch (error) {
-                console.error('Error formatting track:', error);
-                return null;
+      const allMetadata = await StorageManager.getAllDownloadedSongsMetadata();
+
+      if (!allMetadata || Object.keys(allMetadata).length === 0) {
+        setDownloadedSongs([]);
+        setIsLoading(false);
+        return;
+      }
+
+      analyticsService.trackDownloadCount(Object.keys(allMetadata).length);
+
+      const formattedTracks = await Promise.all(
+        Object.values(allMetadata).map(async (metadata) => {
+          try {
+            // Ensure metadata and id exist
+            if (!metadata || !metadata.id) {
+              console.warn('Skipping invalid metadata entry.');
+              return null;
+            }
+
+            const songPath = await StorageManager.getSongPath(metadata.id, metadata.title);
+            const songExists = await safeExists(songPath);
+
+            if (!songExists) {
+              console.warn(`Song file not found for ID: ${metadata.id} at path ${songPath}. Skipping.`);
+              // Optionally, you might want to clean up this dangling metadata
+              // await StorageManager.removeDownloadedSong(metadata.id);
+              return null;
+            }
+
+            let finalArtworkUri = getDefaultArtworkPath(); // Default placeholder
+            if (metadata.localArtworkPath) {
+              const artworkExists = await safeExists(metadata.localArtworkPath);
+              if (artworkExists) {
+                finalArtworkUri = `file://${metadata.localArtworkPath}`;
+              } else {
+                console.warn(`Artwork file not found for song ${metadata.id} at ${metadata.localArtworkPath}. Using default.`);
               }
-            })
-          );
-          
-          // Filter out null values (files that don't exist)
-          const validTracks = formattedTracks.filter(track => track !== null);
-          songs.push(...validTracks);
-        }
-      } catch (storageError) {
-        console.error('Error using StorageManager approach:', storageError);
-      }
-      
-      console.log(`Total songs found: ${songs.length}`);
-      setDownloadedSongs(songs);
-      setFilteredSongs(songs);
-      
-      // Update the orbit_downloaded_songs in AsyncStorage for future use
-      try {
-        if (songs.length > 0) {
-          await AsyncStorage.setItem('orbit_downloaded_songs', JSON.stringify(
-            songs.map(song => ({
-              id: song.id,
-              name: song.name || song.title,
-              artists: song.artists || song.artist,
-              image: song.image || song.artwork,
-              duration: song.duration,
-              url: song.filePath || song.url,
-              localSongPath: song.filePath || song.localFilePath
-            }))
-          ));
-        }
-      } catch (updateError) {
-        console.error('Error updating AsyncStorage:', updateError);
-      }
+            }
+
+            return {
+              id: metadata.id,
+              url: `file://${songPath}`,
+              title: metadata.title || 'Unknown Title',
+              artist: metadata.artist || 'Unknown Artist',
+              artwork: finalArtworkUri, // Use the verified path or the default
+              duration: metadata.duration || 0,
+              language: metadata.language,
+              isDownloaded: true,
+            };
+          } catch (error) {
+            console.error(`Error processing metadata for song ${metadata.id}:`, error);
+            return null; // Skip this song on error
+          }
+        })
+      );
+
+      const validSongs = formattedTracks.filter(song => song !== null);
+      setDownloadedSongs(validSongs);
+
     } catch (error) {
-      console.error('Error getting downloaded songs:', error);
-      ToastAndroid.show('Error loading downloads', ToastAndroid.SHORT);
+      console.error('Failed to get downloaded songs:', error);
+      ToastAndroid.show('Could not load downloaded songs.', ToastAndroid.SHORT);
     } finally {
       setIsLoading(false);
     }

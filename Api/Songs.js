@@ -97,4 +97,60 @@ async function getLyricsSongData(id) {
   }
 }
 
-export {getSearchSongData, getLyricsSongData}
+async function getArtistSongs(artistId) {
+  const cacheKey = `artist_songs_${artistId}`;
+
+  const fetchFunction = async () => {
+    let config = {
+      method: 'get',
+      maxBodyLength: Infinity,
+      url: `https://jiosavan-api-with-playlist.vercel.app/api/artists/${artistId}/songs`,
+      headers: {},
+    };
+
+    try {
+      const response = await axios.request(config);
+      return response.data;
+    } catch (error) {
+      console.error(`API error fetching songs for artist ID ${artistId}:`, error.response ? `Status: ${error.response.status}` : error.message || error);
+      throw error;
+    }
+  };
+
+  try {
+    return await getCachedData(cacheKey, fetchFunction, 60, CACHE_GROUPS.SEARCH);
+  } catch (error) {
+    console.error(`Error getting songs for artist ID ${artistId}:`, error);
+    throw error;
+  }
+}
+
+async function getAlbumSongs(albumId) {
+  const cacheKey = `album_songs_${albumId}`;
+
+  const fetchFunction = async () => {
+    let config = {
+      method: 'get',
+      maxBodyLength: Infinity,
+      url: `https://jiosavan-api-with-playlist.vercel.app/api/albums/${albumId}`,
+      headers: {},
+    };
+
+    try {
+      const response = await axios.request(config);
+      return response.data;
+    } catch (error) {
+      console.error(`API error fetching songs for album ID ${albumId}:`, error.response ? `Status: ${error.response.status}` : error.message || error);
+      throw error;
+    }
+  };
+
+  try {
+    return await getCachedData(cacheKey, fetchFunction, 60, CACHE_GROUPS.SEARCH);
+  } catch (error) {
+    console.error(`Error getting songs for album ID ${albumId}:`, error);
+    throw error;
+  }
+}
+
+export { getSearchSongData, getLyricsSongData, getArtistSongs, getAlbumSongs };

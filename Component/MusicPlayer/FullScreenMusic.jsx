@@ -13,10 +13,7 @@ import { PreviousSongButton } from "./PreviousSongButton";
 import { RepeatSongButton } from "./RepeatSongButton";
 import { LikeSongButton } from "./LikeSongButton";
 import { ProgressBar } from "./ProgressBar";
-import { GetLyricsButton } from "./GetLyricsButton";
 import QueueBottomSheet from "./QueueBottomSheet";
-import { getLyricsSongData } from "../../Api/Songs";
-import { ShowLyrics } from "./ShowLyrics";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useActiveTrack, usePlaybackState, State, useProgress } from "react-native-track-player";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -36,11 +33,11 @@ import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import { safePath, safeExists, safeDownloadFile, ensureDirectoryExists, safeUnlink } from '../../Utils/FileUtils';
 import EventRegister from '../../Utils/EventRegister';
 import { isOfflineMode, setOfflineMode } from '../../Api/CacheManager';
-import CircularProgress from './CircularProgress'; // Import the new component
+import CircularProgress from './CircularProgress';
 import FullScreenLocalTrackItem from './FullScreenLocalTrackItem'; // Import the new local track item component
 
-// Import SleepTimerButton from its dedicated component file
 import { SleepTimerButton } from './SleepTimer';
+import { LyricsHandler } from './LyricsHandler';
 import useDynamicArtwork from '../../hooks/useDynamicArtwork.js';
 
 
@@ -48,9 +45,6 @@ export const FullScreenMusic = ({ Index, setIndex }) => { // Removed 'color' pro
   const width = Dimensions.get("window").width;
   const height = Dimensions.get("window").height;
   const currentPlaying = useActiveTrack();
-  const [ShowDailog, setShowDailog] = useState(false);
-  const [Lyric, setLyric] = useState({});
-  const [Loading, setLoading] = useState(false);
   const [currentVolume, setCurrentVolume] = useState(0.5);
   const [isOffline, setIsOffline] = useState(false);
   const [cachedTracks, setCachedTracks] = useState([]);
@@ -62,6 +56,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => { // Removed 'color' pro
   const { getArtworkSourceFromHook } = useDynamicArtwork();
   const navigation = useNavigation();
   const { theme, themeMode } = useThemeContext(); // Changed to useThemeContext, added themeMode
+  const [isLyricsActive, setIsLyricsActive] = useState(false);
 
   const volumeAdjustmentActive = useSharedValue(0);
   const startY = useSharedValue(0);
@@ -75,9 +70,11 @@ export const FullScreenMusic = ({ Index, setIndex }) => { // Removed 'color' pro
   const isFullScreenRef = useRef(false); // Reference to track fullscreen mode
   const prevSongIdRef = useRef(null); // Reference to track previous song ID for local tracks
 
-  // Add error handling for track loading
+  const handleLyricsVisibilityChange = (visible) => {
+    setIsLyricsActive(visible);
+  };
+
   useEffect(() => {
-    // Initial check of the network status
     const checkInitialConnection = async () => {
       try {
         const networkState = await NetInfo.fetch();
@@ -91,16 +88,13 @@ export const FullScreenMusic = ({ Index, setIndex }) => { // Removed 'color' pro
           console.log('Device is offline - loading local tracks');
           await loadCachedData();
           
-          // Automatically add all downloaded songs to the player queue in offline mode
           try {
             const localTracksLoaded = await loadLocalTracks();
             
-            // Only update the queue if we have local tracks and there's nothing currently playing
             if (localTracksLoaded && localTracksLoaded.length > 0) {
               const state = await TrackPlayer.getState();
               const currentTrack = await TrackPlayer.getActiveTrack();
               
-              // If nothing is playing or the player isn't initialized
               if (!currentTrack || state === State.None || state === State.Ready) {
                 console.log(`Adding ${localTracksLoaded.length} downloaded tracks to queue in offline mode`);
                 
@@ -885,74 +879,6 @@ export const FullScreenMusic = ({ Index, setIndex }) => { // Removed 'color' pro
   // Combine gestures with the pan taking priority
   const combinedGestures = Gesture.Exclusive(pan, tap);
 
-  async function GetLyrics() {
-    setShowDailog(true);
-    try {
-      setLoading(true);
-      if (!currentPlaying?.id) {
-        setLyric({ lyrics: "No song playing. Please play a song first." });
-        setLoading(false);
-        return;
-      }
-      
-      // Skip network requests when in offline mode
-      if (isOffline) {
-        setLyric({ lyrics: "You are offline. Lyrics are not available in offline mode." });
-        setLoading(false);
-        return;
-      }
-
-      try {
-        // Instead of using our own caching logic, use the cached version from API
-        // This leverages the centralized cache mechanism
-        const result = await getLyricsSongData(currentPlaying.id);
-        
-        if (result) {
-          if (result.fromCache) {
-            console.log('Lyrics loaded from cache');
-          } else {
-            console.log('Lyrics freshly fetched');
-          }
-          
-          // If we got data, use it
-          if (result.success) {
-            setLyric(result.data);
-          } else {
-            setLyric({ lyrics: "No Lyrics Found\nSorry, we couldn't find lyrics for this song." });
-          }
-        } else {
-          setLyric({ lyrics: isOffline ? "You are offline. Lyrics are not available." : "No Lyrics Found\nSorry, we couldn't find lyrics for this song." });
-        }
-      } catch (error) {
-        // Handle specific HTTP errors
-        let errorMessage = "No Lyrics Found\nSorry, we couldn't find lyrics for this song.";
-        
-        if (error.response) {
-          // The request was made and the server responded with a status code
-          // that falls out of the range of 2xx
-          if (error.response.status === 404) {
-            errorMessage = "No Lyrics Found\nLyrics are not available for this song.";
-          } else {
-            errorMessage = `Service Error (${error.response.status})\nPlease try again later.`;
-          }
-        } else if (error.request) {
-          // The request was made but no response was received
-          errorMessage = isOffline ? 
-            "You are offline. Lyrics are not available." : 
-            "Network Error\nCouldn't connect to the lyrics service.";
-        }
-        
-        setLyric({ lyrics: errorMessage });
-        console.log('Lyrics error handled:', error.message || error);
-      }
-    } catch (e) {
-      console.error("Error in GetLyrics function:", e);
-      setLyric({ lyrics: isOffline ? "You are offline. Lyrics are not available." : "No Lyrics Found\nSorry, we couldn't find lyrics for this song." });
-    } finally {
-      setLoading(false);
-    }
-  }
-
   // Remove the duplicate state declaration
   // const [isDownloaded, setIsDownloaded] = useState(false);
   const [downloading, setIsDownloading] = useState(false);
@@ -1472,174 +1398,88 @@ export const FullScreenMusic = ({ Index, setIndex }) => { // Removed 'color' pro
     }
   };
 
-const SafeImage = memo(({ track, style, resizeMode = FastImage.resizeMode.cover }) => {
-  const { getArtworkSourceFromHook } = useDynamicArtwork();
-  const artworkSource = getArtworkSourceFromHook(track);
-  const [imageError, setImageError] = useState(false);
-
-  useEffect(() => {
-    setImageError(false); // Reset error on artwork change
-  }, [artworkSource]);
-
-  if (imageError || !artworkSource) {
-    // Fallback for error or no artwork
-    return (
-      <FastImage
-        source={require('../../Images/Music.jpeg')} // Default fallback
-        style={style}
-        resizeMode={resizeMode}
-        key={`fallback-image-${track?.id || 'no-track'}`}
-      />
-    );
-  }
 
   return (
-    <FastImage
-      source={artworkSource}
-      style={style}
-      resizeMode={resizeMode}
-      onError={() => setImageError(true)}
-      key={JSON.stringify(artworkSource)} // Key based on the artwork source itself
-    />
-  );
-});
-
-  // Add an effect to handle fullscreen transitions
-  useEffect(() => {
-    try {
-      // Track when we enter fullscreen mode
-      if (Index === 1) {
-        isFullScreenRef.current = true;
-        console.log('Entered fullscreen mode');
-        
-        // Check if playback is paused unexpectedly
-        const checkPlaybackState = async () => {
-          try {
-            // Wait a moment for any transitions to complete
-            setTimeout(async () => {
-              try {
-                const playerState = await TrackPlayer.getState();
-                
-                // If player is stopped or paused unexpectedly when entering fullscreen
-                if (playerState === State.Paused || playerState === State.Ready) {
-                  console.log('Detected paused state in fullscreen, attempting to resume');
-                  TrackPlayer.play().catch(e => {
-                    console.error('Error resuming playback in fullscreen:', e);
-                  });
-                }
-              } catch (stateError) {
-                console.error('Error checking player state:', stateError);
-              }
-            }, 300);
-          } catch (error) {
-            console.error('Error checking playback state in fullscreen:', error);
-          }
-        };
-        
-        checkPlaybackState();
-      } else {
-        isFullScreenRef.current = false;
-      }
-    } catch (error) {
-      console.error('Error in fullscreen transition effect:', error);
-    }
-  }, [Index]);
-
-return (
-  <Animated.View entering={FadeInDown.delay(200)} style={{ backgroundColor: "rgb(0,0,0)", flex: 1 }}>
-    {/* Show dynamic artwork (GIF or image) when playing MyMusic tracks or in offline mode */}
-    {((currentPlaying && currentPlaying.sourceType === 'mymusic') || isOffline) && (
-      <FastImage
-        source={getArtworkSourceFromHook(currentPlaying)} // Use the hook
-        style={{ width: width, height: height, position: 'absolute', top: 0, left: 0 }}
-        resizeMode={FastImage.resizeMode.cover}
-        key={`dynamic-bg-${JSON.stringify(getArtworkSourceFromHook(currentPlaying))}`} // Key off the source from hook
-      />
-    )}
-    <ShowLyrics Loading={Loading} Lyric={Lyric} setShowDailog={setShowDailog} ShowDailog={ShowDailog} />
-    {renderLocalTracksList()}
-    <ImageBackground
-      source={getArtworkSourceFromHook(currentPlaying)}
-      style={{ flex: 1 }}
-      resizeMode="cover"
-      blurRadius={currentPlaying && currentPlaying.sourceType === 'mymusic' ? 5 : blur} // Keep existing blur logic
-      onError={() => console.log('Background image failed to load')}
-      key={`bg-${JSON.stringify(getArtworkSourceFromHook(currentPlaying))}`}
-    >
-      <View style={{ flex: 1, backgroundColor: themeMode === 'light' ? 'rgba(255,255,255,0.1)' : "rgba(0,0,0,0.44)" }}>
-      {renderOfflineBanner()}
-        <LinearGradient start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} colors={themeMode === 'light' ? ['rgba(255,255,255,0.80)', 'rgba(255,255,255,0.9)', 'rgba(255,255,255,1)'] : ['rgba(4,4,4,0.23)', 'rgba(9,9,9,0.47)', 'rgba(0,0,0,0.65)', 'rgba(0,0,0,0.89)', 'rgba(0,0,0,0.9)', "rgba(0,0,0,1)"]} style={{ flex: 1, alignItems: "center" }}>
-          <Pressable
-            onPress={() => {
-              try {
-                console.log('Down arrow pressed in fullscreen player');
-                setIndex(0); // Just minimize the player
-              } catch (error) {
-                console.error('Error in down arrow press handler:', error);
-              }
-            }}
-            style={({ pressed }) => [
-              { 
-                position: 'absolute', 
-                top: 12, 
-                left: 20, 
-                zIndex: 10,
-                padding: 8,
-                borderRadius: 20,
-                backgroundColor: pressed ? (themeMode === 'light' ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)') : 'transparent',
-              }
-            ]}
+    <Animated.View entering={FadeInDown.delay(200)} style={{ backgroundColor: "rgb(0,0,0)", flex: 1 }}>
+      {/* Show dynamic artwork (GIF or image) when playing MyMusic tracks or in offline mode */}
+      {((currentPlaying && currentPlaying.sourceType === 'mymusic') || isOffline) && (
+        <FastImage
+          source={getArtworkSourceFromHook(currentPlaying)} // Use the hook
+          style={{ width: width, height: height, position: 'absolute', top: 0, left: 0 }}
+          resizeMode={FastImage.resizeMode.cover}
+          key={`dynamic-bg-${JSON.stringify(getArtworkSourceFromHook(currentPlaying))}`} // Key off the source from hook
+        />
+      )}
+      {/* The LyricsHandler which includes the ShowLyrics modal is now placed with other controls below */}
+      {renderLocalTracksList()}
+      <ImageBackground
+        source={getArtworkSourceFromHook(currentPlaying)}
+        style={{ flex: 1 }}
+        resizeMode="cover"
+        blurRadius={isLyricsActive ? 25 : 10} // Keep existing blur logic
+        onError={() => console.log('Background image failed to load')}
+        key={`bg-${JSON.stringify(getArtworkSourceFromHook(currentPlaying))}`}
+      >
+        <View style={{ flex: 1, backgroundColor: themeMode === 'light' ? 'rgba(255,255,255,0.1)' : "rgba(0,0,0,0.44)" }}>
+          {renderOfflineBanner()}
+          <LinearGradient
+            start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
+            colors={themeMode === 'light' ? ['rgba(255,255,255,0.80)', 'rgba(255,255,255,0.9)', 'rgba(255,255,255,1)'] : ['rgba(4,4,4,0.23)', 'rgba(9,9,9,0.47)', 'rgba(0,0,0,0.65)', 'rgba(0,0,0,0.89)', 'rgba(0,0,0,0.9)', "rgba(0,0,0,1)"]}
+            style={{ flex: 1, alignItems: "center" }}
           >
-            <Ionicons name="chevron-down" size={30} color={themeMode === 'light' ? theme.colors.text : 'white'} />
-          </Pressable>
-          
-          <View style={{ width: "90%", marginTop: 5, height: 60, alignItems: "center", justifyContent: "flex-end", flexDirection: "row" }}>
-            <GetLyricsButton onPress={GetLyrics} />
-          </View>
-           <Spacer height={5} />
+            <Pressable
+              onPress={() => {
+                try {
+                  console.log('Down arrow pressed in fullscreen player');
+                  setIndex(0); // Just minimize the player
+                } catch (error) {
+                  console.error('Error in down arrow press handler:', error);
+                }
+              }}
+              style={({ pressed }) => [
+                {
+                  position: 'absolute',
+                  top: 12,
+                  left: 20,
+                  zIndex: 10,
+                  padding: 8,
+                  borderRadius: 20,
+                  backgroundColor: pressed ? (themeMode === 'light' ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)') : 'transparent',
+                }
+              ]}
+            >
+              <Ionicons name="chevron-down" size={30} color={themeMode === 'light' ? theme.colors.text : 'white'} />
+            </Pressable>
+
+            {/* Container for LyricsHandler, placed where GetLyricsButton was originally */}
+            <View style={{ width: "90%", marginTop: 5, height: 60, alignItems: "center", justifyContent: "flex-end", flexDirection: "row" }}>
+              <LyricsHandler currentPlayingTrack={currentPlaying} isOffline={isOffline} Index={Index} onLyricsVisibilityChange={handleLyricsVisibilityChange} currentArtworkSource={getArtworkSourceFromHook(currentPlaying)} />
+            </View>
+
+            <Spacer height={5} />
             <GestureDetector gesture={combinedGestures}>
               <View>
-                {/* Use our high-quality artwork function */}
-                <SafeImage
-                  track={currentPlaying}
+                <FastImage
+                  source={getArtworkSourceFromHook(currentPlaying)}
                   style={{ height: width * 0.9, width: width * 0.9, borderRadius: 10 }}
                   resizeMode={FastImage.resizeMode.contain}
+                  onError={() => console.log('Artwork FastImage failed to load')}
+                  key={`artwork-${JSON.stringify(getArtworkSourceFromHook(currentPlaying))}`}
                 />
                 <Animated.View style={volumeOverlayStyle}>
                   <Ionicons name={getVolumeIconName()} size={24} color={themeMode === 'light' ? theme.colors.text : 'white'} style={{ marginBottom: 10 }} />
                   <View style={volumeBarContainerStyle}>
                     <Animated.View style={volumeBarFillStyle}>
-                      <View style={{
-                        position: 'absolute',
-                        width: '80%',
-                        height: 1,
-                        backgroundColor: themeMode === 'light' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)',
-                        left: '10%',
-                        top: '25%'
-                      }} />
-                      <View style={{
-                        position: 'absolute',
-                        width: '80%',
-                        height: 1,
-                        backgroundColor: themeMode === 'light' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)',
-                        left: '10%',
-                        top: '50%'
-                      }} />
-                      <View style={{
-                        position: 'absolute',
-                        width: '80%',
-                        height: 1,
-                        backgroundColor: themeMode === 'light' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)',
-                        left: '10%',
-                        top: '75%'
-                      }} />
+                      <View style={{ position: 'absolute', width: '80%', height: 1, backgroundColor: themeMode === 'light' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)', left: '10%', top: '25%' }} />
+                      <View style={{ position: 'absolute', width: '80%', height: 1, backgroundColor: themeMode === 'light' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)', left: '10%', top: '50%' }} />
+                      <View style={{ position: 'absolute', width: '80%', height: 1, backgroundColor: themeMode === 'light' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)', left: '10%', top: '75%' }} />
                     </Animated.View>
                   </View>
                 </Animated.View>
               </View>
             </GestureDetector>
             <Spacer height={20} />
-            
+
             <Heading
               text={currentPlaying?.title?.length > 18 ? currentPlaying.title.substring(0, 18) + "..." : currentPlaying?.title || (isOffline ? "Offline Mode" : "No music :(")}
               style={{ textAlign: "center", paddingHorizontal: 2, marginBottom: 5, marginTop: 3, fontSize: 30, color: theme.colors.text }}
@@ -1647,22 +1487,18 @@ return (
             />
             <SmallText
               text={currentPlaying?.artist?.length > 20 ? currentPlaying.artist.substring(0, 20) + "..." : currentPlaying?.artist || (isOffline ? "Local Music Available" : "Explore now!")}
-              style={{ textAlign: "center", fontSize: 15, color: themeMode === 'light' ? '#555555' : theme.colors.secondaryText }}
+              style={{ textAlign: "center", fontSize: 15, color: themeMode === 'light' ? '#555555' : theme.colors.secondaryText }} // Adjusted light theme artist color as per memory
             />
             <Spacer />
             <ProgressBar />
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-around", width: "100%" }}>
-              <View>
-                <LikeSongButton size={25} />
-              </View>
+              <View><LikeSongButton size={25} /></View>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 20 }}>
                 <PreviousSongButton size={30} />
                 <PlayPauseButton isFullScreen={true} />
                 <NextSongButton size={30} />
               </View>
-              <View>
-                <RepeatSongButton size={25} />
-              </View>
+              <View><RepeatSongButton size={25} /></View>
             </View>
             <Spacer height={10} />
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "80%" }}>

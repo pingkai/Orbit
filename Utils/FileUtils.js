@@ -1,4 +1,5 @@
 import * as RNFS from 'react-native-fs';
+import { Platform } from 'react-native';
 import { analyticsService, AnalyticsEvents } from './AnalyticsUtils';
 
 /**
@@ -222,32 +223,40 @@ export const safeWriteFile = async (path, contents, encoding = 'utf8') => {
  * @returns {Promise<boolean>} True if successfully downloaded
  */
 export const safeDownloadFile = async (url, path) => {
+  const stringPath = safePath(path);
   try {
     if (!url || typeof url !== 'string') {
       console.warn('Invalid URL provided to safeDownloadFile');
       return false;
     }
-    
-    const stringPath = safePath(path);
+
     if (!stringPath) {
       console.warn('Empty path provided to safeDownloadFile');
       return false;
     }
-    
-    try {
-      await RNFS.downloadFile({
-        fromUrl: url,
-        toFile: stringPath,
-      }).promise;
-      
-      // Verify file was downloaded
-      return await safeExists(stringPath);
-    } catch (downloadError) {
-      console.error('Error downloading file:', downloadError);
+
+    const result = await RNFS.downloadFile({
+      fromUrl: url,
+      toFile: stringPath,
+    }).promise;
+
+    if (result.statusCode === 200) {
+      if (Platform.OS === 'android') {
+        try {
+          await RNFS.scanFile(stringPath);
+        } catch (scanError) {
+          console.warn(`Failed to scan file ${stringPath}:`, scanError);
+        }
+      }
+      return true;
+    } else {
+      console.error(`Download failed with status code: ${result.statusCode}`);
+      await safeUnlink(stringPath);
       return false;
     }
   } catch (error) {
     console.error('Error in safeDownloadFile:', error);
+    await safeUnlink(stringPath);
     return false;
   }
 };
