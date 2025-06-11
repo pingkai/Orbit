@@ -74,7 +74,15 @@ const MusicFetcher = () => {
         // Flatten the array and map to a format suitable for FlatList
         const musicFilesList = allFiles
           .flat()
-          .map((file) => ({ id: file.path, title: file.name }));
+          .map((file) => {
+            const lastDotIndex = file.name.lastIndexOf('.');
+            const title = lastDotIndex !== -1 ? file.name.substring(0, lastDotIndex) : file.name;
+            return { 
+              id: file.path, 
+              title: title, 
+              url: 'file://' + file.path 
+            };
+          });
         setMusicFiles(musicFilesList);
       } catch (err) {
         setError('Error reading directories');

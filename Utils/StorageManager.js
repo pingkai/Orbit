@@ -97,6 +97,12 @@ const getArtworkPath = async (songId) => {
   return `${baseDir}/artwork/${String(songId)}.jpg`;
 };
 
+// Gets the full path for the downloads directory
+const getDownloadsDirectory = async () => {
+  const baseDir = await getBaseDir();
+  return `${baseDir}/songs`;
+};
+
 const STORAGE_KEYS = {
   DOWNLOADED_SONGS_METADATA: '@orbit_downloaded_songs_metadata',
 };
@@ -115,6 +121,7 @@ const saveDownloadedSongMetadata = async (songId, metadata) => {
     );
   } catch (error) {
     console.error('Error saving downloaded song metadata:', error);
+    throw error; // Re-throw the error to notify the caller
   }
 };
 
@@ -198,6 +205,7 @@ export const StorageManager = {
   ensureDirectoriesExist,
   getSongPath,
   getArtworkPath,
+  getDownloadsDirectory,
   saveDownloadedSongMetadata,
   getAllDownloadedSongsMetadata,
   removeDownloadedSongMetadata,

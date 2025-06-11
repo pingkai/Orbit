@@ -298,10 +298,11 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
       }
 
       await StorageManager.ensureDirectoriesExist();
-      const songPath = await StorageManager.getSongPath(id, title);
+      const filename = `${title}.mp3`;
+      const destinationPath = `${await StorageManager.getDownloadsDirectory()}/${filename}`;
       const artworkPath = await StorageManager.getArtworkPath(id, title);
 
-      const songDownloadSuccess = await downloadFileWithAnalytics(songUrl, songPath, { id, name: title, type: 'song' });
+      const songDownloadSuccess = await downloadFileWithAnalytics(songUrl, destinationPath, { id, name: title, type: 'song' });
       if (!songDownloadSuccess) {
         throw new Error('Failed to download song file.');
       }
@@ -318,9 +319,9 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
         id,
         url: songUrl,
         title,
-        artist,
+        artist: Array.isArray(artist) ? FormatArtist(artist) : (typeof artist === 'string' ? artist : 'Unknown Artist'),
         artwork: validArtworkUri,
-        localSongPath: songPath,
+        localSongPath: destinationPath,
         localArtworkPath: artworkDownloadSuccess ? artworkPath : null,
         duration,
         language,
