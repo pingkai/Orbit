@@ -337,7 +337,7 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
     } catch (error) {
       console.error('Download failed:', error);
       ToastAndroid.show(`Download failed for ${title}: ${error.message}`, ToastAndroid.LONG);
-      await StorageManager.removeDownloadedSong(id);
+      await StorageManager.removeDownloadedSongMetadata(id);
     } finally {
       setDownloadInProgress(false);
     }
