@@ -1,15 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, FlatList, StyleSheet, Text, Dimensions, RefreshControl, BackHandler, ToastAndroid, Alert, TextInput, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, FlatList, StyleSheet, Text, Dimensions, RefreshControl, ToastAndroid, TextInput, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import RNFS from 'react-native-fs';
 import { PlainText } from '../Global/PlainText';
 import { DownloadedSongCard } from './DownloadedSongCard';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { useNavigation, useTheme } from '@react-navigation/native';
+import { useTheme,useNavigation } from '@react-navigation/native';
 import { StorageManager } from '../../Utils/StorageManager';
-import { safePath, safeExists } from '../../Utils/FileUtils';
+import { safeExists } from '../../Utils/FileUtils';
 import { analyticsService } from '../../Utils/AnalyticsUtils';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import BackHandler from 'react-native/Libraries/Utilities/BackHandler';
 
 const { width, height } = Dimensions.get('window');
 
@@ -165,6 +165,13 @@ export default function DownloadScreen(props) {
   const getDownloadedSongs = async () => {
     try {
       setIsLoading(true);
+
+      // Clean up orphaned metadata first
+      const cleanedCount = await StorageManager.cleanupOrphanedMetadata();
+      if (cleanedCount > 0) {
+        console.log(`Cleaned up ${cleanedCount} orphaned metadata entries`);
+      }
+
       const allMetadata = await StorageManager.getAllDownloadedSongsMetadata();
 
       if (!allMetadata || Object.keys(allMetadata).length === 0) {
@@ -188,9 +195,7 @@ export default function DownloadScreen(props) {
             const songExists = await safeExists(songPath);
 
             if (!songExists) {
-              console.warn(`Song file not found for ID: ${metadata.id} at path ${songPath}. Skipping.`);
-              // Optionally, you might want to clean up this dangling metadata
-              // await StorageManager.removeDownloadedSong(metadata.id);
+              console.warn(`Song file not found for ID: ${metadata.id} (${metadata.title}) at path ${songPath}. Skipping.`);
               return null;
             }
 
@@ -237,11 +242,11 @@ export default function DownloadScreen(props) {
     try {
       // Delete the song using StorageManager
       await StorageManager.removeDownloadedSongMetadata(songId);
-      
+
       // Remove from local state
       setDownloadedSongs(prev => prev.filter(song => song.id !== songId));
       setFilteredSongs(prev => prev.filter(song => song.id !== songId));
-      
+
       // Show short toast notification
       ToastAndroid.show('Song deleted', ToastAndroid.SHORT);
     } catch (error) {
@@ -249,6 +254,8 @@ export default function DownloadScreen(props) {
       ToastAndroid.show('Error deleting song', ToastAndroid.SHORT);
     }
   };
+
+
 
   return (
     <SafeAreaView style={styles.container}>

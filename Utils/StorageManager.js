@@ -2,24 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as RNFS from 'react-native-fs';
 import { Platform } from 'react-native';
 import { GetDownloadPath } from '../LocalStorage/AppSettings';
-
-// Ensures paths are always non-null strings
-const safePath = (path) => {
-  if (path === null || path === undefined) return '';
-  return String(path);
-};
-
-// Safe wrapper for RNFS.exists
-const safeExists = async (path) => {
-  try {
-    const stringPath = safePath(path);
-    if (!stringPath) return false;
-    return await RNFS.exists(stringPath);
-  } catch (error) {
-    console.error('Error in safeExists:', error);
-    return false;
-  }
-};
+import { safeExists } from './FileUtils';
 
 // Determines the base directory based on user settings and platform
 const getBaseDir = async () => {
@@ -71,20 +54,45 @@ const ensureDirectoriesExist = async () => {
         await RNFS.mkdir(dir);
       }
     }
+
+    // Create .nomedia file in artwork directory to hide from gallery
+    const artworkDir = `${baseDir}/artwork`;
+    const nomediaPath = `${artworkDir}/.nomedia`;
+    if (!(await safeExists(nomediaPath))) {
+      await RNFS.writeFile(nomediaPath, '', 'utf8');
+      console.log('Created .nomedia file to hide artwork from gallery');
+    }
   } catch (error) {
     console.error('Error ensuring directories exist:', error);
   }
 };
 
 // Gets the full path for a song file
-const getSongPath = async (songId, fileName = null) => {
+// Helper function to sanitize filename
+const sanitizeFilename = (filename) => {
+  if (!filename) return '';
+  // Remove invalid characters for filenames
+  return filename
+    .replace(/[<>:"/\\|?*]/g, '') // Remove invalid characters
+    .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+    .trim()
+    .substring(0, 50); // Limit length to avoid path issues
+};
+
+const getSongPath = async (songId, songTitle = null) => {
   if (!songId) {
     console.warn('Invalid songId provided to getSongPath');
     return '';
   }
   const baseDir = await getBaseDir();
-  const extension = fileName ? `.${String(fileName).split('.').pop()}` : '.mp3';
-  return `${baseDir}/songs/${String(songId)}${extension}`;
+
+  if (songTitle) {
+    const sanitizedTitle = sanitizeFilename(songTitle);
+    return `${baseDir}/songs/${sanitizedTitle} - ${String(songId)}.mp3`;
+  }
+
+  // Fallback to just ID if no title provided
+  return `${baseDir}/songs/${String(songId)}.mp3`;
 };
 
 // Gets the full path for an artwork file
@@ -152,7 +160,8 @@ const removeDownloadedSongMetadata = async (songId) => {
     }
 
     // Delete song and artwork files
-    const songPath = await getSongPath(songId);
+    const metadata = allMetadata[songId];
+    const songPath = await getSongPath(songId, metadata?.title);
     const artworkPath = await getArtworkPath(songId);
 
     if (await safeExists(songPath)) {
@@ -201,6 +210,42 @@ const saveArtwork = async (songId, artworkUrl) => {
   }
 };
 
+// Cleans up orphaned metadata (metadata without corresponding files)
+const cleanupOrphanedMetadata = async () => {
+  try {
+    const allMetadata = await getAllDownloadedSongsMetadata();
+    const orphanedIds = [];
+
+    for (const [songId, metadata] of Object.entries(allMetadata)) {
+      const songPath = await getSongPath(songId, metadata.title);
+      const songExists = await safeExists(songPath);
+
+      if (!songExists) {
+        console.log(`Found orphaned metadata for song: ${metadata.title} (ID: ${songId})`);
+        orphanedIds.push(songId);
+      }
+    }
+
+    // Remove orphaned metadata
+    if (orphanedIds.length > 0) {
+      console.log(`Cleaning up ${orphanedIds.length} orphaned metadata entries`);
+      for (const songId of orphanedIds) {
+        delete allMetadata[songId];
+      }
+
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.DOWNLOADED_SONGS_METADATA,
+        JSON.stringify(allMetadata),
+      );
+    }
+
+    return orphanedIds.length;
+  } catch (error) {
+    console.error('Error cleaning up orphaned metadata:', error);
+    return 0;
+  }
+};
+
 export const StorageManager = {
   ensureDirectoriesExist,
   getSongPath,
@@ -211,4 +256,5 @@ export const StorageManager = {
   removeDownloadedSongMetadata,
   isSongDownloaded,
   saveArtwork,
+  cleanupOrphanedMetadata,
 };

@@ -1,17 +1,13 @@
-import { View, TouchableOpacity, ToastAndroid, Alert, StyleSheet } from "react-native";
+import { View, TouchableOpacity, ToastAndroid, StyleSheet } from "react-native";
 import AntDesign from "react-native-vector-icons/AntDesign";
 import { useState, useEffect } from "react";
 import { useTheme } from "@react-navigation/native";
 import { SmallText } from "./SmallText";
 import { PermissionsAndroid, Platform } from "react-native";
 import DeviceInfo from "react-native-device-info";
-import RNFS from "react-native-fs";
-import ReactNativeBlobUtil from "react-native-blob-util";
 import { StorageManager } from '../../Utils/StorageManager';
-import { safeExists, safeDownloadFile, ensureDirectoryExists } from '../../Utils/FileUtils';
+import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
 import EventRegister from '../../Utils/EventRegister';
-import { getIndexQuality } from "../../MusicPlayerFunctions";
-import FormatArtist from "../../Utils/FormatArtists";
 
 // Circular progress component for download indicator
 const CircularProgress = ({ progress, size = 20, thickness = 2, color = '#1DB954' }) => {
@@ -199,16 +195,7 @@ export const DownloadButton = ({
       
       setIsDownloading(true);
       ToastAndroid.show(`Downloading ${songs.length} songs`, ToastAndroid.SHORT);
-      
-      // Ensure directories exist
-      const baseDir = RNFS.DocumentDirectoryPath + '/orbit_music';
-      await ensureDirectoryExists(baseDir);
-      await ensureDirectoryExists(baseDir + '/songs');
-      await ensureDirectoryExists(baseDir + '/artwork');
-      await ensureDirectoryExists(baseDir + '/metadata');
-      
-      // Get quality setting
-      const quality = await getIndexQuality();
+
       let completedDownloads = 0;
       
       // Download songs in parallel (max 3 at a time)
@@ -257,145 +244,65 @@ export const DownloadButton = ({
     }
   };
   
-  // Function to download a single song
+  // Function to download a single song using unified service
   const downloadSong = async (song, albumName, completedCount = 0, totalCount = 1) => {
     try {
-      // Get quality setting
-      const quality = await getIndexQuality();
-      
-      // Get URL based on song structure
-      let songUrl;
-      if (song.downloadUrl && Array.isArray(song.downloadUrl) && song.downloadUrl[quality]?.url) {
-        songUrl = song.downloadUrl[quality].url;
-      } else if (song.download_url && Array.isArray(song.download_url) && song.download_url[quality]?.url) {
-        songUrl = song.download_url[quality].url;
-      } else {
-        throw new Error('No download URL available');
-      }
-      
-      const baseDir = RNFS.DocumentDirectoryPath + '/orbit_music';
-      const songPath = `${baseDir}/songs/${song.id}.mp3`;
-      
-      // Download with progress tracking
-      const res = await ReactNativeBlobUtil.config({
-        fileCache: false,
-        path: songPath,
-        overwrite: true,
-        indicator: true
-      })
-      .fetch('GET', songUrl)
-      .progress((received, total) => {
-        if (total <= 0) return;
-        const percentage = Math.floor((received / total) * 100);
-        
+      // Prepare song data for unified service
+      const songData = {
+        id: song.id,
+        title: song.name || song.title || 'Unknown',
+        artist: song.artists?.primary || song.artist || 'Unknown',
+        album: albumName || 'Unknown',
+        downloadUrl: song.downloadUrl,
+        download_url: song.download_url,
+        url: song.url,
+        image: song.image,
+        artwork: song.artwork,
+        duration: song.duration || 0
+      };
+
+      // Use unified download service with progress callback
+      const success = await UnifiedDownloadService.downloadSong(songData, (progress) => {
         // Update progress for this specific song
         setDownloadStatus(prev => ({
           ...prev,
           [song.id]: {
             ...prev[song.id],
-            progress: percentage
+            progress: progress
           }
         }));
-        
+
         // For individual song download, update overall progress
         if (individual || totalCount === 1) {
-          setOverallProgress(percentage);
+          setOverallProgress(progress);
         }
       });
-      
-      if (res.info().status !== 200) {
-        throw new Error(`Download failed with status: ${res.info().status}`);
+
+      if (success) {
+        // Mark as downloaded
+        setDownloadStatus(prev => ({
+          ...prev,
+          [song.id]: {
+            isDownloaded: true,
+            progress: 100,
+            isDownloading: false
+          }
+        }));
+      } else {
+        // Mark as failed
+        setDownloadStatus(prev => ({
+          ...prev,
+          [song.id]: {
+            ...prev[song.id],
+            isDownloading: false
+          }
+        }));
       }
-      
-      // Download artwork
-      if (song.image && song.image[2]?.url) {
-        const artworkPath = `${baseDir}/artwork/${song.id}.jpg`;
-        // Get highest quality image available
-        const highestQualityImage = song.image.reduce((best, current) => {
-          // If current has larger width or height, use it
-          if (!best || 
-              (current.width && best.width && current.width > best.width) || 
-              (current.height && best.height && current.height > best.height)) {
-            return current;
-          }
-          return best;
-        }, null);
-        
-        // Use highest quality or fallback to original logic
-        const imageUrl = highestQualityImage?.url || song.image[2].url;
-        
-        // Add quality=100 parameter if it's a URL
-        let highQualityUrl = imageUrl;
-        if (imageUrl.startsWith('http')) {
-          try {
-            const url = new URL(imageUrl);
-            url.searchParams.set('quality', '100');
-            highQualityUrl = url.toString();
-          } catch (e) {
-            // If URL parsing fails, use original URL
-            highQualityUrl = imageUrl;
-          }
-        }
-        
-        await safeDownloadFile(highQualityUrl, artworkPath);
-      }
-      
-      // Save metadata with highest quality artwork
-      let highQualityArtwork = null;
-      if (song.image) {
-        // Find highest resolution image
-        const highestQualityImage = song.image.reduce((best, current) => {
-          if (!best || 
-              (current.width && best.width && current.width > best.width) || 
-              (current.height && best.height && current.height > best.height)) {
-            return current;
-          }
-          return best;
-        }, null);
-        
-        if (highestQualityImage?.url) {
-          // Add quality parameter
-          try {
-            const url = new URL(highestQualityImage.url);
-            url.searchParams.set('quality', '100');
-            highQualityArtwork = url.toString();
-          } catch (e) {
-            highQualityArtwork = highestQualityImage.url;
-          }
-        } else if (song.image[2]?.url) {
-          highQualityArtwork = song.image[2].url;
-        }
-      }
-      
-      // Save metadata
-      await StorageManager.saveDownloadedSongMetadata(song.id, {
-        id: song.id,
-        title: song.name || 'Unknown',
-        artist: FormatArtist(song.artists?.primary) || 'Unknown',
-        album: albumName || 'Unknown',
-        url: songUrl,
-        artwork: highQualityArtwork || (song.image[2]?.url || null),
-        duration: song.duration || 0,
-        downloadedAt: new Date().toISOString()
-      });
-      
-      // Mark as downloaded
-      setDownloadStatus(prev => ({
-        ...prev,
-        [song.id]: {
-          isDownloaded: true,
-          progress: 100,
-          isDownloading: false
-        }
-      }));
-      
-      // Emit event for download completion
-      EventRegister.emit('download-complete', song.id);
-      
-      return true;
+
+      return success;
     } catch (error) {
       console.error(`Error downloading song ${song.name}:`, error);
-      
+
       // Mark as failed
       setDownloadStatus(prev => ({
         ...prev,
@@ -404,7 +311,7 @@ export const DownloadButton = ({
           isDownloading: false
         }
       }));
-      
+
       return false;
     }
   };

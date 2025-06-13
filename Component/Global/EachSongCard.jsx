@@ -14,7 +14,7 @@ import { StorageManager } from '../../Utils/StorageManager';
 import EventRegister from '../../Utils/EventRegister';
 import Octicons from 'react-native-vector-icons/Octicons';
 import { requestStoragePermission } from '../../Utils/PermissionManager';
-import { downloadFileWithAnalytics } from '../../Utils/FileUtils';
+import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
 
 export const EachSongCard = memo(function EachSongCard({title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false}) {
   const theme = useTheme();
@@ -277,67 +277,30 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
       }
 
       setDownloadInProgress(true);
-      EventRegister.emit('download-started', id);
-      ToastAndroid.show(`Starting download for ${title}...`, ToastAndroid.SHORT);
 
-      const quality = await getIndexQuality();
-      const downloadUrls = url || [];
-      const songUrl = downloadUrls[quality]?.url || downloadUrls[0]?.url;
-
-      if (!songUrl) {
-        throw new Error('No valid download URL found.');
-      }
-
-      let validArtworkUri = '';
-      if (typeof image === 'string') {
-        validArtworkUri = image;
-      } else if (image && image.uri) {
-        validArtworkUri = image.uri;
-      } else if (safeImageUri) {
-        validArtworkUri = safeImageUri;
-      }
-
-      await StorageManager.ensureDirectoriesExist();
-      const filename = `${title}.mp3`;
-      const destinationPath = `${await StorageManager.getDownloadsDirectory()}/${filename}`;
-      const artworkPath = await StorageManager.getArtworkPath(id, title);
-
-      const songDownloadSuccess = await downloadFileWithAnalytics(songUrl, destinationPath, { id, name: title, type: 'song' });
-      if (!songDownloadSuccess) {
-        throw new Error('Failed to download song file.');
-      }
-
-      let artworkDownloadSuccess = false;
-      if (validArtworkUri) {
-        artworkDownloadSuccess = await downloadFileWithAnalytics(validArtworkUri, artworkPath, { id, name: `${title} - Artwork`, type: 'artwork' });
-        if (!artworkDownloadSuccess) {
-          console.warn(`Artwork download failed for song ID: ${id}, but continuing as song was saved.`);
-        }
-      }
-
-      const metadata = {
+      // Prepare song object for unified service
+      const songData = {
         id,
-        url: songUrl,
         title,
-        artist: Array.isArray(artist) ? FormatArtist(artist) : (typeof artist === 'string' ? artist : 'Unknown Artist'),
-        artwork: validArtworkUri,
-        localSongPath: destinationPath,
-        localArtworkPath: artworkDownloadSuccess ? artworkPath : null,
+        artist,
+        url,
+        image: typeof image === 'string' ? image : (image?.uri || safeImageUri),
+        artwork: typeof image === 'string' ? image : (image?.uri || safeImageUri),
         duration,
         language,
-        artistID,
-        isDownloaded: true,
+        artistID
       };
-      await StorageManager.saveDownloadedSongMetadata(id, metadata);
 
-      ToastAndroid.show(`${title} Downloaded`, ToastAndroid.SHORT);
-      setIsDownloaded(true);
-      EventRegister.emit('download-complete', id);
+      // Use the unified download service
+      const success = await UnifiedDownloadService.downloadSong(songData);
+
+      if (success) {
+        setIsDownloaded(true);
+      }
 
     } catch (error) {
       console.error('Download failed:', error);
       ToastAndroid.show(`Download failed for ${title}: ${error.message}`, ToastAndroid.LONG);
-      await StorageManager.removeDownloadedSongMetadata(id);
     } finally {
       setDownloadInProgress(false);
     }

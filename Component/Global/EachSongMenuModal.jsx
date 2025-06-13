@@ -5,10 +5,9 @@ import React, { useContext } from "react";
 import { useTheme } from "@react-navigation/native";
 import FormatTitleAndArtist from "../../Utils/FormatTitleAndArtist";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
-import ReactNativeBlobUtil from "react-native-blob-util";
-import { GetDownloadPath } from "../../LocalStorage/AppSettings";
 import DeviceInfo from "react-native-device-info";
 import { AddSongsToQueue, getIndexQuality} from "../../MusicPlayerFunctions";
+import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
 import Context from "../../Context/Context";
 import TrackPlayer from "react-native-track-player";
 import { GetCustomPlaylists, AddSongToCustomPlaylist } from "../../LocalStorage/CustomPlaylists";
@@ -134,56 +133,36 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
   
   async function actualDownload () {
     try {
-      let dirs = ReactNativeBlobUtil.fs.dirs
-      const path = await GetDownloadPath()
-      
-      // Get the song URL
-      const songUrl = getSongUrl(Visible.url, 4);
-      
-      if (!songUrl) {
+      // Prepare song data for unified service
+      const songData = {
+        id: Visible.id,
+        title: Visible.title,
+        artist: Visible.artist,
+        url: Visible.url,
+        image: Visible.image,
+        artwork: Visible.image,
+        duration: Visible.duration,
+        language: Visible.language
+      };
+
+      // Use unified download service
+      const success = await UnifiedDownloadService.downloadSong(songData);
+
+      if (success) {
         ToastAndroid.showWithGravity(
-          `Cannot download: Invalid URL`,
+          "Download successfully completed",
           ToastAndroid.SHORT,
           ToastAndroid.CENTER,
         );
-        return;
+      } else {
+        ToastAndroid.showWithGravity(
+          "Download failed",
+          ToastAndroid.SHORT,
+          ToastAndroid.CENTER,
+        );
       }
-      
-      ToastAndroid.showWithGravity(
-        `Download Started`,
-        ToastAndroid.SHORT,
-        ToastAndroid.CENTER,
-      );
-      
-      ReactNativeBlobUtil
-        .config({
-          addAndroidDownloads:{
-            useDownloadManager:true,
-            path:(path === "Downloads") ? dirs.LegacyDownloadDir + `/Orbit/${FormatTitleAndArtist(Visible.title)}.m4a` : dirs.LegacyMusicDir + `/Orbit/${FormatTitleAndArtist(Visible.title)}.m4a`,
-            notification:true,
-            title:`${FormatTitleAndArtist(Visible.title)}`,
-          },
-          fileCache: true,
-        })
-        .fetch('GET', songUrl, {
-        })
-        .then((res) => {
-          console.log('The file saved to ', res.path())
-          ToastAndroid.showWithGravity(
-            "Download successfully Completed",
-            ToastAndroid.SHORT,
-            ToastAndroid.CENTER,
-          );
-        })
-        .catch(error => {
-          console.error("Download failed:", error);
-          ToastAndroid.showWithGravity(
-            "Download failed",
-            ToastAndroid.SHORT,
-            ToastAndroid.CENTER,
-          );
-        });
-      setVisible({visible: false})
+
+      setVisible({visible: false});
     } catch (error) {
       console.error("Download error:", error);
       ToastAndroid.showWithGravity(

@@ -4,7 +4,7 @@ import Octicons from 'react-native-vector-icons/Octicons';
 import React, { useRef, useState, useContext, useEffect } from "react";
 import { useTheme } from "@react-navigation/native";
 import { StorageManager } from '../../Utils/StorageManager';
-import ReactNativeBlobUtil from 'react-native-blob-util';
+import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
 import TrackPlayer from 'react-native-track-player';
 import Context from "../../Context/Context";
 import { AddOneSongToPlaylist } from "../../MusicPlayerFunctions";
@@ -315,11 +315,11 @@ export const EachSongMenuButton = ({
   const downloadSong = async () => {
     // Close menu if it's open
     if (menuVisible) {
-    closeMenu();
+      closeMenu();
     }
-    
-    if (!song?.url) {
-      ToastAndroid.show('No song URL available', ToastAndroid.SHORT);
+
+    if (!song?.id) {
+      ToastAndroid.show('Invalid song data', ToastAndroid.SHORT);
       return;
     }
 
@@ -329,139 +329,30 @@ export const EachSongMenuButton = ({
         ToastAndroid.show(`Song already downloaded`, ToastAndroid.SHORT);
         return;
       }
-      
+
       if (isDownloading) {
         ToastAndroid.show(`Download in progress: ${downloadProgress}%`, ToastAndroid.SHORT);
         return;
       }
-      
+
       setIsDownloading(true);
       setDownloadProgress(0);
-      console.log('Starting download for:', song.title);
-      
-      // Get highest quality URL
-      const downloadUrl = getHighestQualityUrl(song.url);
-      if (!downloadUrl) {
-        console.error('Could not determine download URL');
-        ToastAndroid.show('Could not determine download URL', ToastAndroid.SHORT);
-        setIsDownloading(false);
-        return;
-      }
-      
-      // Show download started toast
-      ToastAndroid.show(`Downloading: ${song.title}`, ToastAndroid.SHORT);
 
-      // Ensure directories exist
-      try {
-        await StorageManager.ensureDirectoriesExist();
-      } catch (dirError) {
-        console.error('Error creating directories:', dirError);
-        ToastAndroid.show('Error creating download directories', ToastAndroid.SHORT);
-        setIsDownloading(false);
-        return;
-      }
+      // Use the unified download service
+      const success = await UnifiedDownloadService.downloadSong(song, (progress) => {
+        setDownloadProgress(progress);
+      });
 
-      // Prepare safe metadata
-      const safeMetadata = {
-        id: song.id || Date.now().toString(),
-        title: song.title || 'Unknown Title',
-        artist: song.artist || 'Unknown Artist',
-        duration: song.duration || 0,
-        artwork: song.artwork || song.image,
-        downloadTime: Date.now()
-      };
-
-        // First save basic metadata
-        await StorageManager.saveDownloadedSongMetadata(safeMetadata.id, safeMetadata);
-
-      // Download the song
-      const songPath = StorageManager.getSongPath(safeMetadata.id);
-      
-      try {
-        const res = await ReactNativeBlobUtil
-          .config({
-            fileCache: false,
-            path: songPath,
-          })
-          .fetch('GET', downloadUrl)
-          .progress((received, total) => {
-            // Update progress percentage
-            if(total > 0) {
-              const percentage = Math.floor((received / total) * 100);
-              setDownloadProgress(percentage);
-            }
-          });
-        
-        console.log('Song download completed');
-        
-        // Now download artwork if available
-        if (song.artwork && typeof song.artwork === 'string') {
-          try {
-            const artworkPath = await StorageManager.saveArtwork(safeMetadata.id, song.artwork);
-          if (artworkPath) {
-              safeMetadata.localArtworkPath = artworkPath;
-            }
-          } catch (artworkError) {
-            console.warn('Error saving artwork:', artworkError);
-          }
-        }
-        
-        // Update metadata with success
-          await StorageManager.saveDownloadedSongMetadata(safeMetadata.id, {
-            ...safeMetadata,
-            localSongPath: songPath,
-            downloadComplete: true,
-            downloadCompletedTime: Date.now()
-          });
-        
-        // Show success toast
-        ToastAndroid.show("Download complete", ToastAndroid.SHORT);
-        
-        // Update state to show downloaded icon
+      if (success) {
         setIsDownloaded(true);
-        setIsDownloading(false);
-        setDownloadProgress(0);
-
-        // Update download list in AsyncStorage
-        try {
-          const existingData = await AsyncStorage.getItem('orbit_downloaded_songs');
-          const downloadsList = existingData ? JSON.parse(existingData) : [];
-          
-          if (!downloadsList.some(item => item.id === safeMetadata.id)) {
-            downloadsList.push({
-              id: safeMetadata.id,
-              name: safeMetadata.title,
-              artists: safeMetadata.artist,
-              image: safeMetadata.artwork,
-              duration: safeMetadata.duration
-            });
-            await AsyncStorage.setItem('orbit_downloaded_songs', JSON.stringify(downloadsList));
-          }
-        } catch (updateError) {
-          console.log('Error updating downloads list:', updateError);
-        }
-      } catch (downloadError) {
-        console.error('Download failed:', downloadError);
-        
-        // Clean up any partial downloads
-        try {
-          if (await RNFS.exists(songPath)) {
-            await RNFS.unlink(songPath);
-          }
-        } catch (cleanupError) {
-          console.error('Error cleaning up failed download:', cleanupError);
-        }
-        
-        // Show error toast
-        ToastAndroid.show("Download failed", ToastAndroid.SHORT);
-        setIsDownloading(false);
-        setDownloadProgress(0);
+        setDownloadProgress(100);
       }
+
     } catch (error) {
-      console.error('Unexpected error during download:', error);
-      ToastAndroid.show("Download failed", ToastAndroid.SHORT);
+      console.error('Download failed:', error);
+      ToastAndroid.show(`Download failed: ${error.message}`, ToastAndroid.SHORT);
+    } finally {
       setIsDownloading(false);
-      setDownloadProgress(0);
     }
   };
 
