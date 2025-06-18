@@ -1,5 +1,6 @@
 import Context from "./Context";
 import { useEffect, useState } from "react";
+import { AppState } from "react-native";
 import TrackPlayer, { Event, useTrackPlayerEvents } from "react-native-track-player";
 import { getRecommendedSongs } from "../Api/Recommended";
 import { AddSongsToQueue } from "../MusicPlayerFunctions";
@@ -8,6 +9,7 @@ import { Repeats } from "../Utils/Repeats";
 import { SetQueueSongs } from "../LocalStorage/storeQueue";
 import { EachSongMenuModal } from "../Component/Global/EachSongMenuModal";
 import { CacheManager } from "../Utils/CacheManager";
+import historyManager from "../Utils/HistoryManager";
 
 
 const events = [
@@ -79,16 +81,53 @@ const ContextState = (props)=>{
         }
     }
 
-    useTrackPlayerEvents(events, (event) => {
+    useTrackPlayerEvents(events, async (event) => {
         if (event.type === Event.PlaybackError) {
             console.warn('An error occured while playing the current track.');
         }
         if (event.type === Event.PlaybackActiveTrackChanged) {
-            setCurrentPlaying(event.track)
-            if (Repeat === Repeats.NoRepeat){
-                if (event.track?.id ){
-                    AddRecommendedSongs(event.index,event.track?.id)
+            const trackingInfo = historyManager.getCurrentTrackingInfo();
+            const currentTrackId = trackingInfo?.currentTrack?.id;
+            const newTrackId = event.track?.id;
+
+            // Only process if it's actually a different track
+            if (currentTrackId !== newTrackId) {
+                // Stop tracking previous song if any
+                if (trackingInfo.isTracking) {
+                    await historyManager.stopTracking();
                 }
+
+                setCurrentPlaying(event.track)
+                if (Repeat === Repeats.NoRepeat){
+                    if (event.track?.id ){
+                        AddRecommendedSongs(event.index,event.track?.id)
+                    }
+                }
+
+                // Start tracking the new track
+                if (event.track?.id) {
+                    await historyManager.startTracking(event.track);
+                }
+            } else {
+                // Same track, just update UI state
+                setCurrentPlaying(event.track)
+            }
+        }
+        if (event.type === Event.PlaybackState) {
+            // Handle playback state changes for pause/resume tracking
+            console.log('Context: Playback state changed', event.state);
+
+            if (event.state === 'playing') {
+                if (historyManager.isCurrentlyTracking) {
+                    // Resume tracking if already tracking but was paused
+                    historyManager.resumeTracking();
+                }
+            } else if (event.state === 'paused') {
+                // Pause tracking when music is paused
+                historyManager.pauseTracking();
+            } else if (event.state === 'stopped') {
+                // Stop tracking completely when music is stopped
+                await historyManager.stopTracking();
             }
         }
     });
@@ -96,7 +135,10 @@ const ContextState = (props)=>{
         try {
             // Clear old cache entries to prevent storage full errors
             await CacheManager.clearOldCacheEntries();
-            
+
+            // Initialize history manager
+            await historyManager.initialize();
+
             await TrackPlayer.setupPlayer()
             console.log('Player initialized successfully in Context');
         } catch (error) {
@@ -107,7 +149,7 @@ const ContextState = (props)=>{
                 console.error('Error initializing player in Context:', error);
             }
         }
-        
+
         await updateTrack()
         await getCurrentSong()
     }
@@ -117,6 +159,55 @@ const ContextState = (props)=>{
     }
     useEffect(() => {
         InitialSetup()
+
+        // Handle app state changes for history tracking
+        const handleAppStateChange = (nextAppState) => {
+            console.log('Context: App state changed to', nextAppState);
+
+            if (nextAppState === 'background' || nextAppState === 'inactive') {
+                // App going to background, enable background mode and save progress
+                console.log('Context: App going to background, enabling background tracking');
+                historyManager.setBackgroundMode(true);
+                historyManager.saveProgressBackground().catch(error => {
+                    console.error('Error saving progress on background:', error);
+                });
+            } else if (nextAppState === 'active') {
+                // App coming back to foreground, disable background mode
+                console.log('Context: App coming to foreground, disabling background tracking');
+                historyManager.setBackgroundMode(false);
+
+                // Check if we need to resume tracking
+                const checkTracking = async () => {
+                    try {
+                        // Add delay to ensure TrackPlayer is ready
+                        setTimeout(async () => {
+                            try {
+                                const currentTrack = await TrackPlayer.getActiveTrack();
+                                const playerState = await TrackPlayer.getPlaybackState();
+
+                                if (currentTrack && playerState.state === 'playing' && !historyManager.isCurrentlyTracking) {
+                                    // Resume tracking if song is playing and we're not already tracking
+                                    console.log('Context: Resuming tracking for', currentTrack.title);
+                                    await historyManager.startTracking(currentTrack);
+                                }
+                            } catch (innerError) {
+                                console.error('Error in delayed tracking check:', innerError);
+                            }
+                        }, 1000);
+                    } catch (error) {
+                        console.error('Error checking tracking on foreground:', error);
+                    }
+                };
+                checkTracking();
+            }
+        };
+
+        const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+        return () => {
+            subscription?.remove();
+            historyManager.cleanup();
+        };
     }, []);
     return <Context.Provider value={{
         currentPlaying,  

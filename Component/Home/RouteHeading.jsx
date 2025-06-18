@@ -6,7 +6,7 @@ import SimpleLineIcons from "react-native-vector-icons/SimpleLineIcons";
 import { GetCurrentDaytime } from "../../Utils/GetCurrentDaytime";
 import { useGetUserName } from "../../hooks/useGetUserName";
 
-export const RouteHeading = ({bottomText, showSearch, showSettings}) => {
+export const RouteHeading = ({bottomText, showSearch, showSettings, topText, onSearchPress}) => {
   const userName =  useGetUserName()
   const theme = useTheme()
   const width = Dimensions.get("window").width
@@ -22,17 +22,19 @@ export const RouteHeading = ({bottomText, showSearch, showSettings}) => {
         gap: 10,
       }}>
         <View>
-          <Text style={{
-            fontWeight:900,
-            color:theme.colors.text,
-            fontSize:width * 0.055,
-            fontFamily:"roboto",
-          }}>{`Hey, ${userName}`}</Text>
+          {topText !== "" && (
+            <Text style={{
+              fontWeight:900,
+              color:theme.colors.text,
+              fontSize:width * 0.055,
+              fontFamily:"roboto",
+            }}>{topText || `Hey, ${userName}`}</Text>
+          )}
            {/*<SmallText text=/>*/}
           <Text style={{
-            fontWeight:500,
+            fontWeight: bottomText === "History" ? 900 : 500,
             color:theme.colors.text,
-            fontSize:width * 0.040,
+            fontSize: bottomText === "History" ? width * 0.055 : width * 0.040,
             fontFamily:"roboto",
           }}>{bottomText ? bottomText : GetCurrentDaytime()}</Text>
         </View>
@@ -42,7 +44,11 @@ export const RouteHeading = ({bottomText, showSearch, showSettings}) => {
           backgroundColor:"rgba(0,0,0,0)",
           borderRadius:10,
         }} onPress={()=>{
-          navigation.navigate("Search")
+          if (onSearchPress) {
+            onSearchPress();
+          } else {
+            navigation.navigate("Search");
+          }
         }}><Feather name={"search"} size={width * 0.055} color={theme.colors.text}/></Pressable>}
         {showSettings &&  <Pressable onPress={()=>{
           navigation.navigate("Settings")

@@ -11,11 +11,13 @@ import {
   GetPlaybackQuality,
   GetThemePreference,
   GetColorScheme,
-  SetDownloadPath, 
+  GetTidalEnabled,
+  SetDownloadPath,
   SetFontSizeValue,
   SetPlaybackQuality,
   SetThemePreference,
   SetColorScheme,
+  SetTidalEnabled
 
 } from "../../LocalStorage/AppSettings";
 import { useEffect, useState } from "react";
@@ -30,6 +32,7 @@ export const SettingsPage = ({navigation}) => {
   const [Download, setDownload] = useState("");
   const [themePreference, setThemePreference] = useState("");
   const [colorScheme, setColorScheme] = useState("");
+  const [tidalEnabled, setTidalEnabled] = useState(false);
   
 
   
@@ -75,6 +78,11 @@ export const SettingsPage = ({navigation}) => {
   async function GetColorSchemePreference(){
     const data = await GetColorScheme();
     setColorScheme(data);
+  }
+
+  async function GetTidalEnabledPreference(){
+    const data = await GetTidalEnabled();
+    setTidalEnabled(data);
   }
   
   
@@ -128,6 +136,17 @@ export const SettingsPage = ({navigation}) => {
       ToastAndroid.CENTER,
     );
   }
+
+  async function handleTidalToggle() {
+    const newValue = !tidalEnabled;
+    setTidalEnabled(newValue);
+    await SetTidalEnabled(newValue);
+    ToastAndroid.showWithGravity(
+      `Tidal ${newValue ? 'enabled' : 'disabled'}. You can now ${newValue ? 'switch between Saavn and Tidal' : 'only use Saavn'} for music.`,
+      ToastAndroid.LONG,
+      ToastAndroid.CENTER,
+    );
+  }
   
   useEffect(() => {
     GetFontSize();
@@ -135,6 +154,7 @@ export const SettingsPage = ({navigation}) => {
     GetDownLoad();
     GetTheme();
     GetColorSchemePreference();
+    GetTidalEnabledPreference();
 
   }, []);
   
@@ -154,6 +174,7 @@ export const SettingsPage = ({navigation}) => {
           <EachDropDownWithLabel data={DownloadPath} text={"Download Path"} placeholder={Download} OnChange={SetDownLoad}/>
           <ThemeToggle themeMode={themePreference} onToggle={handleThemeToggle}/>
           <EachDropDownWithLabel data={getColorSchemeOptions()} text={"Color Scheme"} placeholder={colorScheme} OnChange={handleColorSchemeChange}/>
+          <TidalToggle tidalEnabled={tidalEnabled} onToggle={handleTidalToggle}/>
           
           <SmallText text={"*Note: If you change font size, change name, select languages, theme, or colors, please restart the app to see all changes."}/>
         </ScrollView>
@@ -200,6 +221,37 @@ function ThemeToggle({themeMode, onToggle}) {
           ios_backgroundColor="#3e3e3e"
           onValueChange={onToggle}
           value={themeMode === 'light'}
+          style={{ marginLeft: 10 }}
+        />
+      </View>
+    </Pressable>
+  );
+}
+
+function TidalToggle({tidalEnabled, onToggle}) {
+  const { colors } = useTheme();
+  return (
+    <Pressable style={{
+      backgroundColor: colors.settingsButtonBg,
+      padding: 20,
+      borderRadius: 10,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 10,
+    }}>
+      <View>
+        <PlainText text={"Tidal (FLAC Quality)"} style={{ color: colors.text }}/>
+        <SmallText text={"Enable high-quality music from Tidal"} style={{ color: colors.text, opacity: 0.7, marginTop: 2 }}/>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <PlainText text={tidalEnabled ? 'On' : 'Off'} style={{ color: colors.text }}/>
+        <Switch
+          trackColor={{ false: '#767577', true: colors.primary }}
+          thumbColor={tidalEnabled ? '#f5dd4b' : '#f4f3f4'}
+          ios_backgroundColor="#3e3e3e"
+          onValueChange={onToggle}
+          value={tidalEnabled}
           style={{ marginLeft: 10 }}
         />
       </View>

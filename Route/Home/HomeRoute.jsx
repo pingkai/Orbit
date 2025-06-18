@@ -22,7 +22,7 @@ export const HomeRoute = () => {
           headerShown: true,
           headerTransparent: true,
           title: '', // Ensure no default title from navigation
-          headerBackVisible: false, // Hide native back button
+          headerBackVisible: false,
           headerStyle: {
             backgroundColor: 'transparent',
           },

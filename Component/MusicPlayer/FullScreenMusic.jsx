@@ -39,6 +39,8 @@ import FullScreenLocalTrackItem from './FullScreenLocalTrackItem'; // Import the
 import { SleepTimerButton } from './SleepTimer';
 import { LyricsHandler } from './LyricsHandler';
 import useDynamicArtwork from '../../hooks/useDynamicArtwork.js';
+import { GetTidalEnabled } from '../../LocalStorage/AppSettings';
+import { showTidalUnsupportedMessage } from '../../Utils/TidalMusicHandler';
 
 
 export const FullScreenMusic = ({ Index, setIndex }) => { // Removed 'color' prop as theme will be used
@@ -57,6 +59,8 @@ export const FullScreenMusic = ({ Index, setIndex }) => { // Removed 'color' pro
   const navigation = useNavigation();
   const { theme, themeMode } = useThemeContext(); // Changed to useThemeContext, added themeMode
   const [isLyricsActive, setIsLyricsActive] = useState(false);
+  const [tidalEnabled, setTidalEnabled] = useState(false);
+  const [showSourceSwitcher, setShowSourceSwitcher] = useState(false);
 
   const volumeAdjustmentActive = useSharedValue(0);
   const startY = useSharedValue(0);
@@ -73,6 +77,19 @@ export const FullScreenMusic = ({ Index, setIndex }) => { // Removed 'color' pro
   const handleLyricsVisibilityChange = (visible) => {
     setIsLyricsActive(visible);
   };
+
+  // Load Tidal preference on mount
+  useEffect(() => {
+    const loadTidalPreference = async () => {
+      try {
+        const enabled = await GetTidalEnabled();
+        setTidalEnabled(enabled);
+      } catch (error) {
+        console.error('Error loading Tidal preference:', error);
+      }
+    };
+    loadTidalPreference();
+  }, []);
 
   useEffect(() => {
     const checkInitialConnection = async () => {
@@ -1503,6 +1520,38 @@ export const FullScreenMusic = ({ Index, setIndex }) => { // Removed 'color' pro
             <Spacer height={10} />
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "80%" }}>
               <SleepTimerButton size={25} />
+
+              {/* Source Switcher - Only show when Tidal is enabled and not offline */}
+              {tidalEnabled && !isOffline && (
+                <TouchableOpacity
+                  onPress={() => {
+                    // For now, show message about future implementation
+                    const currentSource = currentPlaying?.source || currentPlaying?.sourceType || 'saavn';
+                    const newSource = currentSource === 'tidal' ? 'saavn' : 'tidal';
+                    ToastAndroid.show(
+                      `Current: ${currentSource.toUpperCase()}. Source switching to ${newSource.toUpperCase()} will be available in future updates.`,
+                      ToastAndroid.LONG
+                    );
+                  }}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 15,
+                    backgroundColor: 'rgba(255,255,255,0.1)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.2)',
+                  }}
+                >
+                  <Text style={{
+                    color: themeMode === 'light' ? theme.colors.text : 'white',
+                    fontSize: 12,
+                    fontWeight: '500'
+                  }}>
+                    {currentPlaying?.source === 'tidal' || currentPlaying?.sourceType === 'tidal' ? 'Tidal' : 'Saavn'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               {isOffline ? (
                 <TouchableOpacity style={styles.controlIcon} disabled={true}>
                   <MaterialIcons name="check-circle" size={28} color="#4CAF50" />

@@ -1,92 +1,67 @@
-/* eslint-disable keyword-spacing */
-import React, { useState } from 'react'
-import { Dimensions, FlatList, View } from 'react-native'
-import { EachSongCard } from '../Global/EachSongCard'
-import { getSearchSongData } from '../../Api/Songs'
-import { LoadingComponent } from '../Global/Loading'
-import { PlainText } from '../Global/PlainText'
-import { SmallText } from '../Global/SmallText'
+import React, { useState, useEffect } from 'react';
+import { Dimensions, FlatList, View } from 'react-native';
+import { EachSongCard } from '../Global/EachSongCard';
+import { LoadingComponent } from '../Global/Loading';
+import { PlainText } from '../Global/PlainText';
+import { SmallText } from '../Global/SmallText';
+import { preloadTopTidalSongs } from '../../Utils/TidalMusicHandler';
 
-export default function SongDisplay({data, limit, Searchtext}) {
-  const [Data, setData] = useState(data)
-  const totalPages = Math.ceil(Data?.data?.total ?? 1 / limit)
-  const [Page, setPage] = useState(1)
-  const [Loading, setLoading] = useState(false)
-  async function fetchSearchData(text,page){
-   if (Page <= totalPages){
-   if(Searchtext !== ""){
-    try {
-        setLoading(true)
-        const fetchdata = await getSearchSongData(text,page,limit)
-        const temp = Data
-        const finalData = [...temp.data.results,...fetchdata.data.results]
-        temp.data.results = finalData
-        setData(temp)
-      } catch (e) {
-        console.log(e);
-      } finally {
-        setLoading(false)
-      }
-   }
-   }
-  }
-  const width = Dimensions.get("window").width
+export default function SongDisplay({ data, source = 'saavn' }) {
+  const [displayData, setDisplayData] = useState(data);
 
-  function FormatArtist(data){
-    let artist = ""
-    data?.map((e,i)=>{
-      if(i === data.length - 1){
-        artist += e.name
-      }else{
-        artist += e.name + ", "
-      }
-    })
-    return artist
+  useEffect(() => {
+    setDisplayData(data);
+
+    // Preload the top 3 Tidal songs from the search results.
+    if (source === 'tidal' && data?.data?.results?.length > 0) {
+      console.log('Preloading top 3 Tidal songs from search results.');
+      preloadTopTidalSongs(data.data.results.slice(0, 3));
+    }
+  }, [data, source]);
+
+  const width = Dimensions.get('window').width;
+
+  function FormatArtist(artists) {
+    if (!artists || !Array.isArray(artists)) return '';
+    return artists.map(e => e.name).join(', ');
   }
+
+  if (!displayData?.data?.results || displayData.data.results.length === 0) {
+    return (
+      <View style={{ height: 400, alignItems: 'center', justifyContent: 'center' }}>
+        <PlainText text={'No Songs Found!'} />
+        <SmallText text={'Try searching for something else. T_T'} />
+      </View>
+    );
+  }
+
   return (
     <View>
-      {Data?.data?.results?.length !== 0 && <FlatList 
-        showsVerticalScrollIndicator={false} keyExtractor={(item, index) => String(index)} onEndReached={()=>{
-        setTimeout(()=>{
-          setPage(Page + 1)
-          fetchSearchData(Searchtext, Page)
-        },200)
-      }} contentContainerStyle={{
-        paddingBottom:220,
-      }} data={[...Data?.data?.results ?? [], {LoadingComponent:true}]} renderItem={(item)=>{
-        if(item.item.LoadingComponent  === true){
-            return <LoadingComponent loading={Loading} height={100}/>
-        }else{
-            return <EachSongCard  
-              artistID={item.item?.primaryArtistsId} 
-              language={item.item?.language} 
-              duration={item.item?.duration} 
-              image={item?.item?.image[2]?.url ?? ""} 
-              id={item.item?.id} 
-              width={width * 0.95} 
-              title={item.item?.name} 
-              artist={FormatArtist(item.item?.artists?.primary)} 
-              url={item.item?.downloadUrl}
+      <FlatList
+        showsVerticalScrollIndicator={false}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={{ paddingBottom: 220 }}
+        data={displayData.data.results}
+        renderItem={({ item }) => {
+          if (!item || !item.id) return null; // Render nothing if item is invalid
+          return (
+            <EachSongCard
+              artistID={item?.primaryArtistsId || item?.primary_artists_id}
+              language={item?.language}
+              duration={item?.duration}
+              image={item?.image?.[2]?.url ?? item?.image?.[0]?.url ?? ''}
+              id={item?.id}
+              width={width * 0.95}
+              title={item?.name || item?.title}
+              artist={source === 'tidal' ? item?.artist : FormatArtist(item?.artists?.primary)}
+              url={item?.downloadUrl} // This is used for Saavn downloads
               showNumber={false}
-              getPosition={(event) => {
-                const { pageY } = event.nativeEvent;
-                return { y: pageY };
-              }}
-              style={{
-                marginBottom: 13,
-              }}
+              source={source}
+              tidalUrl={item?.url} // Correctly pass the tidal track URL
             />
-          }
+          );
         }}
-      />}
-      {Data?.data?.results?.length === 0 && <View style={{
-        height:400,
-        alignItems:"center",
-        justifyContent:"center",
-      }}>
-        <PlainText text={"No Song found!"}/>
-        <SmallText text={"Opps!  T_T"}/>
-        </View> }
-     </View>
-  )
+      />
+    </View>
+  );
 }

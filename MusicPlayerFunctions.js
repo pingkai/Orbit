@@ -3,6 +3,7 @@ import { setRepeatMode } from "react-native-track-player/lib/trackPlayer";
 import { GetPlaybackQuality } from "./LocalStorage/AppSettings";
 import NetInfo from "@react-native-community/netinfo";
 import { ToastAndroid } from "react-native";
+import historyManager from "./Utils/HistoryManager";
 
 let isPlayerInitialized = false;
 
@@ -12,9 +13,11 @@ export const setupPlayer = async () => {
       try {
         await TrackPlayer.setupPlayer({
           android: {
-            appKilledPlaybackBehavior: 'StopPlaybackAndRemoveNotification'
+            appKilledPlaybackBehavior: 'ContinuePlayback',
+            alwaysPauseOnInterruption: false,
           },
-          autoHandleInterruptions: true
+          autoHandleInterruptions: true,
+          autoUpdateMetadata: true,
         });
         console.log('Player initialized successfully in MusicPlayerFunctions');
         
@@ -26,7 +29,8 @@ export const setupPlayer = async () => {
         TrackPlayer.addEventListener('remote-previous', () => PlayPreviousSong());
         await TrackPlayer.updateOptions({
           android: {
-            appKilledPlaybackBehavior: 'StopPlaybackAndRemoveNotification'
+            appKilledPlaybackBehavior: 'ContinuePlayback',
+            alwaysPauseOnInterruption: false,
           },
           capabilities: [
             'play',
@@ -78,14 +82,33 @@ export const setupPlayer = async () => {
 
 async function PlayOneSong(song) {
   try {
+    // Validate song object
+    if (!song) {
+      console.error('PlayOneSong: No song provided');
+      return;
+    }
+
+    // Ensure player is initialized
+    if (!isPlayerInitialized) {
+      console.log('Player not initialized, setting up...');
+      await setupPlayer();
+    }
+
+    // Validate song URL
+    if (!song.url || typeof song.url !== 'string') {
+      console.error('PlayOneSong: Invalid or missing song URL', song);
+      ToastAndroid.show('Cannot play song - invalid URL', ToastAndroid.SHORT);
+      return;
+    }
+
     // Check if the song is a local file (has a path or isLocalMusic property)
-    const isLocalFile = song.isLocalMusic || song.path || song.url?.startsWith('file://');
-    
+    const isLocalFile = song.isLocalMusic || song.path || song.url.startsWith('file://');
+
     // If it's a local file, make sure the URL starts with file://
-    if (isLocalFile && !song.url?.startsWith('file://') && song.path) {
+    if (isLocalFile && !song.url.startsWith('file://') && song.path) {
       song.url = `file://${song.path}`;
     }
-    
+
     // Check network availability for non-local files
     if (!isLocalFile) {
       const netInfo = await NetInfo.fetch();
@@ -95,7 +118,10 @@ async function PlayOneSong(song) {
         return;
       }
     }
-    
+
+    // Start tracking this song in history
+    await historyManager.startTracking(song);
+
     await TrackPlayer.reset();
     await TrackPlayer.add([song]);
     await TrackPlayer.play();
@@ -145,29 +171,44 @@ async function SetProgressSong(value){
 
 async function PlayNextSong(){
   try {
+    // Ensure player is initialized
+    if (!isPlayerInitialized) {
+      console.log('Player not initialized, setting up...');
+      await setupPlayer();
+    }
+
+    // Stop tracking current song before switching
+    await historyManager.stopTracking();
+
     // Get current track and queue info
     const currentTrack = await TrackPlayer.getCurrentTrack();
     const queue = await TrackPlayer.getQueue();
     const playerState = await TrackPlayer.getState();
-    
+
     console.log('PlayNextSong called - Current track:', currentTrack, 'Queue length:', queue.length, 'Player state:', playerState);
-    
+
     // If there's no next track, just return
     if (currentTrack >= queue.length - 1) {
       console.log('No next track available');
       return;
     }
-    
+
     // Skip to next track and ensure it plays
     await TrackPlayer.skipToNext();
-    
+
     // Short delay to allow track to change
     await new Promise(resolve => setTimeout(resolve, 100));
-    
+
+    // Get the new track and start tracking it
+    const newTrack = await TrackPlayer.getActiveTrack();
+    if (newTrack) {
+      await historyManager.startTracking(newTrack);
+    }
+
     // Check player state and play if not already playing
     const stateAfterSkip = await TrackPlayer.getState();
     console.log('Player state after skip:', stateAfterSkip);
-    
+
     if (stateAfterSkip !== TrackPlayer.STATE_PLAYING) {
       try {
         await TrackPlayer.play();
@@ -182,26 +223,56 @@ async function PlayNextSong(){
 }
 
 async function PlayPreviousSong(){
-  await TrackPlayer.skipToPrevious();
-  PlaySong()
+  try {
+    // Ensure player is initialized
+    if (!isPlayerInitialized) {
+      console.log('Player not initialized, setting up...');
+      await setupPlayer();
+    }
+
+    // Stop tracking current song before switching
+    await historyManager.stopTracking();
+
+    await TrackPlayer.skipToPrevious();
+
+    // Get the new track and start tracking it
+    const newTrack = await TrackPlayer.getActiveTrack();
+    if (newTrack) {
+      await historyManager.startTracking(newTrack);
+    }
+
+    PlaySong();
+  } catch (error) {
+    console.error('Error in PlayPreviousSong:', error);
+  }
 }
 async function SkipToTrack(trackIndex){
   try {
+    // Stop tracking current song before switching
+    await historyManager.stopTracking();
+
     // Ensure trackIndex is a valid number
     const validIndex = Number(trackIndex);
     if (isNaN(validIndex)) {
       console.error('Invalid trackIndex provided to SkipToTrack:', trackIndex);
       return;
     }
-    
+
     // Get the queue to verify index is within bounds
     const queue = await TrackPlayer.getQueue();
     if (validIndex < 0 || validIndex >= queue.length) {
       console.error('Track index out of bounds:', validIndex, 'Queue length:', queue.length);
       return;
     }
-    
+
     await TrackPlayer.skip(validIndex);
+
+    // Get the new track and start tracking it
+    const newTrack = await TrackPlayer.getActiveTrack();
+    if (newTrack) {
+      await historyManager.startTracking(newTrack);
+    }
+
     await PlaySong();
   } catch (error) {
     console.error('Error in SkipToTrack:', error);

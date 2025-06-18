@@ -153,4 +153,34 @@ async function getAlbumSongs(albumId) {
   }
 }
 
-export { getSearchSongData, getLyricsSongData, getArtistSongs, getAlbumSongs };
+async function getSearchArtistData(searchText, page, limit) {
+  // Create a cache key based on the search parameters
+  const cacheKey = `artist_search_${searchText}_page${page}_limit${limit}`;
+
+  // Define the fetch function that will be called if cache miss
+  const fetchFunction = async () => {
+    let config = {
+      method: 'get',
+      maxBodyLength: Infinity,
+      url: `https://jiosavan-api-with-playlist.vercel.app/api/search/artists?query=${searchText}&page=${page}&limit=${limit}`,
+      headers: { },
+    };
+
+    try {
+      const response = await axios.request(config);
+      return response.data;
+    }
+    catch (error) {
+      throw error;
+    }
+  };
+
+  try {
+    return await getCachedData(cacheKey, fetchFunction, 30, CACHE_GROUPS.SEARCH);
+  } catch (error) {
+    console.error(`Error getting artist search data for "${searchText}":`, error);
+    throw error;
+  }
+}
+
+export { getSearchSongData, getLyricsSongData, getArtistSongs, getAlbumSongs, getSearchArtistData };

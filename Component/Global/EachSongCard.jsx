@@ -15,8 +15,9 @@ import EventRegister from '../../Utils/EventRegister';
 import Octicons from 'react-native-vector-icons/Octicons';
 import { requestStoragePermission } from '../../Utils/PermissionManager';
 import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
+import { formatTidalSongForPlayer, showTidalUnsupportedMessage, preloadTidalStreamingUrl } from '../../Utils/TidalMusicHandler';
 
-export const EachSongCard = memo(function EachSongCard({title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false}) {
+export const EachSongCard = memo(function EachSongCard({title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', tidalUrl}) {
   const theme = useTheme();
   const { colors } = theme;
   const width1 = Dimensions.get("window").width;
@@ -71,22 +72,27 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
         }
       }
     };
-    
+
     checkDownloadStatus();
-    
+
+    // Note: Tidal preloading is now handled by TidalPreloadManager
+    // to prevent rate limiting issues
+  }, [id]);
+
+  useEffect(() => {
     const downloadListener = EventRegister.addEventListener('download-complete', (songId) => {
       if (songId === id) {
         setIsDownloaded(true);
         setDownloadInProgress(false);
       }
     });
-    
+
     const downloadStartedListener = EventRegister.addEventListener('download-started', (songId) => {
       if (songId === id) {
         setDownloadInProgress(true);
       }
     });
-    
+
     return () => {
       EventRegister.removeEventListener(downloadListener);
       EventRegister.removeEventListener(downloadStartedListener);
@@ -99,6 +105,7 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
   }
 
   async function AddSongToPlayer(){
+    console.log(`[Playback] Clicked on song: "${title}", Source: ${source}, ID: ${id}`);
     if (isFromPlaylist){
       const ForMusicPlayer = []
       const quality = await getIndexQuality()
@@ -222,36 +229,61 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
       
       await AddPlaylist(Final)
     } else {
-      const quality = await getIndexQuality()
-      
-      let songUrl;
-      if (url) {
-        if (Array.isArray(url) && url.length > quality && url[quality]?.url) {
-          songUrl = url[quality].url;
-        } else if (Array.isArray(url) && url.length > 0 && url[0]?.url) {
-          songUrl = url[0].url;
-        } else if (typeof url === 'string') {
-          songUrl = url;
+      // Handle single song playback
+      if (source === 'tidal' && tidalUrl) {
+        try {
+          // Create Tidal song object for formatting
+          const tidalSong = {
+            id,
+            title,
+            artist,
+            image: [{ url: safeImageUri }],
+            duration,
+            language,
+            primary_artists_id: artistID,
+            tidalUrl
+          };
+
+          const formattedSong = await formatTidalSongForPlayer(tidalSong);
+          PlayOneSong(formattedSong);
+        } catch (error) {
+          console.error('Error playing Tidal song:', error);
+          ToastAndroid.show('Failed to play Tidal song. Please try again.', ToastAndroid.SHORT);
+          return;
         }
+      } else {
+        // Handle Saavn songs (existing logic)
+        const quality = await getIndexQuality()
+
+        let songUrl;
+        if (url) {
+          if (Array.isArray(url) && url.length > quality && url[quality]?.url) {
+            songUrl = url[quality].url;
+          } else if (Array.isArray(url) && url.length > 0 && url[0]?.url) {
+            songUrl = url[0].url;
+          } else if (typeof url === 'string') {
+            songUrl = url;
+          }
+        }
+
+        if (!songUrl) {
+          return;
+        }
+
+        const song  = {
+          url: songUrl,
+          title: formatText(title),
+          artist: formatText(artist),
+          artwork: safeImageUri,
+          duration,
+          id,
+          language,
+          artistID:artistID,
+          image: safeImageUri,
+          downloadUrl:url,
+        }
+        PlayOneSong(song)
       }
-      
-      if (!songUrl) {
-        return;
-      }
-      
-      const song  = {
-        url: songUrl,
-        title: formatText(title),
-        artist: formatText(artist),
-        artwork: safeImageUri,
-        duration,
-        id,
-        language,
-        artistID:artistID,
-        image: safeImageUri,
-        downloadUrl:url,
-      }
-      PlayOneSong(song)
     }
     updateTrack()
   }
@@ -263,6 +295,12 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
     }
     if (downloadInProgress) {
       ToastAndroid.show('Download already in progress.', ToastAndroid.SHORT);
+      return;
+    }
+
+    // Check if it's a Tidal song
+    if (source === 'tidal') {
+      showTidalUnsupportedMessage('downloads');
       return;
     }
 

@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet'
 import { RouteOnboarding } from "./Route/OnboardingScreen/RouteOnboarding";
 import { InitialScreen } from "./Route/InitialScreen";
+import ArtistPage from './Route/ArtistPage';
 import CodePush from "react-native-code-push";
 import { useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -147,7 +148,8 @@ function App(){
                 }}>
             <Stack.Screen name="Initial" component={InitialScreen} />
             <Stack.Screen name="Onboarding" component={RouteOnboarding} />
-            <Stack.Screen name="MainRoute" component={RootRoute} />
+                        <Stack.Screen name="MainRoute" component={RootRoute} />
+            <Stack.Screen name="ArtistPage" component={ArtistPage} />
                 </Stack.Navigator>
               </NavigationContainer>
             );

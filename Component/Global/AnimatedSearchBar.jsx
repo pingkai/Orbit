@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { View, TextInput, Pressable, Dimensions, StyleSheet } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import Feather from 'react-native-vector-icons/Feather';
@@ -29,12 +29,26 @@ export const AnimatedSearchBar = ({ onChange, navigation, placeholder = 'Type to
     }
   }, [isExpanded]);
 
+  // Debounced search function
+  const debouncedSearch = useCallback(
+    (() => {
+      let timeoutId;
+      return (text) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          if (onChange) {
+            onChange(text);
+          }
+        }, 300); // 300ms delay
+      };
+    })(),
+    [onChange]
+  );
+
   // Handle text change
   const handleTextChange = (text) => {
     setSearchText(text);
-    if (onChange) {
-      onChange(text);
-    }
+    debouncedSearch(text);
   };
 
   // Handle search icon press
@@ -47,7 +61,7 @@ export const AnimatedSearchBar = ({ onChange, navigation, placeholder = 'Type to
     setSearchText('');
     setIsExpanded(false);
     if (onChange) {
-      onChange('');
+      onChange(''); // Call immediately for clear
     }
     if (navigation && navigation.canGoBack()) {
       navigation.goBack();
