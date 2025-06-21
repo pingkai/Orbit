@@ -724,23 +724,36 @@ export const CustomPlaylistView = (props) => {
   // Safe image source getter function (memoized)
   const getSafeImageSource = useCallback((item) => {
     // For local songs that have numeric cover or missing artwork
-    if (item.isLocalMusic || item.path || 
-        (typeof item.artwork === 'number') || 
-        (typeof item.image === 'number') || 
+    if (item.isLocalMusic || item.path ||
+        (typeof item.artwork === 'number') ||
+        (typeof item.image === 'number') ||
         !item.image && !item.artwork) {
       return DEFAULT_MUSIC_IMAGE;
     }
-    
+
+    // Safe image URL extraction
+    const getImageUrl = (imageData) => {
+      if (!imageData) return '';
+      if (typeof imageData === 'string') return imageData;
+      if (Array.isArray(imageData)) {
+        for (const img of imageData) {
+          if (typeof img === 'string' && img.trim() !== '') return img;
+          if (img && typeof img === 'object' && img.url) return img.url;
+        }
+      }
+      if (imageData && typeof imageData === 'object' && imageData.url) return imageData.url;
+      return '';
+    };
+
+    const imageUrl = getImageUrl(item.image) || getImageUrl(item.artwork);
+
     // For invalid URI values
-    if ((item.image && typeof item.image === 'string' && 
-        !item.image.startsWith('http') && !item.image.startsWith('file://')) ||
-        (item.artwork && typeof item.artwork === 'string' && 
-        !item.artwork.startsWith('http') && !item.artwork.startsWith('file://'))) {
+    if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('file://')) {
       return DEFAULT_MUSIC_IMAGE;
     }
-    
+
     // For normal songs with artwork
-    return { uri: item.image || item.artwork };
+    return imageUrl ? { uri: imageUrl } : DEFAULT_MUSIC_IMAGE;
   }, []);
   
   // Function to truncate text to improve UI layout
@@ -893,10 +906,10 @@ export const CustomPlaylistView = (props) => {
         <Pressable onPress={handleGoBack} style={staticStyles.backButton}>
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </Pressable>
-        <PlainText 
-          text={truncateText(playlistName, 28)} 
+        <PlainText
+          text={truncateText(playlistName, 28)}
           style={[staticStyles.title, { color: theme.colors.text }]}
-          numberOfLines={1}
+          numberOfLine={1}
         />
       </View>
       

@@ -1,136 +1,115 @@
-import { useState, useCallback, useEffect } from 'react';
-import { useActiveTrack, useTrackPlayerEvents, Event } from 'react-native-track-player';
-import TrackPlayer from 'react-native-track-player';
+import { useState, useEffect } from 'react';
+import RNFS from 'react-native-fs';
+import { safePath, safeExists } from '../Utils/FileUtils';
 
-const availableGifs = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'];
-
-const gifModules = {
-  'a': require('../Images/a.gif'),
-  'b': require('../Images/b.gif'),
-  'c': require('../Images/c.gif'),
-  'd': require('../Images/d.gif'),
-  'e': require('../Images/e.gif'),
-  'f': require('../Images/f.gif'),
-  'g': require('../Images/g.gif'),
-  'h': require('../Images/h.gif'),
-  'i': require('../Images/i.gif'),
-  'j': require('../Images/j.gif'),
-  'k': require('../Images/k.gif'),
-  'l': require('../Images/l.gif'),
-  'n': require('../Images/n.gif'),
-  'o': require('../Images/o.gif'),
-  'p': require('../Images/p.gif'),
-  'q': require('../Images/q.gif'),
-  'r': require('../Images/r.gif'),
-  's': require('../Images/s.gif'),
-  't': require('../Images/t.gif'),
-  'u': require('../Images/u.gif'),
-  'v': require('../Images/v.gif'),
-  'w': require('../Images/w.gif'),
-  'x': require('../Images/x.gif'),
-  'y': require('../Images/y.gif'),
-  'z': require('../Images/z.gif'),
-  'default': require('../Images/a.gif') // Default fallback
-};
-
+/**
+ * Custom hook for managing dynamic artwork (GIF/image) for music player
+ * @returns {object} - Artwork functions and state
+ */
 const useDynamicArtwork = () => {
-  const currentPlaying = useActiveTrack();
-  const [currentGif, setCurrentGif] = useState('a');
-  const [currentSongIdForGif, setCurrentSongIdForGif] = useState(null);
-  const [gifIndex, setGifIndex] = useState(0);
+  const [artworkCache, setArtworkCache] = useState({});
 
-  const getNextSequentialGif = useCallback(() => {
-    const nextGifLetter = availableGifs[gifIndex];
-    setGifIndex((prevIndex) => (prevIndex + 1) % availableGifs.length);
-    console.log(`Sequential GIF assigned: ${nextGifLetter} (index ${gifIndex})`);
-    return nextGifLetter;
-  }, [gifIndex, availableGifs]);
-
-  const getGifModule = useCallback((letter) => {
-    return gifModules[letter] || gifModules['default'];
-  }, []);
-
-  const getGifSourceInternal = useCallback(() => {
-    try {
-      return getGifModule(currentGif);
-    } catch (error) {
-      console.error('Error loading GIF in hook:', error);
-      return gifModules['default'];
+  /**
+   * Get artwork source for a track, prioritizing local files and GIFs
+   * @param {object} track - Track object
+   * @returns {object} - Image source object for FastImage
+   */
+  const getArtworkSourceFromHook = (track) => {
+    if (!track) {
+      return { uri: 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png' };
     }
-  }, [currentGif, getGifModule]);
 
-  useTrackPlayerEvents([Event.PlaybackTrackChanged], async (event) => {
     try {
-      if (event.type === Event.PlaybackTrackChanged) {
-        const track = await TrackPlayer.getActiveTrack(); // Or use event.nextTrack if available and suitable
-        if (track && track.id !== currentSongIdForGif) {
-          console.log(`Hook: New song detected: ${track.title}`);
-          setCurrentSongIdForGif(track.id);
-          if (track.sourceType === 'mymusic') {
-            console.log('Hook: This is a MyMusic track, assigning next sequential GIF');
-            const nextGif = getNextSequentialGif();
-            setCurrentGif(nextGif);
-            console.log(`Hook: Assigned GIF ${nextGif} for song: ${track.title}`);
+      // For local music files, check for local artwork first
+      if (track.sourceType === 'mymusic' || track.isLocalMusic) {
+        const trackId = track.id || track.songId;
+        
+        if (trackId) {
+          // Check cache first
+          if (artworkCache[trackId]) {
+            return artworkCache[trackId];
+          }
+
+          // Check for local GIF first (animated artwork)
+          const gifPath = safePath(`${RNFS.DocumentDirectoryPath}/orbit_music/artwork/${trackId}.gif`);
+          if (safeExists(gifPath)) {
+            const source = { uri: `file://${gifPath}` };
+            setArtworkCache(prev => ({ ...prev, [trackId]: source }));
+            return source;
+          }
+
+          // Check for local JPG/PNG
+          const jpgPath = safePath(`${RNFS.DocumentDirectoryPath}/orbit_music/artwork/${trackId}.jpg`);
+          if (safeExists(jpgPath)) {
+            const source = { uri: `file://${jpgPath}` };
+            setArtworkCache(prev => ({ ...prev, [trackId]: source }));
+            return source;
+          }
+
+          const pngPath = safePath(`${RNFS.DocumentDirectoryPath}/orbit_music/artwork/${trackId}.png`);
+          if (safeExists(pngPath)) {
+            const source = { uri: `file://${pngPath}` };
+            setArtworkCache(prev => ({ ...prev, [trackId]: source }));
+            return source;
           }
         }
+
+        // Fallback to track's artwork property for local files
+        if (track.artwork) {
+          if (track.artwork.startsWith('file://')) {
+            return { uri: track.artwork };
+          }
+          return { uri: track.artwork };
+        }
       }
+
+      // For online tracks, use the provided artwork
+      if (track.artwork) {
+        // Enhance quality for JioSaavn CDN
+        let artworkUrl = track.artwork;
+        if (artworkUrl.includes('saavncdn.com')) {
+          artworkUrl = artworkUrl.replace(/50x50|150x150|500x500/g, '500x500');
+        }
+        return { uri: artworkUrl };
+      }
+
+      // Final fallback
+      return { uri: 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png' };
     } catch (error) {
-      console.error('Hook: Error in track change event handler:', error);
+      console.error('Error getting artwork source:', error);
+      return { uri: 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png' };
     }
-  });
+  };
 
-  useEffect(() => {
-    if (currentPlaying && currentPlaying.sourceType === 'mymusic' && 
-       (!currentSongIdForGif || currentPlaying.id !== currentSongIdForGif)) {
-      setCurrentSongIdForGif(currentPlaying.id);
-      const nextGif = getNextSequentialGif();
-      setCurrentGif(nextGif);
-      console.log(`Hook: Assigned initial sequential GIF ${nextGif} for MyMusic song: ${currentPlaying.title || 'Unknown'}`);
+  /**
+   * Preload artwork for better performance
+   * @param {object} track - Track object
+   */
+  const preloadArtwork = async (track) => {
+    if (!track) return;
+
+    try {
+      const source = getArtworkSourceFromHook(track);
+      // FastImage will handle preloading automatically when source is accessed
+      return source;
+    } catch (error) {
+      console.error('Error preloading artwork:', error);
     }
-  }, [currentPlaying, currentSongIdForGif, getNextSequentialGif, setCurrentGif]);
+  };
 
-  const getArtworkSourceFromHook = useCallback((track) => {
-    if (!track) {
-      // console.log('Hook: No track provided, using default Music.jpeg');
-      return require('../Images/Music.jpeg');
-    }
+  /**
+   * Clear artwork cache
+   */
+  const clearArtworkCache = () => {
+    setArtworkCache({});
+  };
 
-    if (track.sourceType === 'mymusic') {
-      // console.log('Hook: Track is mymusic, getting GIF source');
-      return getGifSourceInternal();
-    }
-
-    // Handle online tracks: Prefer image array for quality selection
-    if (track.image && Array.isArray(track.image) && track.image.length > 0) {
-      let imageUrl = null;
-      const highQualityImage = track.image.find(i => i.quality === '500x500');
-
-      if (highQualityImage && highQualityImage.url && typeof highQualityImage.url === 'string' && (highQualityImage.url.startsWith('http://') || highQualityImage.url.startsWith('https://'))) {
-        imageUrl = highQualityImage.url;
-      }
-
-      if (imageUrl) {
-        // console.log(`Hook: Using track.image array, selected 500x500 quality URL: ${imageUrl}`);
-        return { uri: imageUrl };
-      }
-    }
-
-    // Fallback to track.artwork if track.image array didn't yield a URL or isn't present
-    if (track.artwork && typeof track.artwork === 'string' && track.artwork !== 'null' && track.artwork.trim() !== '' && (track.artwork.startsWith('http://') || track.artwork.startsWith('https://'))) {
-      let artworkUrl = track.artwork;
-      // Attempt to upgrade the artwork URL to 500x500 if it seems to be a lower resolution.
-      // This replaces common low-resolution indicators in image URLs.
-      artworkUrl = artworkUrl.replace(/150x150/g, '500x500').replace(/50x50/g, '500x500');
-      // console.log(`Hook: Using modified track.artwork URI: ${artworkUrl}`);
-      return { uri: artworkUrl };
-    }
-    
-    // Final fallback if no valid artwork found
-    // console.log('Hook: No valid artwork found in track.image or track.artwork, using default. Track data:', JSON.stringify(track));
-    return require('../Images/Music.jpeg');
-  }, [getGifSourceInternal]);
-
-  return { getArtworkSourceFromHook };
+  return {
+    getArtworkSourceFromHook,
+    preloadArtwork,
+    clearArtworkCache,
+    artworkCache
+  };
 };
 
 export default useDynamicArtwork;

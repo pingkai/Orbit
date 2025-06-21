@@ -6,7 +6,7 @@ import { useTheme } from "@react-navigation/native";
 import { memo, useContext, useState, useEffect } from "react";
 import Context from "../../Context/Context";
 import { useActiveTrack, usePlaybackState } from "react-native-track-player";
-import FormatTitleAndArtist from "../../Utils/FormatTitleAndArtist";
+import FormatTitleAndArtist, { truncateText } from "../../Utils/FormatTitleAndArtist";
 import FormatArtist from "../../Utils/FormatArtists";
 import { EachSongMenuButton } from "../MusicPlayer/EachSongMenuButton";
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -17,7 +17,7 @@ import { requestStoragePermission } from '../../Utils/PermissionManager';
 import { UnifiedDownloadService } from '../../Utils/UnifiedDownloadService';
 import { formatTidalSongForPlayer, showTidalUnsupportedMessage, preloadTidalStreamingUrl } from '../../Utils/TidalMusicHandler';
 
-export const EachSongCard = memo(function EachSongCard({title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', tidalUrl}) {
+export const EachSongCard = memo(function EachSongCard({title, artist, image, id, url, duration, language, artistID, isLibraryLiked, width, titleandartistwidth, isFromPlaylist, isFromAlbum = false, Data, index, showNumber = false, source = 'saavn', tidalUrl, truncateTitle = false}) {
   const theme = useTheme();
   const { colors } = theme;
   const width1 = Dimensions.get("window").width;
@@ -100,8 +100,15 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
   }, [id]);
 
   const formatText = (text) => {
-    const formattedText = FormatTitleAndArtist(text)
-    return formattedText?.length > 25 ? formattedText.substring(0, 25) + "..." : formattedText
+    if (!text) return "Unknown";
+    try {
+      const formattedText = FormatTitleAndArtist(String(text));
+      if (!formattedText) return "Unknown";
+      return formattedText.length > 15 ? formattedText.substring(0, 20) + "..." : formattedText;
+    } catch (error) {
+      console.warn('Error formatting text:', error);
+      return "Unknown";
+    }
   }
 
   async function AddSongToPlayer(){
@@ -379,14 +386,13 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
           <View
             style={{
               flex: 1,
-              marginRight: isFromAlbum ? 5 : isFromPlaylist ? 6 : 8,
             }}>
             <PlainText
-              text={formatText(title)}
+              text={truncateTitle ? truncateText(formatText(title), isFromAlbum ? 15 : isFromPlaylist ? 15 : 15) : formatText(title)}
               songId={id}
               isSongTitle={true}
               style={{
-                width: titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.62 : isFromPlaylist ? 0.6 : 0.63),
+                width: titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.65 : isFromPlaylist ? 0.63 : 0.66),
                 marginBottom: 2,
                 color: theme.dark ? colors.text : '#333333',
               }}
@@ -394,10 +400,10 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
               ellipsizeMode="tail"
             />
             <SmallText
-              text={formatText(artist)}
+              text={truncateText(formatText(artist), isFromAlbum ? 30 : isFromPlaylist ? 32 : 35)}
               isArtistName={true}
               style={{
-                width: titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.6 : isFromPlaylist ? 0.56 : 0.6),
+                width: titleandartistwidth ? titleandartistwidth : width1 * (isFromAlbum ? 0.63 : isFromPlaylist ? 0.59 : 0.63),
                 color: theme.dark ? colors.textSecondary : '#666666',
               }}
               numberOfLines={1}
@@ -410,22 +416,20 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
             flexDirection: 'row',
             justifyContent: 'flex-end',
             alignItems: 'center',
-            minWidth: isFromAlbum ? 80 : isFromPlaylist ? 80 : 75,
-            paddingLeft: isFromAlbum ? 0 : isFromPlaylist ? 3 : 2,
-            marginRight: isFromAlbum ? 5 : isFromPlaylist ? 5 : 0,
+            minWidth: isFromAlbum ? 70 : isFromPlaylist ? 70 : 65,
           }}>
           <Pressable
             onPress={handleDownload}
             style={{
-              padding: 6,
-              marginRight: isFromAlbum ? 10 : isFromPlaylist ? 10 : 8,
+              padding: 4,
+              marginRight: isFromAlbum ? 5 : isFromPlaylist ? 5 : 5,
             }}>
             {isDownloaded ? (
-              <Octicons name="check-circle" size={22} color="#1DB954" />
+              <Octicons name="check-circle" size={20} color="#1DB954" />
             ) : downloadInProgress ? (
-              <MaterialCommunityIcons name="loading" size={24} color="#FFA500" />
+              <MaterialCommunityIcons name="loading" size={22} color="#FFA500" />
             ) : (
-              <Octicons name="download" size={22} color={theme.dark ? '#ffffff' : '#333333'} />
+              <Octicons name="download" size={20} color={theme.dark ? '#ffffff' : '#333333'} />
             )}
           </Pressable>
 
@@ -443,8 +447,8 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
             }}
             isFromPlaylist={isFromPlaylist}
             isFromAlbum={isFromAlbum}
-            size={isFromAlbum ? 40 : 36}
-            marginRight={isFromAlbum ? 1 : 6}
+            size={isFromAlbum ? 36 : 32}
+            marginRight={isFromAlbum ? 0 : 0}
             isDownloaded={isDownloaded}
           />
         </View>

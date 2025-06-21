@@ -37,13 +37,17 @@ const ContextState = (props)=>{
 
     const [Queue, setQueue] = useState([]);
     async function updateTrack (){
-        const tracks = await TrackPlayer.getQueue();
-        // await SetQueueSongs(tracks)
-        console.log(tracks);
-        const ids = tracks.map((e)=>e.id)
-        const queuesId = Queue.map((e)=>e.id)
-        if (JSON.stringify(ids) !== JSON.stringify(queuesId)){
-            setQueue(tracks)
+        try {
+            const tracks = await TrackPlayer.getQueue();
+            // await SetQueueSongs(tracks)
+            console.log(tracks);
+            const ids = tracks.map((e)=>e.id)
+            const queuesId = Queue.map((e)=>e.id)
+            if (JSON.stringify(ids) !== JSON.stringify(queuesId)){
+                setQueue(tracks)
+            }
+        } catch (error) {
+            console.log('updateTrack: TrackPlayer not ready yet');
         }
     }
     
@@ -139,23 +143,44 @@ const ContextState = (props)=>{
             // Initialize history manager
             await historyManager.initialize();
 
-            await TrackPlayer.setupPlayer()
-            console.log('Player initialized successfully in Context');
-        } catch (error) {
-            // Ignore the error if player is already initialized
-            if (error.message && error.message.includes('player has already been initialized')) {
+            // Check if player is already initialized
+            try {
+                await TrackPlayer.getPlaybackState();
                 console.log('Player already initialized in Context');
-            } else {
-                console.error('Error initializing player in Context:', error);
+            } catch (playerError) {
+                // Player not initialized, set it up
+                await TrackPlayer.setupPlayer({
+                    android: {
+                        appKilledPlaybackBehavior: 'ContinuePlayback',
+                        alwaysPauseOnInterruption: false,
+                    },
+                    autoHandleInterruptions: true,
+                    autoUpdateMetadata: true,
+                });
+                console.log('Player initialized successfully in Context');
             }
+        } catch (error) {
+            console.error('Error in InitialSetup:', error);
         }
 
-        await updateTrack()
-        await getCurrentSong()
+        // Add delay before accessing TrackPlayer to ensure it's ready
+        setTimeout(async () => {
+            try {
+                await updateTrack();
+                await getCurrentSong();
+            } catch (error) {
+                console.error('Error in delayed setup:', error);
+            }
+        }, 500);
     }
     async function getCurrentSong(){
-        const song = await TrackPlayer.getActiveTrack()
-        setCurrentPlaying(song)
+        try {
+            const song = await TrackPlayer.getActiveTrack();
+            setCurrentPlaying(song);
+        } catch (error) {
+            console.log('getCurrentSong: TrackPlayer not ready yet');
+            setCurrentPlaying({});
+        }
     }
     useEffect(() => {
         InitialSetup()
@@ -182,6 +207,13 @@ const ContextState = (props)=>{
                         // Add delay to ensure TrackPlayer is ready
                         setTimeout(async () => {
                             try {
+                                // Check if TrackPlayer is initialized before accessing it
+                                const isInitialized = await TrackPlayer.getPlaybackState().catch(() => false);
+                                if (!isInitialized) {
+                                    console.log('Context: TrackPlayer not initialized yet, skipping tracking check');
+                                    return;
+                                }
+
                                 const currentTrack = await TrackPlayer.getActiveTrack();
                                 const playerState = await TrackPlayer.getPlaybackState();
 
@@ -193,7 +225,7 @@ const ContextState = (props)=>{
                             } catch (innerError) {
                                 console.error('Error in delayed tracking check:', innerError);
                             }
-                        }, 1000);
+                        }, 2000); // Increased delay to 2 seconds
                     } catch (error) {
                         console.error('Error checking tracking on foreground:', error);
                     }

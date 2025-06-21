@@ -5,6 +5,7 @@ import { Pressable, ScrollView, Switch, ToastAndroid, View, Modal } from "react-
 import { PlainText } from "../../Component/Global/PlainText";
 import { Dropdown } from "react-native-element-dropdown";
 
+
 import {
   GetDownloadPath,
   GetFontSizeValue,
@@ -33,6 +34,7 @@ export const SettingsPage = ({navigation}) => {
   const [themePreference, setThemePreference] = useState("");
   const [colorScheme, setColorScheme] = useState("");
   const [tidalEnabled, setTidalEnabled] = useState(false);
+
   
 
   
@@ -175,10 +177,14 @@ export const SettingsPage = ({navigation}) => {
           <ThemeToggle themeMode={themePreference} onToggle={handleThemeToggle}/>
           <EachDropDownWithLabel data={getColorSchemeOptions()} text={"Color Scheme"} placeholder={colorScheme} OnChange={handleColorSchemeChange}/>
           <TidalToggle tidalEnabled={tidalEnabled} onToggle={handleTidalToggle}/>
-          
+
+
+
           <SmallText text={"*Note: If you change font size, change name, select languages, theme, or colors, please restart the app to see all changes."}/>
         </ScrollView>
       </PaddingConatiner>
+
+
     </MainWrapper>
   );
 }

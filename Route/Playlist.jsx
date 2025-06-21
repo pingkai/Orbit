@@ -29,7 +29,29 @@ const truncateText = (text, limit = 22) => {
 // Helper to ensure URL is a string
 const ensureStringUrl = (url) => {
   if (!url) return '';
-  return typeof url === 'string' ? url : '';
+
+  // If it's already a string, return it
+  if (typeof url === 'string') return url;
+
+  // If it's an array, try to extract URL from it
+  if (Array.isArray(url)) {
+    for (const item of url) {
+      if (typeof item === 'string' && item.trim() !== '') {
+        return item;
+      }
+      if (item && typeof item === 'object' && item.url) {
+        return item.url;
+      }
+    }
+    return '';
+  }
+
+  // If it's an object with url property
+  if (url && typeof url === 'object' && url.url) {
+    return url.url;
+  }
+
+  return '';
 };
 
 // Helper to validate download URL object with fallbacks
@@ -54,11 +76,37 @@ const getValidDownloadUrl = (downloadUrl, index = 2) => {
 
 // Helper to validate and ensure valid image URL
 const getValidImageUrl = (url) => {
+  // Handle null, undefined, or invalid values
   if (!url || url === 'null' || url === 'undefined') {
-    // Return a default image if URL is null/undefined
-    return 'https://example.com/default.jpg'; // Replace with a valid default image URL
+    return '';
   }
-  return url;
+
+  // If it's already a string, return it
+  if (typeof url === 'string') {
+    return url;
+  }
+
+  // If it's an array, try to extract URL from it
+  if (Array.isArray(url)) {
+    // Try to find a valid URL in the array
+    for (const item of url) {
+      if (typeof item === 'string' && item.trim() !== '') {
+        return item;
+      }
+      if (item && typeof item === 'object' && item.url) {
+        return item.url;
+      }
+    }
+    return '';
+  }
+
+  // If it's an object with url property
+  if (url && typeof url === 'object' && url.url) {
+    return url.url;
+  }
+
+  // Default fallback
+  return '';
 };
 
 // Helper to format artist data properly, avoiding [object Object] display
@@ -429,7 +477,7 @@ export const Playlist = ({route}) => {
         >
           <PlaylistTopHeader 
             AnimatedRef={AnimatedRef} 
-            url={image || (Data?.data?.songs[0]?.images && Data?.data?.songs[0]?.images[2]?.url ? Data?.data?.songs[0]?.images[2]?.url : "")}
+            url={image || getValidImageUrl(ensureStringUrl(Data?.data?.songs[0]?.images?.[2]?.url || Data?.data?.songs[0]?.image?.[2]?.url))}
             playlistId={id ? id.replace('album_', '') : id} 
             name={name || Data?.data?.name || "Playlist"}
             follower={follower || Data?.data?.follower || ""}

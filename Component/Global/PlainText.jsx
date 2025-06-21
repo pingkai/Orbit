@@ -34,15 +34,25 @@ export const PlainText = ({text, style, numberOfLine, songId, isSongTitle}) => {
   // Determine text color - green for current song regardless of playing status
   const textColor = isCurrentSong ? '#1DB954' : theme.colors.text;
   
+  // Handle numberOfLine prop properly for React Native
+  const textProps = {};
+  if (numberOfLine !== null && numberOfLine !== undefined) {
+    textProps.numberOfLines = numberOfLine;
+  } else if (numberOfLine === undefined) {
+    // Default to 2 lines when undefined
+    textProps.numberOfLines = 2;
+  }
+  // When numberOfLine is null, don't set numberOfLines prop at all (unlimited lines)
+
   return (
-    <Text numberOfLines={numberOfLine ? numberOfLine : 2} style={{
+    <Text {...textProps} style={{
       color: textColor,
       fontSize: Size,
-      fontWeight: isCurrentSong ? '700' : isSongTitle ? '600' : '500', // Increased weight for song titles 
+      fontWeight: isCurrentSong ? '700' : isSongTitle ? '600' : '500', // Increased weight for song titles
       letterSpacing: isSongTitle ? 0.3 : 0, // Slight letter spacing for song titles for better readability
       paddingRight: 10,
       fontFamily: 'roboto',
       ...StyleSheet.flatten(style),
-    }}>{text}</Text>
+    }}>{text || ''}</Text>
   );
 };

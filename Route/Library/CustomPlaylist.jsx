@@ -12,6 +12,7 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getUserPlaylists, createPlaylist, clearPlaylistCache } from "../../Utils/PlaylistManager";
 
+
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Import default wave image for empty playlists
@@ -100,8 +101,8 @@ export const CustomPlaylist = () => {
     if (playlistName.trim()) {
       try {
         // Use the PlaylistManager to create the playlist instead of legacy function
-        const success = await createPlaylist(playlistName.trim());
-        if (success) {
+        const createdPlaylist = await createPlaylist(playlistName.trim());
+        if (createdPlaylist) {
           setPlaylistName('');
           setModalVisible(false);
           await loadPlaylists();
@@ -195,6 +196,8 @@ export const CustomPlaylist = () => {
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
 
+
+
   const handleDeletePlaylist = async (playlistName) => {
     const customPlaylists = await GetCustomPlaylists();
     delete customPlaylists[playlistName];
@@ -287,16 +290,18 @@ export const CustomPlaylist = () => {
   const handlePlaylistOptions = (playlist, event) => {
     // Set the selected playlist - could be an object (user playlist) or string (legacy playlist)
     setSelectedPlaylist(playlist);
-    
+
     // Position the menu near the three dots
     setMenuPosition({
       x: event.nativeEvent.pageX - 150, // Position menu to the left of touch point
       y: event.nativeEvent.pageY - 20,  // Position slightly above touch point
     });
-    
+
     // Show the menu
     setMenuVisible(true);
   };
+
+
 
   const renderPlaylist = ({ item, index }) => {
     // Use the pre-calculated animation values
@@ -524,13 +529,15 @@ export const CustomPlaylist = () => {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.header}>
         <Heading text="Your Playlists" />
-        <Pressable 
-          style={styles.addButton}
-          onPress={() => setModalVisible(true)}
-          android_ripple={{ color: 'rgba(255,255,255,0.2)', borderless: true, radius: 20 }}
-        >
-          <MaterialIcons name="playlist-add" size={30} color={theme.colors.primary} />
-        </Pressable>
+        <View style={styles.headerButtons}>
+          <Pressable
+            style={styles.addButton}
+            onPress={() => setModalVisible(true)}
+            android_ripple={{ color: 'rgba(255,255,255,0.2)', borderless: true, radius: 20 }}
+          >
+            <MaterialIcons name="playlist-add" size={30} color={theme.colors.primary} />
+          </Pressable>
+        </View>
       </View>
       
       <ScrollView 
@@ -661,6 +668,8 @@ export const CustomPlaylist = () => {
           </View>
         </View>
       </Modal>
+
+
     </View>
   );
 };
@@ -677,6 +686,11 @@ const styles = StyleSheet.create({
     marginVertical: 16,
     paddingHorizontal: 16,
   },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   addButton: {
     padding: 10,
     borderRadius: 24,
@@ -685,8 +699,8 @@ const styles = StyleSheet.create({
     height: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 4,
   },
+
   content: {
     flex: 1,
     paddingHorizontal: 16,
@@ -879,4 +893,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderRadius: 20,
   },
+
 });

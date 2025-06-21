@@ -4,12 +4,19 @@ import { SmallText } from "./SmallText";
 import { useTheme } from "@react-navigation/native";
 import { memo } from "react";
 import { useNavigation } from "@react-navigation/native";
+import navigationHistoryManager from '../../Utils/NavigationHistoryManager';
 
 export const EachArtistCard = memo(function EachArtistCard({name, role, image, id, url, width, style}) {
   const { colors } = useTheme();
   const navigation = useNavigation();
 
   const handlePress = () => {
+    // Add Search screen to navigation history before navigating to Artist
+    navigationHistoryManager.addScreen({
+      screenName: 'Search',
+      params: {}
+    });
+
     // Navigate to artist page with artist ID
     navigation.navigate("ArtistPage", { artistId: id, artistName: name });
   };

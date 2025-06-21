@@ -176,8 +176,8 @@ export const AlbumDetails = ({name,releaseData,liked,Data}) => {
           url:e?.downloadUrl[quality].url,
           title:FormatTitleAndArtist(e?.name),
           artist:FormatTitleAndArtist(FormatArtist(e?.artists?.primary)),
-          artwork:e?.image[2]?.url,
-          image:e?.image[2]?.url,
+          artwork:e?.image?.[2]?.url || e?.images?.[2]?.url || '',
+          image:e?.image?.[2]?.url || e?.images?.[2]?.url || '',
           duration:e?.duration,
           id:e?.id,
           albumId: Data?.data?.id,
@@ -324,9 +324,10 @@ export const AlbumDetails = ({name,releaseData,liked,Data}) => {
             }
             
             // Download artwork
-            if (song.image && song.image[2]?.url) {
+            const artworkUrl = song.image?.[2]?.url || song.images?.[2]?.url;
+            if (artworkUrl) {
               const artworkPath = `${baseDir}/artwork/${song.id}.jpg`;
-              await safeDownloadFile(song.image[2].url, artworkPath);
+              await safeDownloadFile(artworkUrl, artworkPath);
             }
             
             // Save metadata
@@ -336,7 +337,7 @@ export const AlbumDetails = ({name,releaseData,liked,Data}) => {
               artist: FormatArtist(song.artists?.primary) || 'Unknown',
               album: name || 'Unknown',
               url: songUrl,
-              artwork: song.image[2]?.url || null,
+              artwork: song.image?.[2]?.url || song.images?.[2]?.url || null,
               duration: song.duration || 0,
               downloadedAt: new Date().toISOString()
             });

@@ -111,8 +111,8 @@ export const EachSongMenuButton = ({
 
   // Calculate style based on context
   const getMarginRight = () => {
-    if (isFromAlbum) return 2; // Reduced margin for albums
-    if (isFromPlaylist) return 15; // Increased margin for playlists
+    if (isFromAlbum) return 0; // No margin for albums
+    if (isFromPlaylist) return 5; // Reduced margin for playlists
     return marginRight; // Default for other contexts
   };
 
@@ -502,7 +502,7 @@ export const EachSongMenuButton = ({
             backgroundColor: 'transparent',
             borderRadius: 16,
             elevation: 0,
-            marginRight: isFromAlbum ? 0 : getMarginRight() + 5,
+            marginRight: getMarginRight(),
           }}
           android_ripple={{ 
             color: 'rgba(255, 255, 255, 0.2)', 

@@ -10,6 +10,7 @@ import { SettingsPage } from "./SettingsPage";
 import { ChangeName } from "./ChangeName";
 import { SelectLanguages } from "./SelectLanguages";
 import ShowPlaylistofType from "../../Component/Discover/ShowPlaylistofType";
+
 const Stack = createNativeStackNavigator();
 export const HomeRoute = () => {
   return (
@@ -56,6 +57,7 @@ export const HomeRoute = () => {
       <Stack.Screen name={"ChangeName"} component={ChangeName}/>
       <Stack.Screen name={"SelectLanguages"} component={SelectLanguages}/>
       <Stack.Screen  name="ShowPlaylistofType" component={ShowPlaylistofType} />
+
     </Stack.Navigator>
   );
 };

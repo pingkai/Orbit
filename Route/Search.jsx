@@ -235,7 +235,7 @@ export const Search = ({route}) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000', // Changed to black background
+    backgroundColor: '#635f5e', // Changed to black background
   },
   searchInputContainer: {
     flexDirection: 'row',

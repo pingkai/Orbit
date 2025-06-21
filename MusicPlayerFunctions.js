@@ -314,12 +314,26 @@ async function AddOneSongToPlaylist(song) {
     
     console.log('AddOneSongToPlaylist called with song:', song.title);
     
+    // Safe image URL extraction
+    const getImageUrl = (imageData) => {
+      if (!imageData) return null;
+      if (typeof imageData === 'string') return imageData;
+      if (Array.isArray(imageData)) {
+        for (const img of imageData) {
+          if (typeof img === 'string' && img.trim() !== '') return img;
+          if (img && typeof img === 'object' && img.url) return img.url;
+        }
+      }
+      if (imageData && typeof imageData === 'object' && imageData.url) return imageData.url;
+      return null;
+    };
+
     // Format song object for playlist compatibility if needed
     const formattedSong = {
       id: song.id,
       title: song.title || 'Unknown Title',
       artist: song.artist || 'Unknown Artist',
-      artwork: song.artwork || song.image || null,
+      artwork: getImageUrl(song.artwork) || getImageUrl(song.image) || null,
       url: song.url || '',
       duration: song.duration || 0,
       language: song.language || '',

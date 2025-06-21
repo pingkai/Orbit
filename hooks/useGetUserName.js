@@ -1,26 +1,26 @@
-import { useEffect, useState } from "react";
-import { GetUserNameValue } from "../LocalStorage/StoreUserName";
+import { useState, useEffect } from 'react';
+import { GetUserNameValue } from '../LocalStorage/StoreUserName';
 
+/**
+ * Custom hook for getting user name from storage
+ * @returns {string} - User name
+ */
 export const useGetUserName = () => {
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const [userNameValue, setUserName] = useState("");
-  async function getUserNameLocalStorage(){
-    const name = await GetUserNameValue()
-    setUserName(FormatName(name))
-  }
-  function FormatName(name){
-    const nameArray = name.split(" ")
-    name = nameArray[0]
-    if (name.length >= 10){
-      return name.slice(0,9) + ".."
-    } else {
-      return name
-    }
-  }
+  const [userName, setUserName] = useState('');
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
-    getUserNameLocalStorage()
+    const fetchUserName = async () => {
+      try {
+        const name = await GetUserNameValue();
+        setUserName(name || '');
+      } catch (error) {
+        console.error('Error fetching user name:', error);
+        setUserName('');
+      }
+    };
+
+    fetchUserName();
   }, []);
-  return userNameValue;
+
+  return userName;
 };

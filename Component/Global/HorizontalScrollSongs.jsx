@@ -80,7 +80,7 @@ export const HorizontalScrollSongs = ({id}) => {
                 playlist={true} 
                 artistID={e?.primary_artists_id} 
                 duration={e?.duration} 
-                image={e?.image[2]?.url} 
+                image={e?.image?.[2]?.url || e?.images?.[2]?.url || ''}
                 id={e?.id} 
                 width={width * 0.80} 
                 title={truncateText(e?.name, 30)}  
@@ -101,7 +101,7 @@ export const HorizontalScrollSongs = ({id}) => {
                 playlist={true} 
                 artistID={e?.primary_artists_id} 
                 duration={e?.duration} 
-                image={e?.image[2]?.url} 
+                image={e?.image?.[2]?.url || e?.images?.[2]?.url || ''}
                 id={e?.id} 
                 width={width * 0.80} 
                 title={truncateText(e?.name, 30)}  

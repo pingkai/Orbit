@@ -5,17 +5,79 @@ import { getSearchArtistData } from '../../Api/Songs'
 import { LoadingComponent } from '../Global/Loading'
 import { PlainText } from '../Global/PlainText'
 import { SmallText } from '../Global/SmallText'
-import { EachArtistCard } from '../Global/EachArtistCard'
+import { EachArtistCardGrid } from '../Global/EachArtistCardGrid'
+
+// Helper function to normalize artist names for comparison
+function normalizeArtistName(name) {
+  if (!name) return '';
+
+  return name
+    .toLowerCase()
+    .trim()
+    // Remove all Unicode control characters and invisible characters
+    .replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u2028-\u202F\u205F-\u206F\uFEFF]/g, '')
+    // Remove extra whitespace
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Helper function to remove duplicates from artist array
+function removeDuplicateArtists(artists) {
+  if (!artists || !Array.isArray(artists)) {
+    return [];
+  }
+
+  const seen = new Set();
+  const seenNames = new Set();
+
+  return artists.filter((artist, index) => {
+    if (!artist || !artist.id) {
+      return false; // Remove invalid entries
+    }
+
+    // Check for duplicate IDs
+    if (seen.has(artist.id)) {
+      console.log(`Removing duplicate artist ID: ${artist.id} - ${artist.name}`);
+      return false;
+    }
+
+    // Check for duplicate normalized names
+    const normalizedName = normalizeArtistName(artist.name);
+    if (seenNames.has(normalizedName)) {
+      console.log(`Removing duplicate artist name: "${artist.name}" (normalized: "${normalizedName}")`);
+      return false;
+    }
+
+    // Add to seen sets
+    seen.add(artist.id);
+    seenNames.add(normalizedName);
+
+    return true;
+  });
+}
 
 export default function ArtistDisplay({data, limit, Searchtext}) {
   const [Data, setData] = useState(data)
   const totalPages = Math.ceil(Data?.data?.total ?? 1 / limit)
   const [Page, setPage] = useState(1)
   const [Loading, setLoading] = useState(false)
-  
-  // Update data when props change
+
+  // Update data when props change with deduplication
   useEffect(() => {
-    setData(data);
+    if (data && data.data && data.data.results) {
+      const deduplicatedResults = removeDuplicateArtists(data.data.results);
+      const cleanData = {
+        ...data,
+        data: {
+          ...data.data,
+          results: deduplicatedResults,
+          total: deduplicatedResults.length
+        }
+      };
+      setData(cleanData);
+    } else {
+      setData(data);
+    }
   }, [data]);
 
   async function fetchSearchData(text,page){
@@ -27,11 +89,36 @@ export default function ArtistDisplay({data, limit, Searchtext}) {
         
         // Check if fetchdata has valid structure
         if (fetchdata && fetchdata.data && fetchdata.data.results) {
-          const temp = Data
-          if (temp && temp.data && temp.data.results) {
-            const finalData = [...temp.data.results, ...fetchdata.data.results]
-            temp.data.results = finalData
-            setData(temp)
+          if (Data && Data.data && Data.data.results) {
+            // Combine existing and new results, then remove duplicates
+            const combinedData = [...Data.data.results, ...fetchdata.data.results]
+            const finalData = removeDuplicateArtists(combinedData)
+
+            console.log(`Combined ${Data.data.results.length} existing + ${fetchdata.data.results.length} new = ${combinedData.length} total`);
+            console.log(`After deduplication: ${finalData.length} unique artists`);
+
+            // Create new data object instead of mutating existing one
+            const newData = {
+              ...Data,
+              data: {
+                ...Data.data,
+                results: finalData,
+                total: finalData.length
+              }
+            }
+            setData(newData)
+          } else {
+            // First load - just set the data with deduplication
+            const finalData = removeDuplicateArtists(fetchdata.data.results)
+            const newData = {
+              ...fetchdata,
+              data: {
+                ...fetchdata.data,
+                results: finalData,
+                total: finalData.length
+              }
+            }
+            setData(newData)
           }
         }
       } catch (e) {
@@ -46,36 +133,40 @@ export default function ArtistDisplay({data, limit, Searchtext}) {
 
   return (
     <View>
-      {Data?.data?.results?.length !== 0 && <FlatList 
-        showsVerticalScrollIndicator={false} 
-        keyExtractor={(item, index) => String(index)} 
+      {Data?.data?.results?.length !== 0 && <FlatList
+        showsVerticalScrollIndicator={false}
+        keyExtractor={(item, index) => item?.id ? `artist_${item.id}_${index}` : `artist_index_${index}`}
+        numColumns={2}
+        columnWrapperStyle={{
+          justifyContent: 'space-between',
+          marginBottom: 10,
+        }}
         onEndReached={()=>{
           setTimeout(()=>{
             setPage(Page + 1)
             fetchSearchData(Searchtext, Page)
           },200)
-        }} 
+        }}
         contentContainerStyle={{
-          paddingBottom:220,
-        }} 
-        data={[...Data?.data?.results ?? [], {LoadingComponent:true}]} 
+          paddingBottom: 220,
+          paddingHorizontal: 10,
+        }}
+        data={Data?.data?.results ?? []}
+        ListFooterComponent={() => Loading ? <LoadingComponent loading={Loading} height={100}/> : null}
         renderItem={(item)=>{
-          if(item.item.LoadingComponent === true){
-              return <LoadingComponent loading={Loading} height={100}/>
-          }else{
-              return <EachArtistCard  
-                id={item.item?.id} 
-                width={width * 0.95} 
-                name={item.item?.name} 
-                role={item.item?.role}
-                image={item?.item?.image[2]?.url ?? item?.item?.image[0]?.url ?? ""} 
-                url={item.item?.url}
-                style={{
-                  marginBottom: 13,
-                }}
-              />
-            }
-          }}
+          return <EachArtistCardGrid
+            id={item.item?.id}
+            name={item.item?.name}
+            role={item.item?.role}
+            image={item?.item?.image[2]?.url ?? item?.item?.image[0]?.url ?? ""}
+            followerCount={item.item?.followerCount}
+            source="saavn"
+            searchText={Searchtext}
+            mainContainerStyle={{
+              marginBottom: 5,
+            }}
+          />
+        }}
       />}
       {Data?.data?.results?.length === 0 && <View style={{
         height:400,

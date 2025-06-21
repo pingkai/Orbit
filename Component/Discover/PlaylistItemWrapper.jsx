@@ -27,19 +27,47 @@ const getLanguageDisplay = (langCode) => {
 export const PlaylistItemWrapper = ({ item, cardWidth, source, searchText, navigationSource }) => {
   const theme = useTheme();
   const displayLanguage = getLanguageDisplay(item.language);
-  
+
   // Function to truncate text
   const truncateText = (text, limit = 22) => {
     if (!text) return '';
     return text.length > limit ? text.substring(0, limit) + '...' : text;
   };
-  
+
+  // Safe image URL extraction
+  const getImageUrl = (imageData) => {
+    if (!imageData) return '';
+
+    // If it's already a string, return it
+    if (typeof imageData === 'string') return imageData;
+
+    // If it's an array, try to get the highest quality image
+    if (Array.isArray(imageData)) {
+      // Try to get image[2] first (usually highest quality)
+      if (imageData[2]?.link) return imageData[2].link;
+      if (imageData[2]?.url) return imageData[2].url;
+
+      // Fallback to any available image
+      for (const img of imageData) {
+        if (img?.link) return img.link;
+        if (img?.url) return img.url;
+        if (typeof img === 'string') return img;
+      }
+    }
+
+    // If it's an object with link or url
+    if (imageData.link) return imageData.link;
+    if (imageData.url) return imageData.url;
+
+    return '';
+  };
+
   return (
     <View style={styles.container}>
       <EachPlaylistCard
         name={truncateText(item.name, 22)}
         follower={truncateText("Total " + item.songCount + " Songs", 22)}
-        image={item.image[2].link}
+        image={getImageUrl(item.image)}
         id={item.id}
         language={displayLanguage}
         source={source}

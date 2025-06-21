@@ -13,6 +13,7 @@ import { getAlbumData } from "../Api/Album";
 import FormatArtist from "../Utils/FormatArtists";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LinearGradient from "react-native-linear-gradient";
+import navigationHistoryManager from '../Utils/NavigationHistoryManager';
 
 // AsyncStorage keys
 const CURRENT_ALBUM_ID_KEY = "orbit_current_album_id";
@@ -167,9 +168,55 @@ export const Album = ({route}) => {
     } else if (source === 'Home') {
       // Navigate back to Home tab's HomePage
       console.log('Navigating back to HomePage from Album');
-      navigation.navigate('Home', { 
-        screen: 'HomePage' 
+      navigation.navigate('Home', {
+        screen: 'HomePage'
       });
+      return true;
+    } else if (source === 'Artist') {
+      // Navigate back to Artist page - use smart navigation to prevent loops
+      console.log('Navigating back to Artist page from Album');
+
+      try {
+        // Check navigation state to detect potential loops
+        const navigationState = navigation.getState();
+        const routes = navigationState?.routes || [];
+
+        // Count how many ArtistPage and Album instances are in the stack
+        const artistPageCount = routes.filter(route => route.name === 'ArtistPage').length;
+        const albumPageCount = routes.filter(route => route.name === 'Album').length;
+
+        console.log('Navigation stack analysis:');
+        console.log('- ArtistPage instances:', artistPageCount);
+        console.log('- Album instances:', albumPageCount);
+        console.log('- Total routes:', routes.length);
+        console.log('- Route names:', routes.map(r => r.name));
+
+        // Only detect loop if we have multiple instances of BOTH pages (indicating a true loop)
+        if (artistPageCount >= 3 || (artistPageCount >= 2 && albumPageCount >= 2)) {
+          console.log('Detected true navigation loop, resetting to Search');
+          navigation.navigate('MainRoute', {
+            screen: 'Home',
+            params: {
+              screen: 'Search'
+            }
+          });
+          return true;
+        }
+
+        // Use navigation history manager for proper back navigation
+        const backAction = navigationHistoryManager.getBackNavigationAction(navigation);
+        backAction();
+      } catch (error) {
+        console.error('Error navigating back to Artist page:', error);
+        // Error fallback - go to Search to break any potential loops
+        navigationHistoryManager.clearHistory();
+        navigation.navigate('MainRoute', {
+          screen: 'Home',
+          params: {
+            screen: 'Search'
+          }
+        });
+      }
       return true;
     } else {
       // Check if we can go back in the navigation stack
@@ -226,6 +273,18 @@ export const Album = ({route}) => {
   useEffect(() => {
     if (id) {
       fetchAlbumData(id);
+
+      // Add this screen to navigation history
+      navigationHistoryManager.addScreen({
+        screenName: 'Album',
+        params: {
+          id,
+          source,
+          artistId: route?.params?.artistId,
+          artistName: route?.params?.artistName,
+          previousTab: route?.params?.previousTab
+        }
+      });
     }
   }, [id]);
   
@@ -348,7 +407,7 @@ export const Album = ({route}) => {
                 artistID={e?.primary_artists_id} 
                 key={i} 
                 duration={e?.duration} 
-                image={getValidImageUrl(e?.image[2]?.url)} 
+                image={getValidImageUrl(e?.image?.[2]?.url || e?.images?.[2]?.url)}
                 id={e?.id} 
                 width={"100%"} 
                 title={e?.name}  

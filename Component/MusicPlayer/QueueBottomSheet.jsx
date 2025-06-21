@@ -102,7 +102,7 @@ const CircularProgress = ({ progress = 0, size = 40, thickness = 4 }) => {
           cy={size / 2}
           r={(size - thickness) / 2}
           strokeWidth={thickness}
-          stroke="#1DB954" // Spotify green
+          stroke="#1DB954"
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
           strokeLinecap="round"

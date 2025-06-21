@@ -31,7 +31,7 @@ export const Heading = ({text, style, nospace}) => {
        fontSize:Size,
        fontFamily:'roboto',
        ...StyleSheet.flatten(style),
-     }}>{text}</Text>
+     }}>{text || ''}</Text>
      {!nospace && <Spacer/>}
    </>
   );

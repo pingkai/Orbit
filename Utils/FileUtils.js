@@ -143,7 +143,7 @@ export const safeMkdir = async (path) => {
       console.warn('Empty path provided to safeMkdir');
       return false;
     }
-    
+
     try {
       const exists = await safeExists(stringPath);
       if (!exists) {
@@ -156,6 +156,39 @@ export const safeMkdir = async (path) => {
     }
   } catch (error) {
     console.error('Error in safeMkdir:', error);
+    return false;
+  }
+};
+
+/**
+ * Ensures that a directory exists, creating it and any parent directories if needed
+ * @param {any} path - Directory path to ensure exists
+ * @returns {Promise<boolean>} True if directory exists or was created successfully
+ */
+export const ensureDirectoryExists = async (path) => {
+  try {
+    const stringPath = safePath(path);
+    if (!stringPath) {
+      console.warn('Empty path provided to ensureDirectoryExists');
+      return false;
+    }
+
+    try {
+      // Check if directory already exists
+      const exists = await safeExists(stringPath);
+      if (exists) {
+        return true;
+      }
+
+      // Create directory with recursive option to create parent directories
+      await RNFS.mkdir(stringPath);
+      return true;
+    } catch (mkdirError) {
+      console.error('Error ensuring directory exists:', mkdirError);
+      return false;
+    }
+  } catch (error) {
+    console.error('Error in ensureDirectoryExists:', error);
     return false;
   }
 };

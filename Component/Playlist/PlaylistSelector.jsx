@@ -244,12 +244,12 @@ export const PlaylistSelector = ({ visible, onClose, song }) => {
     }
 
     try {
-      const success = await createPlaylist(newPlaylistName, song);
-      if (success) {
+      const createdPlaylist = await createPlaylist(newPlaylistName, song);
+      if (createdPlaylist) {
         setShowNewPlaylistModal(false);
         setNewPlaylistName('');
         loadPlaylists(); // Refresh playlists after creating a new one
-        onClose(); 
+        onClose();
       }
     } catch (error) {
       console.error('Error creating playlist:', error);

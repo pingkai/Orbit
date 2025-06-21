@@ -205,15 +205,29 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
           return;
         }
         
+        // Safe image URL extraction
+        const getImageUrl = (imageData) => {
+          if (!imageData) return '';
+          if (typeof imageData === 'string') return imageData;
+          if (Array.isArray(imageData)) {
+            for (const img of imageData) {
+              if (typeof img === 'string' && img.trim() !== '') return img;
+              if (img && typeof img === 'object' && img.url) return img.url;
+            }
+          }
+          if (imageData && typeof imageData === 'object' && imageData.url) return imageData.url;
+          return '';
+        };
+
         song = {
           url: songUrl,
           title: FormatTitleAndArtist(Visible.title),
           artist: FormatTitleAndArtist(Visible.artist),
-          artwork: Visible.image,
+          artwork: getImageUrl(Visible.image),
           duration: Visible.duration,
           id: Visible.id,
           language: Visible.language,
-          image: Visible.image,
+          image: getImageUrl(Visible.image),
           downloadUrl: Visible.url,
         }
       }
@@ -424,15 +438,29 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
           return;
         }
         
+        // Safe image URL extraction
+        const getImageUrl = (imageData) => {
+          if (!imageData) return '';
+          if (typeof imageData === 'string') return imageData;
+          if (Array.isArray(imageData)) {
+            for (const img of imageData) {
+              if (typeof img === 'string' && img.trim() !== '') return img;
+              if (img && typeof img === 'object' && img.url) return img.url;
+            }
+          }
+          if (imageData && typeof imageData === 'object' && imageData.url) return imageData.url;
+          return '';
+        };
+
         song = {
           url: songUrl,
           title: FormatTitleAndArtist(Visible.title),
           artist: FormatTitleAndArtist(Visible.artist),
-          artwork: Visible.image,
+          artwork: getImageUrl(Visible.image),
           duration: Visible.duration,
           id: Visible.id,
           language: Visible.language,
-          image: Visible.image,
+          image: getImageUrl(Visible.image),
           downloadUrl: Visible.url,
         };
       }
@@ -483,7 +511,24 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
     if (!playlist || playlist.length === 0) {
       return require('../../Images/wav.png');
     }
-    return { uri: playlist[playlist.length - 1].image };
+
+    // Safe image URL extraction for playlist cover
+    const lastSong = playlist[playlist.length - 1];
+    const getImageUrl = (imageData) => {
+      if (!imageData) return '';
+      if (typeof imageData === 'string') return imageData;
+      if (Array.isArray(imageData)) {
+        for (const img of imageData) {
+          if (typeof img === 'string' && img.trim() !== '') return img;
+          if (img && typeof img === 'object' && img.url) return img.url;
+        }
+      }
+      if (imageData && typeof imageData === 'object' && imageData.url) return imageData.url;
+      return '';
+    };
+
+    const imageUrl = getImageUrl(lastSong.image);
+    return imageUrl ? { uri: imageUrl } : require('../../Images/wav.png');
   };
   return (
     <>

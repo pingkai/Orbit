@@ -1,3 +1,4 @@
+import 'react-native-get-random-values'; // Must be imported before any crypto operations
 import { NavigationContainer, CommonActions, NavigationContainerRef } from "@react-navigation/native";
 import { RootRoute } from "./Route/RootRoute.jsx";
 import { createStackNavigator } from "@react-navigation/stack";

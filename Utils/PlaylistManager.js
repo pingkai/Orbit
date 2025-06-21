@@ -1,456 +1,272 @@
-import { ToastAndroid } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React from 'react';
-import { PlaylistSelectorRef } from './PlaylistSelectorManager';
+import { ToastAndroid } from 'react-native';
 
-// Default empty playlists array
-const DEFAULT_PLAYLISTS = [];
+// Cache for playlists to avoid frequent AsyncStorage reads
+let playlistCache = null;
+let cacheTimestamp = null;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-// Add caching mechanism to prevent multiple AsyncStorage reads
-let cachedPlaylists = null;
-let lastCacheTime = 0;
-const CACHE_EXPIRY = 30000; // 30 seconds
+/**
+ * Clear the playlist cache
+ */
+export const clearPlaylistCache = () => {
+  playlistCache = null;
+  cacheTimestamp = null;
+};
 
-// Add memory management constants
-const PLAYLIST_MAX_MEMORY_AGE = 300000; // 5 minutes
-let lastMemoryCheck = 0;
+/**
+ * Check if cache is valid
+ */
+const isCacheValid = () => {
+  if (!playlistCache || !cacheTimestamp) return false;
+  return Date.now() - cacheTimestamp < CACHE_DURATION;
+};
 
-// Function to retrieve all user playlists with performance optimizations
-export const getUserPlaylists = async (options = {}) => {
-  const { bypassCache = false, lightFormat = false } = options;
-  
+/**
+ * Get all user playlists
+ * @returns {Array} Array of playlist objects
+ */
+export const getUserPlaylists = async () => {
   try {
-    const now = Date.now();
-    
-    // Check if we should clean up memory periodically
-    if (now - lastMemoryCheck > PLAYLIST_MAX_MEMORY_AGE) {
-      clearPlaylistCache();
-      lastMemoryCheck = now;
+    // Return cached data if valid
+    if (isCacheValid()) {
+      return playlistCache;
     }
+
+    const storedPlaylists = await AsyncStorage.getItem('userPlaylists');
+    const playlists = storedPlaylists ? JSON.parse(storedPlaylists) : [];
     
-    // Return cached playlists if available, not expired, and not bypassed
-    if (!bypassCache && cachedPlaylists && (now - lastCacheTime < CACHE_EXPIRY)) {
-      console.log('Returning cached playlists');
-      
-      // If light format is requested, strip song details to reduce memory usage
-      if (lightFormat && Array.isArray(cachedPlaylists)) {
-        return cachedPlaylists.map(playlist => ({
-          id: playlist.id,
-          name: playlist.name,
-          coverImage: playlist.coverImage,
-          createdAt: playlist.createdAt,
-          lastModified: playlist.lastModified,
-          customPlaylist: playlist.customPlaylist,
-          songCount: playlist.songs ? playlist.songs.length : 0
-          // Don't include the songs array to save memory
-        }));
-      }
-      
-      return cachedPlaylists;
-    }
+    // Ensure we always return an array
+    const validPlaylists = Array.isArray(playlists) ? playlists : [];
     
-    console.log('Getting user playlists from storage');
-    const playlistsJson = await AsyncStorage.getItem('userPlaylists');
+    // Update cache
+    playlistCache = validPlaylists;
+    cacheTimestamp = Date.now();
     
-    if (!playlistsJson) {
-      console.log('No playlists found, returning empty array');
-      cachedPlaylists = DEFAULT_PLAYLISTS;
-      lastCacheTime = now;
-      return DEFAULT_PLAYLISTS;
-    }
-    
-      try {
-        const playlists = JSON.parse(playlistsJson);
-        console.log(`Found ${playlists.length} user playlists`);
-      
-      // Update cache with full data
-      cachedPlaylists = playlists;
-      lastCacheTime = now;
-      
-      // If light format is requested, strip song details to reduce memory usage
-      if (lightFormat && Array.isArray(playlists)) {
-        return playlists.map(playlist => ({
-          id: playlist.id,
-          name: playlist.name,
-          coverImage: playlist.coverImage,
-          createdAt: playlist.createdAt,
-          lastModified: playlist.lastModified,
-          customPlaylist: playlist.customPlaylist,
-          songCount: playlist.songs ? playlist.songs.length : 0
-          // Don't include the songs array
-        }));
-      }
-      
-        return playlists;
-      } catch (parseError) {
-        console.error('Error parsing playlists JSON:', parseError);
-        // If JSON is invalid, reset to empty array
-        await AsyncStorage.setItem('userPlaylists', JSON.stringify(DEFAULT_PLAYLISTS));
-      
-      // Update cache
-      cachedPlaylists = DEFAULT_PLAYLISTS;
-      lastCacheTime = now;
-      
-        return DEFAULT_PLAYLISTS;
-    }
+    return validPlaylists;
   } catch (error) {
-    console.error('Error retrieving playlists:', error);
-    
-    // Only show error message if not a network error
-    if (!error.message?.includes('Network') && !error.message?.includes('network')) {
-      ToastAndroid.show('Error loading playlists', ToastAndroid.SHORT);
-    }
-    
-    // Return cached playlists if available, otherwise empty array
-    return cachedPlaylists || DEFAULT_PLAYLISTS;
+    console.error('Error getting user playlists:', error);
+    return [];
   }
 };
 
-// Function to get a single playlist by ID with optimized loading
-export const getUserPlaylistById = async (playlistId) => {
-  if (!playlistId) {
-    console.error('No playlistId provided to getUserPlaylistById');
+/**
+ * Create a new playlist
+ * @param {string} name - Playlist name
+ * @param {Object} firstSong - Optional first song to add to playlist
+ * @returns {Object|null} Created playlist object or null if failed
+ */
+export const createPlaylist = async (name, firstSong = null) => {
+  try {
+    if (!name || !name.trim()) {
+      ToastAndroid.show('Please enter a playlist name', ToastAndroid.SHORT);
+      return null;
+    }
+
+    const existingPlaylists = await getUserPlaylists();
+    
+    // Check if playlist with same name already exists
+    const nameExists = existingPlaylists.some(
+      playlist => playlist.name.toLowerCase() === name.trim().toLowerCase()
+    );
+    
+    if (nameExists) {
+      ToastAndroid.show('Playlist with this name already exists', ToastAndroid.SHORT);
+      return null;
+    }
+
+    const newPlaylist = {
+      id: `playlist_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      name: name.trim(),
+      songs: firstSong ? [firstSong] : [],
+      createdAt: Date.now(),
+      lastModified: Date.now(),
+      coverImage: firstSong?.artwork || null
+    };
+
+    const updatedPlaylists = [...existingPlaylists, newPlaylist];
+    await AsyncStorage.setItem('userPlaylists', JSON.stringify(updatedPlaylists));
+    
+    // Clear cache to force refresh
+    clearPlaylistCache();
+    
+    console.log(`Created playlist: ${name} with ID: ${newPlaylist.id}`);
+    return newPlaylist;
+  } catch (error) {
+    console.error('Error creating playlist:', error);
+    ToastAndroid.show('Failed to create playlist', ToastAndroid.SHORT);
     return null;
   }
-  
+};
+
+/**
+ * Add a song to an existing playlist
+ * @param {string} playlistId - Playlist ID
+ * @param {Object} song - Song object to add
+ * @returns {boolean} Success status
+ */
+export const addSongToPlaylist = async (playlistId, song) => {
   try {
-    // First check if we have this playlist in cache
-    const now = Date.now();
-    if (cachedPlaylists && (now - lastCacheTime < CACHE_EXPIRY)) {
-      const playlist = cachedPlaylists.find(p => p.id === playlistId);
-      if (playlist) {
-        console.log(`Found playlist ${playlistId} in cache`);
-        return playlist;
-      }
+    if (!playlistId || !song) {
+      console.error('Invalid parameters for addSongToPlaylist');
+      return false;
     }
+
+    const playlists = await getUserPlaylists();
+    const playlistIndex = playlists.findIndex(p => p.id === playlistId);
     
-    // Get playlists from storage
-    const playlistsJson = await AsyncStorage.getItem('userPlaylists');
-    if (!playlistsJson) {
-      console.log('No playlists found in storage');
-      return null;
+    if (playlistIndex === -1) {
+      ToastAndroid.show('Playlist not found', ToastAndroid.SHORT);
+      return false;
     }
-    
-    // Parse playlists JSON
-    const playlists = JSON.parse(playlistsJson);
-    
-    // Find playlist by ID
-    const playlist = playlists.find(p => p.id === playlistId);
-    if (!playlist) {
-      console.log(`Playlist with ID ${playlistId} not found`);
-      return null;
+
+    // Check if song already exists in playlist
+    const existingSong = playlists[playlistIndex].songs.find(s => s.id === song.id);
+    if (existingSong) {
+      ToastAndroid.show('Song already exists in playlist', ToastAndroid.SHORT);
+      return false;
     }
+
+    // Add song to playlist
+    playlists[playlistIndex].songs.push(song);
+    playlists[playlistIndex].lastModified = Date.now();
     
-    // Update cache with full playlists data
-    cachedPlaylists = playlists;
-    lastCacheTime = now;
+    // Update cover image if playlist was empty
+    if (playlists[playlistIndex].songs.length === 1 && song.artwork) {
+      playlists[playlistIndex].coverImage = song.artwork;
+    }
+
+    await AsyncStorage.setItem('userPlaylists', JSON.stringify(playlists));
     
-    return playlist;
+    // Clear cache to force refresh
+    clearPlaylistCache();
+    
+    ToastAndroid.show(`Added "${song.title}" to "${playlists[playlistIndex].name}"`, ToastAndroid.SHORT);
+    console.log(`Added song "${song.title}" to playlist "${playlists[playlistIndex].name}"`);
+    return true;
+  } catch (error) {
+    console.error('Error adding song to playlist:', error);
+    ToastAndroid.show('Failed to add song to playlist', ToastAndroid.SHORT);
+    return false;
+  }
+};
+
+/**
+ * Remove a song from a playlist
+ * @param {string} playlistId - Playlist ID
+ * @param {string} songId - Song ID to remove
+ * @returns {boolean} Success status
+ */
+export const removeSongFromPlaylist = async (playlistId, songId) => {
+  try {
+    const playlists = await getUserPlaylists();
+    const playlistIndex = playlists.findIndex(p => p.id === playlistId);
+    
+    if (playlistIndex === -1) {
+      ToastAndroid.show('Playlist not found', ToastAndroid.SHORT);
+      return false;
+    }
+
+    const songIndex = playlists[playlistIndex].songs.findIndex(s => s.id === songId);
+    if (songIndex === -1) {
+      ToastAndroid.show('Song not found in playlist', ToastAndroid.SHORT);
+      return false;
+    }
+
+    // Remove song from playlist
+    const removedSong = playlists[playlistIndex].songs.splice(songIndex, 1)[0];
+    playlists[playlistIndex].lastModified = Date.now();
+
+    await AsyncStorage.setItem('userPlaylists', JSON.stringify(playlists));
+    
+    // Clear cache to force refresh
+    clearPlaylistCache();
+    
+    ToastAndroid.show(`Removed "${removedSong.title}" from playlist`, ToastAndroid.SHORT);
+    return true;
+  } catch (error) {
+    console.error('Error removing song from playlist:', error);
+    ToastAndroid.show('Failed to remove song from playlist', ToastAndroid.SHORT);
+    return false;
+  }
+};
+
+/**
+ * Delete a playlist
+ * @param {string} playlistId - Playlist ID to delete
+ * @returns {boolean} Success status
+ */
+export const deletePlaylist = async (playlistId) => {
+  try {
+    const playlists = await getUserPlaylists();
+    const filteredPlaylists = playlists.filter(p => p.id !== playlistId);
+    
+    if (filteredPlaylists.length === playlists.length) {
+      ToastAndroid.show('Playlist not found', ToastAndroid.SHORT);
+      return false;
+    }
+
+    await AsyncStorage.setItem('userPlaylists', JSON.stringify(filteredPlaylists));
+    
+    // Clear cache to force refresh
+    clearPlaylistCache();
+    
+    ToastAndroid.show('Playlist deleted', ToastAndroid.SHORT);
+    return true;
+  } catch (error) {
+    console.error('Error deleting playlist:', error);
+    ToastAndroid.show('Failed to delete playlist', ToastAndroid.SHORT);
+    return false;
+  }
+};
+
+/**
+ * Get a specific playlist by ID
+ * @param {string} playlistId - Playlist ID
+ * @returns {Object|null} Playlist object or null if not found
+ */
+export const getPlaylistById = async (playlistId) => {
+  try {
+    const playlists = await getUserPlaylists();
+    return playlists.find(p => p.id === playlistId) || null;
   } catch (error) {
     console.error('Error getting playlist by ID:', error);
     return null;
   }
 };
 
-// Function to save a song to a specific playlist with performance optimizations
-export const addSongToPlaylist = async (playlistId, song) => {
+/**
+ * Update playlist metadata (name, cover image, etc.)
+ * @param {string} playlistId - Playlist ID
+ * @param {Object} updates - Object containing fields to update
+ * @returns {boolean} Success status
+ */
+export const updatePlaylist = async (playlistId, updates) => {
   try {
-    if (!playlistId) {
-      console.error('No playlistId provided');
-      ToastAndroid.show('Invalid playlist', ToastAndroid.SHORT);
-      return false;
-    }
-    
-    if (!song || !song.id) {
-      console.error('Invalid song object:', song);
-      ToastAndroid.show('Invalid song data', ToastAndroid.SHORT);
-      return false;
-    }
-    
-    console.log(`Adding song ${song.title} to playlist ${playlistId}`);
-    
-    // Get the specific playlist instead of all playlists for better performance
-    const playlist = await getUserPlaylistById(playlistId);
-    
-    if (!playlist) {
-      console.error(`Playlist with ID ${playlistId} not found`);
-      ToastAndroid.show('Playlist not found', ToastAndroid.SHORT);
-      return false;
-    }
-    
-    // Get full playlists list for updating
-    const playlists = await getUserPlaylists({ bypassCache: true });
-    const playlistIndex = playlists.findIndex(p => p.id === playlistId);
-    
-    if (playlistIndex === -1) {
-      console.error(`Playlist with ID ${playlistId} not found in full list`);
-      ToastAndroid.show('Playlist not found', ToastAndroid.SHORT);
-      return false;
-    }
-    
-    // Ensure playlist object has the right structure
-    if (!playlists[playlistIndex].songs) {
-      console.log('Initializing songs array for playlist');
-      playlists[playlistIndex].songs = [];
-    }
-    
-    // Ensure the song has all required properties
-    const formattedSong = {
-      id: song.id,
-      title: song.title || 'Unknown Title',
-      artist: song.artist || 'Unknown Artist',
-      artwork: song.artwork || song.image || null,
-      url: song.url || '',
-      duration: song.duration || 0,
-      language: song.language || '',
-      artistID: song.artistID || song.primary_artists_id || '',
-      addedAt: Date.now()
-    };
-    
-    // Check if song already exists in playlist to avoid duplicates
-    const songExists = playlists[playlistIndex].songs.some(s => s.id === formattedSong.id);
-    
-    if (songExists) {
-      console.log('Song already exists in playlist');
-      ToastAndroid.show('Song already exists in playlist', ToastAndroid.SHORT);
-      return false;
-    }
-    
-    // Add song to playlist
-    playlists[playlistIndex].songs.push(formattedSong);
-    console.log('Song added to playlist in memory');
-    
-    // Update playlist cover image with the new song's artwork
-    if (formattedSong.artwork) {
-      playlists[playlistIndex].coverImage = formattedSong.artwork;
-      console.log('Updated playlist cover image to new song artwork');
-    }
-    
-    // Update playlist lastModified time
-    playlists[playlistIndex].lastModified = Date.now();
-    
-    // Save updated playlists
-    await AsyncStorage.setItem('userPlaylists', JSON.stringify(playlists));
-    console.log('Playlists saved to storage');
-    
-    // Update cache
-    cachedPlaylists = playlists;
-    lastCacheTime = Date.now();
-    
-    ToastAndroid.show('Song added to playlist', ToastAndroid.SHORT);
-    return true;
-  } catch (error) {
-    console.error('Error adding song to playlist:', error);
-    ToastAndroid.show('Failed to add to playlist', ToastAndroid.SHORT);
-    return false;
-  }
-};
-
-// Function to create a new playlist with performance optimizations
-export const createPlaylist = async (name, initialSong = null) => {
-  try {
-    if (!name || !name.trim()) {
-      ToastAndroid.show('Please enter a playlist name', ToastAndroid.SHORT);
-      return false;
-    }
-    
-    console.log('Creating new playlist:', name);
-    
-    // Get existing playlists
     const playlists = await getUserPlaylists();
-    
-    // Generate unique ID
-    const newPlaylistId = 'playlist_' + Date.now();
-    
-    // Format initial song if provided
-    let formattedInitialSong = null;
-    if (initialSong && initialSong.id) {
-      formattedInitialSong = {
-        id: initialSong.id,
-        title: initialSong.title || 'Unknown Title',
-        artist: initialSong.artist || 'Unknown Artist',
-        artwork: initialSong.artwork || initialSong.image || null,
-        url: initialSong.url || '',
-        duration: initialSong.duration || 0,
-        language: initialSong.language || '',
-        artistID: initialSong.artistID || initialSong.primary_artists_id || '',
-        addedAt: Date.now()
-      };
-    }
-    
-    // Create new playlist object
-    const newPlaylist = {
-      id: newPlaylistId,
-      name: name.trim(),
-      coverImage: formattedInitialSong?.artwork || null,
-      songs: formattedInitialSong ? [formattedInitialSong] : [],
-      createdAt: Date.now(),
-      lastModified: Date.now(),
-      customPlaylist: true
-    };
-    
-    console.log('New playlist object created:', newPlaylist);
-    
-    // Add to playlists and save
-    const updatedPlaylists = Array.isArray(playlists) ? [...playlists, newPlaylist] : [newPlaylist];
-    
-    // Log the playlist structure before saving
-    console.log(`Saving ${updatedPlaylists.length} playlists to storage`);
-    
-    await AsyncStorage.setItem('userPlaylists', JSON.stringify(updatedPlaylists));
-    console.log('Playlist saved successfully');
-    
-    // Update cache
-    cachedPlaylists = updatedPlaylists;
-    lastCacheTime = Date.now();
-    
-    ToastAndroid.show('Playlist created', ToastAndroid.SHORT);
-    return true;
-  } catch (error) {
-    console.error('Error creating playlist:', error);
-    ToastAndroid.show('Failed to create playlist', ToastAndroid.SHORT);
-    return false;
-  }
-};
-
-// Function to show playlist selector
-export const showPlaylistSelector = (song) => {
-  try {
-    if (!song) {
-      console.error('No song provided to showPlaylistSelector');
-      ToastAndroid.show('Invalid song data', ToastAndroid.SHORT);
-      return false;
-    }
-    
-    // Import required (safe from circular dependency due to dynamic import)
-    const { showPlaylistSelectorWithFallback } = require('./PlaylistSelectorManager');
-    
-    // Format song to ensure all required fields
-    const formattedSong = {
-      id: song.id,
-      title: song.title || 'Unknown Title',
-      artist: song.artist || 'Unknown Artist',
-      artwork: song.artwork || song.image,
-      url: song.url || '',
-      duration: song.duration || 0,
-      language: song.language || '',
-      artistID: song.artistID || song.primary_artists_id || '',
-    };
-    
-    // Use the fallback function with better error handling
-    return showPlaylistSelectorWithFallback(formattedSong);
-  } catch (error) {
-    console.error('Error showing playlist selector:', error);
-    ToastAndroid.show('Error opening playlist selector', ToastAndroid.SHORT);
-    return false;
-  }
-};
-
-// Function to remove a song from a playlist with optimized processing
-export const removeSongFromPlaylist = async (playlistId, songId) => {
-  try {
-    if (!playlistId || !songId) {
-      console.error('Invalid parameters for song removal', { playlistId, songId });
-      return false;
-    }
-    
-    // Get the specific playlist first for better performance
-    const playlist = await getUserPlaylistById(playlistId);
-    
-    if (!playlist) {
-      console.error(`Playlist with ID ${playlistId} not found`);
-      ToastAndroid.show('Playlist not found', ToastAndroid.SHORT);
-      return false;
-    }
-    
-    // Check if playlist has songs
-    if (!playlist.songs || !Array.isArray(playlist.songs)) {
-      console.error('Playlist songs array is invalid', playlist.songs);
-      return false;
-    }
-    
-    // Get full playlists list for updating
-    const playlists = await getUserPlaylists({ bypassCache: true });
     const playlistIndex = playlists.findIndex(p => p.id === playlistId);
     
     if (playlistIndex === -1) {
-      console.error(`Playlist with ID ${playlistId} not found in full list`);
       ToastAndroid.show('Playlist not found', ToastAndroid.SHORT);
       return false;
     }
-    
-    // Filter out the song to remove
-    const originalLength = playlists[playlistIndex].songs.length;
-    playlists[playlistIndex].songs = playlists[playlistIndex].songs.filter(song => song.id !== songId);
-    
-    // Check if song was actually removed
-    if (playlists[playlistIndex].songs.length === originalLength) {
-      console.log(`Song ${songId} not found in playlist ${playlistId}`);
-      return false;
-    }
-    
-    // Update timestamp
-    playlists[playlistIndex].lastModified = Date.now();
-    
-    // Update cover image if needed (e.g., if we removed the song that was the cover)
-    if (playlists[playlistIndex].songs.length > 0 && 
-        (!playlists[playlistIndex].coverImage || 
-         playlists[playlistIndex].coverImage.includes(songId))) {
-      // Use the first song as cover
-      const firstSong = playlists[playlistIndex].songs[0];
-      if (firstSong && (firstSong.artwork || firstSong.image)) {
-        playlists[playlistIndex].coverImage = firstSong.artwork || firstSong.image;
-      }
-    } else if (playlists[playlistIndex].songs.length === 0) {
-      // Reset cover if no songs left
-      playlists[playlistIndex].coverImage = null;
-    }
-    
-    // Save updated playlists
+
+    // Update playlist with new data
+    playlists[playlistIndex] = {
+      ...playlists[playlistIndex],
+      ...updates,
+      lastModified: Date.now()
+    };
+
     await AsyncStorage.setItem('userPlaylists', JSON.stringify(playlists));
     
-    // Update cache
-    cachedPlaylists = playlists;
-    lastCacheTime = Date.now();
+    // Clear cache to force refresh
+    clearPlaylistCache();
     
-    console.log(`Song ${songId} removed from playlist ${playlistId}`);
     return true;
   } catch (error) {
-    console.error('Error removing song from playlist:', error);
+    console.error('Error updating playlist:', error);
+    ToastAndroid.show('Failed to update playlist', ToastAndroid.SHORT);
     return false;
   }
 };
-
-// Add function to clear the cache (useful when you want to force a refresh)
-export const clearPlaylistCache = () => {
-  cachedPlaylists = null;
-  lastCacheTime = 0;
-  console.log('Playlist cache cleared');
-};
-
-// Helper function to batch update playlists for better performance
-export const batchProcessPlaylists = async (processFn) => {
-  try {
-    // Get all playlists
-    const playlists = await getUserPlaylists({ bypassCache: true });
-    
-    // Apply the process function
-    const updatedPlaylists = await processFn(playlists);
-    
-    // Save the updated playlists
-    if (updatedPlaylists) {
-      await AsyncStorage.setItem('userPlaylists', JSON.stringify(updatedPlaylists));
-      
-      // Update cache
-      cachedPlaylists = updatedPlaylists;
-      lastCacheTime = Date.now();
-      
-      return true;
-    }
-    
-    return false;
-  } catch (error) {
-    console.error('Error in batch processing playlists:', error);
-    return false;
-  }
-}; 

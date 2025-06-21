@@ -27,6 +27,6 @@ export const SmallText = ({text, color, style, maxLine, selectable, isArtistName
       fontFamily:'roboto',
       fontWeight: isArtistName ? '500' : '400',
       ...StyleSheet.flatten(style),
-    }}>{text}</Text>
+    }}>{text || ''}</Text>
   );
 };
