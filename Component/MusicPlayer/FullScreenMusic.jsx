@@ -1,6 +1,6 @@
-import { Dimensions, ImageBackground, View, Pressable } from "react-native";
+import { Dimensions, ImageBackground, View, Pressable, ToastAndroid } from "react-native";
 import FastImage from "react-native-fast-image";
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useCallback } from "react";
 import LinearGradient from "react-native-linear-gradient";
 import { Heading } from "../Global/Heading";
 import { SmallText } from "../Global/SmallText";
@@ -18,6 +18,7 @@ import { useActiveTrack } from "react-native-track-player";
 import TrackPlayer from 'react-native-track-player';
 import Context from "../../Context/Context";
 import useDynamicArtwork from '../../hooks/useDynamicArtwork.js';
+import { StorageManager } from '../../Utils/StorageManager';
 
 // Import new modular components
 import { GestureManager } from './GestureControls';
