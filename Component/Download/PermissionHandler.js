@@ -15,7 +15,6 @@ export class PermissionHandler {
     try {
       // iOS doesn't need explicit permissions for app-specific storage
       if (Platform.OS === 'ios') {
-        console.log("iOS platform detected, no storage permission needed");
         return true;
       }
 

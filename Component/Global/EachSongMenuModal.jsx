@@ -97,26 +97,7 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
   // Check if the song is a local music file
   const isLocalMusic = Visible.isLocalMusic === true;
   
-  // Debug log when modal opens
-  React.useEffect(() => {
-    if (Visible.visible) {
-      console.log("Song menu opened for:", Visible.title);
-      if (Visible.url) {
-        console.log("URL structure:", typeof Visible.url, Array.isArray(Visible.url) ? `Array[${Visible.url.length}]` : "Not Array");
-        
-        // More detailed logging of URL structure
-        if (Array.isArray(Visible.url)) {
-          console.log("URL array first element:", JSON.stringify(Visible.url[0]));
-        } else if (typeof Visible.url === 'object') {
-          console.log("URL keys:", Object.keys(Visible.url));
-          if (Visible.url.downloadUrl) {
-            console.log("downloadUrl structure:", Array.isArray(Visible.url.downloadUrl) ? 
-              `Array[${Visible.url.downloadUrl.length}]` : typeof Visible.url.downloadUrl);
-          }
-        }
-      }
-    }
-  }, [Visible.visible, Visible.title, Visible.url]);
+
   
   // Check if the song is a favorite when the modal opens
   React.useEffect(() => {

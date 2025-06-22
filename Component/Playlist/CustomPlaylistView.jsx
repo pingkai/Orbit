@@ -18,8 +18,9 @@ import { Animated } from 'react';
 import { SmallText } from '../Global/SmallText';
 import { CustomPlaylistPlay } from './CustomPlaylistPlay';
 
-// Default image constant moved outside component to prevent re-creation
+// Default image constants moved outside component to prevent re-creation
 const DEFAULT_MUSIC_IMAGE = require('../../Images/default.jpg');
+const LOCAL_MUSIC_IMAGE = require('../../Images/Music.jpeg');
 
 // Performance optimization: Create memoized styles outside component
 const staticStyles = StyleSheet.create({
@@ -652,8 +653,8 @@ export const CustomPlaylistView = (props) => {
               ? track.url : `file://${track.path || track.url}`,
         title: track.title || 'Unknown',
         artist: track.artist || 'Unknown Artist',
-        artwork: (typeof track.artwork === 'number' || !track.artwork) 
-                  ? DEFAULT_MUSIC_IMAGE : { uri: track.artwork },
+        artwork: (typeof track.artwork === 'number' || !track.artwork)
+                  ? LOCAL_MUSIC_IMAGE : { uri: track.artwork },
         duration: typeof track.duration === 'string' ? parseFloat(track.duration) || 0 : track.duration || 0,
         isLocalMusic: true
       };
@@ -742,7 +743,7 @@ export const CustomPlaylistView = (props) => {
         (typeof item.artwork === 'number') ||
         (typeof item.image === 'number') ||
         !item.image && !item.artwork) {
-      return DEFAULT_MUSIC_IMAGE;
+      return LOCAL_MUSIC_IMAGE;
     }
 
     // Safe image URL extraction
@@ -763,11 +764,11 @@ export const CustomPlaylistView = (props) => {
 
     // For invalid URI values
     if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('file://')) {
-      return DEFAULT_MUSIC_IMAGE;
+      return LOCAL_MUSIC_IMAGE;
     }
 
     // For normal songs with artwork
-    return imageUrl ? { uri: imageUrl } : DEFAULT_MUSIC_IMAGE;
+    return imageUrl ? { uri: imageUrl } : LOCAL_MUSIC_IMAGE;
   }, []);
   
   // Function to truncate text to improve UI layout
@@ -853,7 +854,7 @@ export const CustomPlaylistView = (props) => {
           source={getSafeImageSource(item)}
           style={staticStyles.thumbnail}
           resizeMode={FastImage.resizeMode.cover}
-          defaultSource={DEFAULT_MUSIC_IMAGE}
+          defaultSource={LOCAL_MUSIC_IMAGE}
         />
         <View style={staticStyles.songInfo}>
           <Text style={[staticStyles.songTitle, { color: theme.colors.text }]} numberOfLines={1}>
@@ -944,7 +945,7 @@ export const CustomPlaylistView = (props) => {
               <FastImage
                 source={getSafeImageSource(Songs[0] || {})}
                 style={staticStyles.coverImage}
-                defaultSource={DEFAULT_MUSIC_IMAGE}
+                defaultSource={LOCAL_MUSIC_IMAGE}
               />
               <View style={staticStyles.playlistInfoContainer}>
                 <Text 

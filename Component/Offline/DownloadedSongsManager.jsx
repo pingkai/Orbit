@@ -22,14 +22,10 @@ const DownloadedSongsManager = ({
   const loadDownloadedSongs = useCallback(async () => {
     try {
       setIsLoading(true);
-      console.log('DownloadedSongsManager: Loading downloaded songs');
 
       // Clean up orphaned metadata if auto cleanup is enabled
       if (autoCleanup) {
-        const cleanedCount = await StorageManager.cleanupOrphanedMetadata();
-        if (cleanedCount > 0) {
-          console.log(`DownloadedSongsManager: Cleaned up ${cleanedCount} orphaned metadata entries`);
-        }
+        await StorageManager.cleanupOrphanedMetadata();
       }
 
       const allMetadata = await StorageManager.getAllDownloadedSongsMetadata();
@@ -37,7 +33,6 @@ const DownloadedSongsManager = ({
       if (!allMetadata || Object.keys(allMetadata).length === 0) {
         setDownloadedSongs([]);
         setDownloadedSongsMetadata({});
-        console.log('DownloadedSongsManager: No downloaded songs found');
         return [];
       }
 
@@ -136,8 +131,6 @@ const DownloadedSongsManager = ({
   // Remove a downloaded song
   const removeDownloadedSong = useCallback(async (songId) => {
     try {
-      console.log(`DownloadedSongsManager: Removing downloaded song ${songId}`);
-      
       // Remove using StorageManager
       await StorageManager.removeDownloadedSongMetadata(songId);
       

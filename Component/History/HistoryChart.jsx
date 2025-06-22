@@ -20,22 +20,19 @@ export const HistoryChart = ({ weeklyStats }) => {
   const maxValue = Math.max(...weeklyStats.dailyStats, 1);
   const maxHeight = CHART_HEIGHT - 40; // Leave space for labels
 
-  // Format time for display
+  // Format time for display using consistent formatting
   const formatTime = (milliseconds) => {
-    const hours = Math.floor(milliseconds / (1000 * 60 * 60));
-    const minutes = Math.floor((milliseconds % (1000 * 60 * 60)) / (1000 * 60));
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    } else if (minutes > 0) {
-      return `${minutes}m`;
-    } else {
-      return '<1m';
-    }
+    return historyManager.constructor.formatTimeForStats(milliseconds);
   };
 
   // Get total listening time for the week
   const totalWeekTime = weeklyStats.dailyStats.reduce((sum, time) => sum + time, 0);
+
+  // Calculate active days (days with listening time > 0)
+  const activeDays = weeklyStats.dailyStats.filter(time => time > 0).length;
+
+  // Calculate proper daily average (total time / active days, not total days)
+  const dailyAverage = activeDays > 0 ? totalWeekTime / activeDays : 0;
 
   return (
     <View style={styles.container}>
@@ -126,19 +123,19 @@ export const HistoryChart = ({ weeklyStats }) => {
             Songs
           </Text>
         </View>
-        
+
         <View style={styles.statItem}>
           <Text style={[styles.statValue, { color: colors.text }]}>
-            {Math.round(totalWeekTime / (1000 * 60 * 60 * 24 * 7) * 100) / 100}h
+            {formatTime(dailyAverage)}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
             Daily Avg
           </Text>
         </View>
-        
+
         <View style={styles.statItem}>
           <Text style={[styles.statValue, { color: colors.text }]}>
-            {weeklyStats.dailyStats.filter(time => time > 0).length}
+            {activeDays}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
             Active Days

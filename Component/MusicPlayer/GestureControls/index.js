@@ -1,26 +1,19 @@
 // Export all gesture control components and hooks
 
-// Volume Gesture Control
-export { 
-  useVolumeGestureControl, 
-  volumeBarContainerStyle 
-} from './VolumeGestureControl';
-
 // Navigation Gesture Control
-export { 
-  useNavigationGestureControl 
+export {
+  useNavigationGestureControl
 } from './NavigationGestureControl';
 
 // Tap-to-Close Gesture Control
-export { 
-  useTapToCloseGestureControl 
+export {
+  useTapToCloseGestureControl
 } from './TapToCloseGestureControl';
 
 // Gesture Manager Components
 export {
   GestureManager,
-  SimpleGestureManager,
-  VolumeOnlyGestureManager
+  SimpleGestureManager
 } from './GestureManager';
 
 // Test Component (for development/testing only)

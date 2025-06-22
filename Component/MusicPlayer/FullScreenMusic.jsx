@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useMemo } from "react";
 import { Dimensions, ImageBackground, View, Pressable } from "react-native";
 import FastImage from "react-native-fast-image";
 import LinearGradient from "react-native-linear-gradient";
@@ -19,7 +19,7 @@ import { OfflineBanner, LocalTracksList, useOffline } from '../Offline';
 import { useThemeManager } from './ThemeManager';
 import { TidalSourceSwitcher, useTidalIntegration } from './TidalIntegration';
 import { useNavigationHandler, BackButtonHandler } from './NavigationHandler';
-// import { useNavigationBreadcrumbs } from '../../hooks/useNavigationBreadcrumbs.jsx';
+
 import { useLocalTracks, LocalTracksErrorBoundary } from './LocalTracks';
 import {
   FullScreenMusicMenuButton,
@@ -37,6 +37,11 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
   const { musicPreviousScreen } = useContext(Context);
   const { getArtworkSourceFromHook } = useDynamicArtwork();
   const [isLyricsActive, setIsLyricsActive] = useState(false);
+
+  // Memoize artwork source to prevent excessive hook calls
+  const currentArtworkSource = useMemo(() => {
+    return getArtworkSourceFromHook(currentPlaying);
+  }, [currentPlaying?.id, currentPlaying?.artwork, currentPlaying?.isLocal, currentPlaying?.sourceType, getArtworkSourceFromHook]);
 
   const { getTextColor, getBackgroundOverlay, getGradientColors } = useThemeManager();
   const { isOffline } = useOffline();
@@ -98,12 +103,12 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
       musicPreviousScreen={musicPreviousScreen}
     >
       <Animated.View entering={FadeInDown.delay(200)} style={{ backgroundColor: "rgb(0,0,0)", flex: 1 }}>
-        {((currentPlaying && currentPlaying.sourceType === 'mymusic') || isOffline) && (
+        {((currentPlaying && (currentPlaying.sourceType === 'mymusic' || currentPlaying.isLocal)) || isOffline) && (
           <FastImage
-            source={getArtworkSourceFromHook(currentPlaying)}
+            source={currentArtworkSource}
             style={{ width: width, height: height, position: 'absolute', top: 0, left: 0 }}
             resizeMode={FastImage.resizeMode.cover}
-            key={`dynamic-bg-${JSON.stringify(getArtworkSourceFromHook(currentPlaying))}`}
+            key={`dynamic-bg-${JSON.stringify(currentArtworkSource)}`}
           />
         )}
 
@@ -129,11 +134,11 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
         </LocalTracksErrorBoundary>
 
         <ImageBackground
-          source={getArtworkSourceFromHook(currentPlaying)}
+          source={currentArtworkSource}
           style={{ flex: 1 }}
           resizeMode="cover"
           blurRadius={isLyricsActive ? 25 : 10}
-          key={`bg-${JSON.stringify(getArtworkSourceFromHook(currentPlaying))}`}
+          key={`bg-${JSON.stringify(currentArtworkSource)}`}
         >
           <View style={{ flex: 1, backgroundColor: getBackgroundOverlay() }}>
             <OfflineBanner />
@@ -152,7 +157,6 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
                   zIndex: 10,
                   padding: 8,
                   borderRadius: 20,
-                  backgroundColor: pressed ? getTextColor('secondary') : 'transparent',
                 }
               ]}
             >
@@ -174,7 +178,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
                 isOffline={isOffline}
                 Index={Index}
                 onLyricsVisibilityChange={handleLyricsVisibilityChange}
-                currentArtworkSource={getArtworkSourceFromHook(currentPlaying)}
+                currentArtworkSource={currentArtworkSource}
               />
               <View style={{ width: 8 }} />
               <FullScreenMusicMenuButton
@@ -186,7 +190,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
             <Spacer height={5} />
             <AlbumArtworkDisplay
               currentPlaying={currentPlaying}
-              getArtworkSourceFromHook={getArtworkSourceFromHook}
+              artworkSource={currentArtworkSource}
               onClose={handlePlayerCloseAction}
             />
             <Spacer height={20} />

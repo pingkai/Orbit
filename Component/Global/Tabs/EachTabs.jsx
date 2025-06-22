@@ -1,3 +1,4 @@
+
 import { Dimensions, Pressable, Text, View } from "react-native";
 import Animated, {ZoomIn, ZoomOut} from "react-native-reanimated";
 import {memo} from "react";
@@ -22,13 +23,11 @@ function EachTabs({item,isActive,index,setActive}) {
             }}>{item}</Text>
         </View>}
         {isActive &&  <Animated.View entering={ZoomIn.duration(300)} exiting={ZoomOut.duration(300)} style={{
-            // width:width * 0.02,
-            // height:width * 0.02,
-            backgroundColor:"#32CD32",
+            backgroundColor: theme.colors.tabBarActive || theme.colors.primary,
             borderRadius:100000000000,
             paddingVertical:7,
         }}><Text style={{
-            color:isActive ? "black" : theme.colors.textSecondary,
+            color: isActive ? "white" : theme.colors.textSecondary,
             fontSize:width * 0.04,
             fontFamily:"roboto",
             fontWeight:700,

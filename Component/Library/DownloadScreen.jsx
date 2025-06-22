@@ -167,10 +167,7 @@ export default function DownloadScreen(props) {
       setIsLoading(true);
 
       // Clean up orphaned metadata first
-      const cleanedCount = await StorageManager.cleanupOrphanedMetadata();
-      if (cleanedCount > 0) {
-        console.log(`Cleaned up ${cleanedCount} orphaned metadata entries`);
-      }
+      await StorageManager.cleanupOrphanedMetadata();
 
       const allMetadata = await StorageManager.getAllDownloadedSongsMetadata();
 
@@ -187,7 +184,6 @@ export default function DownloadScreen(props) {
           try {
             // Ensure metadata and id exist
             if (!metadata || !metadata.id) {
-              console.warn('Skipping invalid metadata entry.');
               return null;
             }
 
@@ -195,7 +191,6 @@ export default function DownloadScreen(props) {
             const songExists = await safeExists(songPath);
 
             if (!songExists) {
-              console.warn(`Song file not found for ID: ${metadata.id} (${metadata.title}) at path ${songPath}. Skipping.`);
               return null;
             }
 
@@ -250,7 +245,6 @@ export default function DownloadScreen(props) {
       // Show short toast notification
       ToastAndroid.show('Song deleted', ToastAndroid.SHORT);
     } catch (error) {
-      console.error('Error deleting song:', error);
       ToastAndroid.show('Error deleting song', ToastAndroid.SHORT);
     }
   };

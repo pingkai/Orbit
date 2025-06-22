@@ -3,7 +3,12 @@ import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityI
 import { useContext } from "react";
 import Context from "../../Context/Context";
 import { Pressable } from "react-native";
-import { Repeats } from "../../Utils/Repeats";
+// Repeat constants
+const Repeats = {
+    NoRepeat: "repeat-off",
+    RepeatAll: "repeat",
+    RepeatOne: "repeat-once"
+};
 import { RepeatMode } from 'react-native-track-player';
 
 import { SetRepeatMode } from "../../MusicPlayerFunctions";

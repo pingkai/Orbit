@@ -41,48 +41,72 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
     try {
       // Check if this is the current track and get appropriate animation
       if (isCurrentTrack) {
-        return playerState.state === "playing" 
-          ? require("../../Images/playing.gif") 
+        return playerState.state === "playing"
+          ? require("../../Images/playing.gif")
           : require("../../Images/songPaused.gif");
       }
-      
-      // For other tracks, handle different artwork formats
-      if (!artwork) {
-        // Use static image instead of animated GIF
-        return getDefaultImage();
-      }
-      
-      // Handle numeric artwork values (which come from local files)
-      if (typeof artwork === 'number') {
-        return artwork; // If it's a require() result, return it directly
-      }
-      
-      // Handle artwork as object with URI
-      if (typeof artwork === 'object' && artwork.uri) {
-        // Ensure URI is not null or undefined
-        if (!artwork.uri) {
-          // Use static image instead of animated GIF
-          return getDefaultImage();
+
+      // For downloaded/local tracks, prioritize songData artwork first
+      if (songData && (songData.isLocal || songData.sourceType === 'mymusic' || songData.sourceType === 'downloaded' || songData.path)) {
+        // First check songData artwork (for downloaded songs)
+        if (songData.artwork) {
+
+          // Handle require() result (number)
+          if (typeof songData.artwork === 'number') {
+            return songData.artwork;
+          }
+          // Handle object with uri property
+          if (typeof songData.artwork === 'object' && songData.artwork.uri) {
+            return songData.artwork;
+          }
+          // Handle string URIs
+          if (typeof songData.artwork === 'string') {
+            // For file:// paths, return directly
+            if (songData.artwork.startsWith('file://')) {
+              return { uri: songData.artwork };
+            }
+            // For other paths, add file:// prefix if needed
+            if (songData.artwork.startsWith('/')) {
+              return { uri: `file://${songData.artwork}` };
+            }
+            return { uri: songData.artwork };
+          }
         }
-        return artwork;
       }
-      
-      // Handle local file paths for downloaded songs
-      if (typeof artwork === 'string') {
-        // Check if it's a local file path that needs file:// prefix
-        if (artwork.startsWith('/') && !artwork.startsWith('file://')) {
-          return { uri: `file://${artwork}` };
+
+      // Fallback to artwork prop for other tracks
+      if (artwork) {
+        // Handle numeric artwork values (which come from local files)
+        if (typeof artwork === 'number') {
+          return artwork; // If it's a require() result, return it directly
         }
-        
-        // Handle file:// paths
-        if (artwork.startsWith('file://')) {
+
+        // Handle artwork as object with URI
+        if (typeof artwork === 'object' && artwork.uri) {
+          // Ensure URI is not null or undefined
+          if (!artwork.uri) {
+            return getDefaultImage();
+          }
+          return artwork;
+        }
+
+        // Handle local file paths for downloaded songs
+        if (typeof artwork === 'string') {
+          // Check if it's a local file path that needs file:// prefix
+          if (artwork.startsWith('/') && !artwork.startsWith('file://')) {
+            return { uri: `file://${artwork}` };
+          }
+
+          // Handle file:// paths
+          if (artwork.startsWith('file://')) {
+            return { uri: artwork };
+          }
+
+          // Handle remote URLs
           return { uri: artwork };
         }
-        
-        // Handle remote URLs
-        return { uri: artwork };
       }
-      
+
       // Default fallback - use static image instead of animated GIF
       return getDefaultImage();
     } catch (error) {
@@ -93,7 +117,11 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
   
   // Function to get a default image for songs without artwork
   const getDefaultImage = () => {
-    // Use static image instead of animated GIFs in queue view
+    // Check if this is a local track
+    const isLocal = songData?.isLocal || songData?.sourceType === 'mymusic' || songData?.sourceType === 'downloaded' || songData?.path ||
+                   (songData?.url && (songData.url.startsWith('file://') || songData.url.includes('content://') || songData.url.includes('/storage/')));
+
+    // Use Music.jpeg for local tracks, Music.jpeg for others
     return require('../../Images/Music.jpeg');
   };
   

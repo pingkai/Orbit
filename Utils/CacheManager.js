@@ -191,22 +191,19 @@ export const CacheManager = {
   // Clear old cache entries to prevent storage full errors
   clearOldCacheEntries: async () => {
     try {
-      console.log("Running emergency cache cleanup to prevent storage full errors");
-      
       // Get all keys in AsyncStorage
       const keys = await AsyncStorage.getAllKeys();
-      
+
       // Filter cache keys
-      const cacheKeys = keys.filter(key => 
-        key.startsWith('playlist_') || 
-        key.startsWith('album_') || 
+      const cacheKeys = keys.filter(key =>
+        key.startsWith('playlist_') ||
+        key.startsWith('album_') ||
         key.startsWith('api_cache_')
       );
-      
+
       // If we have a lot of cached items, remove the older ones
       if (cacheKeys.length > 20) {
         const keysToRemove = cacheKeys.slice(0, cacheKeys.length - 10);
-        console.log(`Removing ${keysToRemove.length} old cache entries`);
         await AsyncStorage.multiRemove(keysToRemove);
       }
       

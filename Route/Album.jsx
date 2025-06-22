@@ -13,7 +13,7 @@ import { getAlbumData } from "../Api/Album";
 import FormatArtist from "../Utils/FormatArtists";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LinearGradient from "react-native-linear-gradient";
-// import { useNavigationBreadcrumbs } from '../hooks/useNavigationBreadcrumbs.jsx';
+
 
 
 // AsyncStorage keys
@@ -47,13 +47,7 @@ export const Album = ({route}) => {
   const [id, setId] = useState(routeId);
   const [source, setSource] = useState(route?.params?.source || null);
 
-  // Navigation breadcrumbs - temporarily disabled
-  // const { goBack } = useNavigationBreadcrumbs({
-  //   screenName: 'Album',
-  //   displayName: route?.params?.name || Data?.data?.name || 'Album',
-  //   params: route?.params || {},
-  //   source: route?.params?.source || 'unknown'
-  // });
+
   
   // When component mounts, check if we have a route ID - if not, try to recover from AsyncStorage
   useEffect(() => {
@@ -111,7 +105,7 @@ export const Album = ({route}) => {
     recoverAlbumData();
   }, [routeId, route?.params?.source, route?.params?.language, route?.params?.searchText, navigation]);
   
-  // Handle back button press - now handled by useNavigationBreadcrumbs hook
+
 
   // Clean up AsyncStorage when leaving album
   const cleanupAlbumData = async () => {

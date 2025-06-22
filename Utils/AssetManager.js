@@ -174,21 +174,17 @@ class AssetManager {
    * Handle low memory warnings
    */
   handleLowMemory() {
-    console.log('⚠️ Low memory warning - clearing non-critical caches');
-    
     // Clear half of the image cache (keep most recent)
     const imageCacheEntries = Array.from(this.imageCache.entries());
     const keepCount = Math.floor(imageCacheEntries.length / 2);
-    
+
     this.imageCache.clear();
     imageCacheEntries.slice(-keepCount).forEach(([key, value]) => {
       this.imageCache.set(key, value);
     });
-    
+
     // Clear disk cache but keep memory cache
     FastImage.clearDiskCache();
-    
-    console.log(`🧹 Reduced image cache from ${imageCacheEntries.length} to ${keepCount} entries`);
   }
 
   /**

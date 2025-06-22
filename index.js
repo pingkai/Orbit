@@ -1,8 +1,7 @@
 /**
  * @format
  */
-// Apply NativeEventEmitter fixes before importing React Native components
-import './Utils/NativeEventEmitterFix';
+
 
 // Import crypto polyfill before any other imports that might use crypto
 import 'react-native-get-random-values';

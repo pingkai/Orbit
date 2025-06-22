@@ -12,6 +12,3 @@ export {
   LargeDownloadControl
 } from './DownloadControl';
 export { useDownload } from './useDownload';
-
-// Test component (for development/testing purposes)
-export { DownloadTest } from './DownloadTest';

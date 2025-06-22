@@ -101,7 +101,7 @@ const performCacheCleanup = async () => {
       const totalSizeBytes = validCacheItems.reduce((sum, item) => sum + item.size, 0);
       const totalSizeMB = totalSizeBytes / (1024 * 1024);
       
-      console.log(`Current cache size: ${totalSizeMB.toFixed(2)} MB, Items: ${validCacheItems.length}`);
+
       
       // Check for expired items (already handled by CacheManager, but good for cleanup)
       const currentTime = new Date().getTime();
@@ -118,7 +118,6 @@ const performCacheCleanup = async () => {
       
       // If cache is too large, remove the oldest items until under limit
       if (totalSizeMB > MAX_CACHE_SIZE_MB) {
-        console.log(`Cache exceeds size limit (${totalSizeMB.toFixed(2)}MB > ${MAX_CACHE_SIZE_MB}MB)`);
         
         // Sort by timestamp (oldest first)
         validCacheItems.sort((a, b) => a.data.timestamp - b.data.timestamp);
@@ -138,7 +137,6 @@ const performCacheCleanup = async () => {
         }
         
         if (itemsToRemove.length > 0) {
-          console.log(`Removing ${itemsToRemove.length} cache items to reduce size`);
           await AsyncStorage.multiRemove(itemsToRemove);
         }
       }
@@ -146,7 +144,6 @@ const performCacheCleanup = async () => {
     
     return true;
   } catch (error) {
-    console.error('Error during cache cleanup:', error);
     return false;
   }
 };
@@ -159,12 +156,11 @@ const validateCacheVersion = async () => {
     const storedVersion = await AsyncStorage.getItem('cache_version');
     
     if (storedVersion !== CACHE_VERSION) {
-      console.log(`Cache version changed (${storedVersion || 'none'} -> ${CACHE_VERSION}), clearing cache`);
       await clearCache();
       await AsyncStorage.setItem('cache_version', CACHE_VERSION);
     }
   } catch (error) {
-    console.error('Error validating cache version:', error);
+    // Silent error handling
   }
 };
 

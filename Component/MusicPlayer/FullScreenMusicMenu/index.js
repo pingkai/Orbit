@@ -6,4 +6,3 @@
 export { FullScreenMusicMenuButton } from './FullScreenMusicMenuButton';
 export { FullScreenMusicMenuModal } from './FullScreenMusicMenuModal';
 export { useFullScreenMusicMenu } from './useFullScreenMusicMenu';
-export { debugCurrentPlaying, debugMenuAction, validateSongForPlaylist, validateNavigationData } from './MenuDebugHelper';

@@ -6,7 +6,7 @@ import { searchAll } from "../Api/Search";
 import EachAlbumCard from "../Component/Global/EachAlbumCard";
 import EachPlaylistCard from "../Component/Global/EachPlaylistCard";
 import EachSongCard from "../Component/Global/EachSongCard";
-import navigationBreadcrumbs from '../Utils/NavigationBreadcrumbs';
+
 
 const { width } = Dimensions.get('window');
 
@@ -17,29 +17,19 @@ export const Search = ({route}) => {
   const [loading, setLoading] = useState(false);
   const backAttempted = useRef(false);
 
-  // Add Search screen to breadcrumbs when component mounts
-  useEffect(() => {
-    navigationBreadcrumbs.addBreadcrumb({
-      screenName: 'Search',
-      displayName: 'Search',
-      params: { searchText },
-      source: 'initial'
-    });
-  }, []);
+
   
   // Simple direct approach for back button
   useEffect(() => {
     const backAction = () => {
       // If we've already attempted to go back, go directly to Home
       if (backAttempted.current) {
-        console.log('Second back attempt detected - forcing HOME navigation');
         navigation.navigate('Home', { screen: 'HomePage' });
         return true;
       }
-      
+
       // First back attempt - set flag and try to go back normally
       backAttempted.current = true;
-      console.log('First back attempt - setting flag');
       
       // Reset the flag after a delay
       setTimeout(() => {
@@ -59,9 +49,8 @@ export const Search = ({route}) => {
   useEffect(() => {
     navigation.setOptions({
       headerLeft: () => (
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => {
-            console.log('Cross icon - direct navigation to Home');
             navigation.navigate('Home', { screen: 'HomePage' });
           }}
           style={{ marginLeft: 15, padding: 10 }}
@@ -81,7 +70,7 @@ export const Search = ({route}) => {
       const results = await searchAll(searchText);
       setSearchResults(results);
     } catch (error) {
-      console.error('Search error:', error);
+      // Silent error handling
     } finally {
       setLoading(false);
     }
@@ -117,14 +106,6 @@ export const Search = ({route}) => {
       <EachAlbumCard
         item={item}
         onPress={() => {
-          // Add Search screen to breadcrumbs before navigating
-          navigationBreadcrumbs.addBreadcrumb({
-            screenName: 'Search',
-            displayName: 'Search',
-            params: { searchText },
-            source: 'navigation'
-          });
-
           navigation.navigate('Album', {
             id: item.id,
             name: item.title || item.name,
@@ -310,7 +291,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,  // Increased from 8
     marginBottom: 16,
     borderRadius: 8,
-    backgroundColor: Color.backgroundColor2,
+    backgroundColor: '#2A2A2A',
   },
   playlistGrid: {
     paddingHorizontal: 16,

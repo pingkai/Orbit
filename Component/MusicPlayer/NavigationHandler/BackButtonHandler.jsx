@@ -23,7 +23,7 @@ export const BackButtonHandler = ({
   const { handleBackNavigation } = useNavigationHandler({
     musicPreviousScreen,
     onNavigationChange: (path, params) => {
-      console.log('BackButtonHandler: Navigation changed to:', path, params);
+      // Silent navigation change handling
     }
   });
 

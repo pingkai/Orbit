@@ -5,12 +5,18 @@ import TrackPlayer, { Event, useTrackPlayerEvents } from "react-native-track-pla
 import { getRecommendedSongs } from "../Api/Recommended";
 import { AddSongsToQueue } from "../MusicPlayerFunctions";
 import FormatArtist from "../Utils/FormatArtists";
-import { Repeats } from "../Utils/Repeats";
+
 import { SetQueueSongs } from "../LocalStorage/storeQueue";
 import { EachSongMenuModal } from "../Component/Global/EachSongMenuModal";
 import { CacheManager } from "../Utils/CacheManager";
 import historyManager from "../Utils/HistoryManager";
 
+// Repeat constants
+const Repeats = {
+    NoRepeat: "repeat-off",
+    RepeatAll: "repeat",
+    RepeatOne: "repeat-once"
+};
 
 const events = [
     Event.PlaybackActiveTrackChanged,

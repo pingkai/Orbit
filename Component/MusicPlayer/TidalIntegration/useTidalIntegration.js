@@ -30,10 +30,8 @@ export const useTidalIntegration = (options = {}) => {
       setIsLoading(true);
       const enabled = await GetTidalEnabled();
       setTidalEnabled(enabled);
-      console.log('useTidalIntegration: Loaded Tidal preference:', enabled);
       return enabled;
     } catch (error) {
-      console.error('useTidalIntegration: Error loading Tidal preference:', error);
       setTidalEnabled(false);
       return false;
     } finally {

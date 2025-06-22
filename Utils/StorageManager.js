@@ -222,14 +222,12 @@ const cleanupOrphanedMetadata = async () => {
       const songExists = await safeExists(songPath);
 
       if (!songExists) {
-        console.log(`Found orphaned metadata for song: ${metadata.title} (ID: ${songId})`);
         orphanedIds.push(songId);
       }
     }
 
     // Remove orphaned metadata
     if (orphanedIds.length > 0) {
-      console.log(`Cleaning up ${orphanedIds.length} orphaned metadata entries`);
       for (const songId of orphanedIds) {
         delete allMetadata[songId];
       }
@@ -242,7 +240,6 @@ const cleanupOrphanedMetadata = async () => {
 
     return orphanedIds.length;
   } catch (error) {
-    console.error('Error cleaning up orphaned metadata:', error);
     return 0;
   }
 };

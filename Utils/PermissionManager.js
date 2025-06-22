@@ -32,7 +32,6 @@ export const requestStoragePermission = async () => {
 
     return granted === PermissionsAndroid.RESULTS.GRANTED;
   } catch (error) {
-    console.error('Error requesting storage permission:', error);
     return false;
   }
 };

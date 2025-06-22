@@ -3,7 +3,7 @@ import { MainWrapper } from "../../Layout/MainWrapper";
 import { PaddingConatiner } from "../../Layout/PaddingConatiner";
 import { Pressable, ScrollView, Switch, ToastAndroid, View, Modal } from "react-native";
 import { PlainText } from "../../Component/Global/PlainText";
-import { Dropdown } from "react-native-element-dropdown";
+import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 
 
 import {
@@ -12,13 +12,13 @@ import {
   GetPlaybackQuality,
   GetThemePreference,
   GetColorScheme,
-  GetTidalEnabled,
+  // GetTidalEnabled,
   SetDownloadPath,
   SetFontSizeValue,
   SetPlaybackQuality,
   SetThemePreference,
   SetColorScheme,
-  SetTidalEnabled
+  // SetTidalEnabled
 
 } from "../../LocalStorage/AppSettings";
 import { useEffect, useState } from "react";
@@ -33,7 +33,7 @@ export const SettingsPage = ({navigation}) => {
   const [Download, setDownload] = useState("");
   const [themePreference, setThemePreference] = useState("");
   const [colorScheme, setColorScheme] = useState("");
-  const [tidalEnabled, setTidalEnabled] = useState(false);
+  // const [tidalEnabled, setTidalEnabled] = useState(false);
 
   
 
@@ -82,10 +82,10 @@ export const SettingsPage = ({navigation}) => {
     setColorScheme(data);
   }
 
-  async function GetTidalEnabledPreference(){
-    const data = await GetTidalEnabled();
-    setTidalEnabled(data);
-  }
+  // async function GetTidalEnabledPreference(){
+  //   const data = await GetTidalEnabled();
+  //   setTidalEnabled(data);
+  // }
   
   
 
@@ -139,16 +139,16 @@ export const SettingsPage = ({navigation}) => {
     );
   }
 
-  async function handleTidalToggle() {
-    const newValue = !tidalEnabled;
-    setTidalEnabled(newValue);
-    await SetTidalEnabled(newValue);
-    ToastAndroid.showWithGravity(
-      `Tidal ${newValue ? 'enabled' : 'disabled'}. You can now ${newValue ? 'switch between Saavn and Tidal' : 'only use Saavn'} for music.`,
-      ToastAndroid.LONG,
-      ToastAndroid.CENTER,
-    );
-  }
+  // async function handleTidalToggle() {
+  //   const newValue = !tidalEnabled;
+  //   setTidalEnabled(newValue);
+  //   await SetTidalEnabled(newValue);
+  //   ToastAndroid.showWithGravity(
+  //     `Tidal ${newValue ? 'enabled' : 'disabled'}. You can now ${newValue ? 'switch between Saavn and Tidal' : 'only use Saavn'} for music.`,
+  //     ToastAndroid.LONG,
+  //     ToastAndroid.CENTER,
+  //   );
+  // }
   
   useEffect(() => {
     GetFontSize();
@@ -156,7 +156,7 @@ export const SettingsPage = ({navigation}) => {
     GetDownLoad();
     GetTheme();
     GetColorSchemePreference();
-    GetTidalEnabledPreference();
+    // GetTidalEnabledPreference();
 
   }, []);
   
@@ -176,7 +176,7 @@ export const SettingsPage = ({navigation}) => {
           <EachDropDownWithLabel data={DownloadPath} text={"Download Path"} placeholder={Download} OnChange={SetDownLoad}/>
           <ThemeToggle themeMode={themePreference} onToggle={handleThemeToggle}/>
           <EachDropDownWithLabel data={getColorSchemeOptions()} text={"Color Scheme"} placeholder={colorScheme} OnChange={handleColorSchemeChange}/>
-          <TidalToggle tidalEnabled={tidalEnabled} onToggle={handleTidalToggle}/>
+          {/* <TidalToggle tidalEnabled={tidalEnabled} onToggle={handleTidalToggle}/> */}
 
 
 
@@ -234,39 +234,48 @@ function ThemeToggle({themeMode, onToggle}) {
   );
 }
 
-function TidalToggle({tidalEnabled, onToggle}) {
-  const { colors } = useTheme();
-  return (
-    <Pressable style={{
-      backgroundColor: colors.settingsButtonBg,
-      padding: 20,
-      borderRadius: 10,
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: 10,
-    }}>
-      <View>
-        <PlainText text={"Tidal (FLAC Quality)"} style={{ color: colors.text }}/>
-        <SmallText text={"Enable high-quality music from Tidal"} style={{ color: colors.text, opacity: 0.7, marginTop: 2 }}/>
-      </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <PlainText text={tidalEnabled ? 'On' : 'Off'} style={{ color: colors.text }}/>
-        <Switch
-          trackColor={{ false: '#767577', true: colors.primary }}
-          thumbColor={tidalEnabled ? '#f5dd4b' : '#f4f3f4'}
-          ios_backgroundColor="#3e3e3e"
-          onValueChange={onToggle}
-          value={tidalEnabled}
-          style={{ marginLeft: 10 }}
-        />
-      </View>
-    </Pressable>
-  );
-}
+// function TidalToggle({tidalEnabled, onToggle}) {
+//   const { colors } = useTheme();
+//   return (
+//     <Pressable style={{
+//       backgroundColor: colors.settingsButtonBg,
+//       padding: 20,
+//       borderRadius: 10,
+//       flexDirection: "row",
+//       justifyContent: "space-between",
+//       alignItems: "center",
+//       marginBottom: 10,
+//     }}>
+//       <View>
+//         <PlainText text={"Tidal (FLAC Quality)"} style={{ color: colors.text }}/>
+//         <SmallText text={"Enable high-quality music from Tidal"} style={{ color: colors.text, opacity: 0.7, marginTop: 2 }}/>
+//       </View>
+//       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+//         <PlainText text={tidalEnabled ? 'On' : 'Off'} style={{ color: colors.text }}/>
+//         <Switch
+//           trackColor={{ false: '#767577', true: colors.primary }}
+//           thumbColor={tidalEnabled ? '#f5dd4b' : '#f4f3f4'}
+//           ios_backgroundColor="#3e3e3e"
+//           onValueChange={onToggle}
+//           value={tidalEnabled}
+//           style={{ marginLeft: 10 }}
+//         />
+//       </View>
+//     </Pressable>
+//   );
+// }
 
 function EachDropDownWithLabel({data, text, placeholder, OnChange}){
   const { colors } = useTheme();
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedValue, setSelectedValue] = useState(placeholder);
+
+  const handleSelect = (item) => {
+    setSelectedValue(item.value);
+    setIsOpen(false);
+    OnChange(item);
+  };
+
   return (
     <View style={{
       backgroundColor: colors.settingsButtonBg,
@@ -276,32 +285,88 @@ function EachDropDownWithLabel({data, text, placeholder, OnChange}){
       justifyContent: "space-between",
       alignItems: "center",
       marginBottom: 10,
+      zIndex: isOpen ? 1000 : 1,
     }}>
       <PlainText text={text} style={{ color: colors.text }}/>
-      <Dropdown 
-        placeholder={placeholder} 
-        placeholderStyle={{
-          color: colors.text,
-        }} 
-        itemTextStyle={{
-          color: colors.dropdownText,
-        }} 
-        containerStyle={{
-          backgroundColor: colors.dropdownBg,
-          borderRadius: 5,
-          borderWidth: 0,
-        }} 
-        style={{
-          width: 120,
-          backgroundColor: colors.dropdownBg,
-          borderRadius: 5,
-        }} 
-        activeColor={colors.primary + '20'}
-        data={data} 
-        labelField="value" 
-        valueField="value" 
-        onChange={OnChange}
-      />
+
+      <View style={{ position: 'relative' }}>
+        <Pressable
+          onPress={() => setIsOpen(!isOpen)}
+          style={{
+            width: 120,
+            backgroundColor: colors.dropdownBg || colors.settingsButtonBg,
+            borderRadius: 5,
+            padding: 10,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: colors.border || colors.text + '20',
+          }}
+        >
+          <PlainText
+            text={selectedValue || placeholder}
+            style={{
+              color: colors.text,
+              fontSize: 14,
+              flex: 1,
+            }}
+          />
+          <MaterialIcons
+            name={isOpen ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+            size={20}
+            color={colors.text}
+          />
+        </Pressable>
+
+        {isOpen && (
+          <Modal
+            transparent={true}
+            visible={isOpen}
+            onRequestClose={() => setIsOpen(false)}
+          >
+            <Pressable
+              style={{
+                flex: 1,
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+              onPress={() => setIsOpen(false)}
+            >
+              <View style={{
+                backgroundColor: colors.dropdownBg || colors.settingsButtonBg,
+                borderRadius: 10,
+                padding: 10,
+                minWidth: 150,
+                maxHeight: 300,
+              }}>
+                <ScrollView>
+                  {data.map((item, index) => (
+                    <Pressable
+                      key={index}
+                      onPress={() => handleSelect(item)}
+                      style={{
+                        padding: 15,
+                        borderRadius: 5,
+                        backgroundColor: selectedValue === item.value ? colors.primary + '20' : 'transparent',
+                      }}
+                    >
+                      <PlainText
+                        text={item.value}
+                        style={{
+                          color: colors.dropdownText || colors.text,
+                          textAlign: 'center',
+                        }}
+                      />
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+            </Pressable>
+          </Modal>
+        )}
+      </View>
     </View>
   );
 }

@@ -7,7 +7,7 @@ import { useThemeContext } from "../../Context/ThemeContext";
 import LinearGradient from "react-native-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import FastImage from "react-native-fast-image";
-import navigationBreadcrumbs from '../../Utils/NavigationBreadcrumbs';
+
 
 
 export const EachAlbumCard = memo(function EachAlbumCard({image, name, artists, id, mainContainerStyle, Search, source, searchText, language}) {
@@ -90,12 +90,7 @@ export const EachAlbumCard = memo(function EachAlbumCard({image, name, artists, 
                                   source === 'ShowPlaylistofType' ? 'Playlists' :
                                   source === 'LanguageDetail' ? 'Language' : 'Home';
 
-        navigationBreadcrumbs.addBreadcrumb({
-          screenName: currentScreenName,
-          displayName: currentDisplayName,
-          params: { source, searchText, language },
-          source: 'navigation'
-        });
+
 
         // Create params object with source tracking
         const params = {

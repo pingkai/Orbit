@@ -11,8 +11,8 @@ import * as RNFS from 'react-native-fs';
 import { PlayOneSong } from '../../MusicPlayerFunctions';
 import TrackPlayer from 'react-native-track-player';
 
-// Default music image
-const DEFAULT_MUSIC_IMAGE = require('../../Images/Music.jpeg');
+// Default music image for local tracks
+const DEFAULT_LOCAL_MUSIC_IMAGE = require('../../Images/Music.jpeg');
 
 export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
 
@@ -144,7 +144,7 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
           artwork = { uri: song.cover };
         } else {
           // Use Music.jpeg for local tracks
-          artwork = DEFAULT_MUSIC_IMAGE;
+          artwork = DEFAULT_LOCAL_MUSIC_IMAGE;
         }
         
         const singleTrack = {
@@ -301,7 +301,7 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
   const getArtworkForTrack = (track) => {
     // For local tracks, use Music.jpeg as default artwork
     if (track.isLocal || track.path) {
-      return DEFAULT_MUSIC_IMAGE;
+      return require('../../Images/Music.jpeg');
     }
 
     // For online tracks, use cover art if available
@@ -334,8 +334,8 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
       }
       return { uri: track.cover };
     } else {
-      // Use Music.jpeg for all tracks as default
-      return DEFAULT_MUSIC_IMAGE;
+      // Use Music.jpeg for local tracks as default
+      return DEFAULT_LOCAL_MUSIC_IMAGE;
     }
   };
 
@@ -350,7 +350,7 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
       return require("../../Images/songPaused.gif");
     } else {
       // For local songs, use Music.jpeg as default artwork
-      return DEFAULT_MUSIC_IMAGE;
+      return DEFAULT_LOCAL_MUSIC_IMAGE;
     }
   };
 

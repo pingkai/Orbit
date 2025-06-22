@@ -114,10 +114,10 @@ const QueueRenderSongs = memo(() => {
       }
       
       // Format tracks with metadata
-      return Object.values(allMetadata).map(metadata => {
-        const artworkPath = StorageManager.getArtworkPath(metadata.id);
-        const songPath = StorageManager.getSongPath(metadata.id);
-        
+      return await Promise.all(Object.values(allMetadata).map(async metadata => {
+        const artworkPath = await StorageManager.getArtworkPath(metadata.id);
+        const songPath = await StorageManager.getSongPath(metadata.id);
+
         return {
           id: metadata.id,
           url: `file://${songPath}`,
@@ -127,9 +127,10 @@ const QueueRenderSongs = memo(() => {
           localArtworkPath: artworkPath,
           duration: metadata.duration || 0,
           isLocal: true,
-          isDownloaded: true
+          isDownloaded: true,
+          sourceType: 'downloaded'
         };
-      });
+      }));
     } catch (error) {
       console.error('Error getting downloaded tracks:', error);
       return [];
@@ -488,7 +489,6 @@ const QueueRenderSongs = memo(() => {
       const actualIndex = queue.findIndex(track => track.id === trackId);
 
       if (actualIndex === -1) {
-        console.warn(`Track with ID ${trackId} not found in player queue`);
         operationInProgressRef.current = false;
         return;
       }

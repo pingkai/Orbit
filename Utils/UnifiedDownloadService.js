@@ -21,7 +21,6 @@ export class UnifiedDownloadService {
     try {
       // Validate input
       if (!song || !song.id) {
-        console.error('Invalid song object provided to downloadSong');
         ToastAndroid.show('Invalid song data', ToastAndroid.SHORT);
         return false;
       }
@@ -32,8 +31,6 @@ export class UnifiedDownloadService {
         ToastAndroid.show('Song already downloaded', ToastAndroid.SHORT);
         return true;
       }
-
-      console.log(`Starting unified download for: ${song.title} (ID: ${song.id})`);
 
       // Emit download started event
       EventRegister.emit('download-started', song.id);
@@ -52,7 +49,6 @@ export class UnifiedDownloadService {
       const artworkPath = await StorageManager.getArtworkPath(song.id);
 
       // Download song file
-      console.log(`Downloading song to: ${songPath}`);
       const songDownloadSuccess = await downloadFileWithAnalytics(
         downloadUrl, 
         songPath, 

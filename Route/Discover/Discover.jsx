@@ -62,7 +62,7 @@ export const Discover = () => {
         paddingHorizontal:10,
       }}>
         <SmallBentooCard text={"Pop Hits"} image={require("../../Images/pop.png")}  width={width * 0.46} navigate={"pop"}/>
-        <SmallBentooCard text={"Lofi Beats"} image={require("../../Images/lofi.png")} width={width * 0.46} navigate={"lofi"}/>
+        <SmallBentooCard text={"Lofi Beats"} image={require("../../Images/lofi.jpg")} width={width * 0.46} navigate={"lofi"}/>
       </View>
       <PaddingConatiner>
         <Heading text={"Languages"}/>

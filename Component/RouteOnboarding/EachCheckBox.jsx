@@ -1,15 +1,16 @@
 import { SpaceBetween } from "../../Layout/SpaceBetween";
-import BouncyCheckbox from "react-native-bouncy-checkbox";
+import { Pressable, View, Text } from "react-native";
 import { useTheme } from "@react-navigation/native";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 
 export const EachCheckBox = ({checkbox1,checkbox2,onCheck1,onCheck2,data}) => {
   return (
     <SpaceBetween style={{
-      paddingHorizontal:10,
+      paddingHorizontal:5,
       justifyContent:"center",
-      gap:35,
-      marginVertical:10,
+      gap:20,
+      marginVertical:5,
     }}>
       <EachCheck name={checkbox1} data={data} onpress={onCheck1}/>
       <EachCheck name={checkbox2} data={data} onpress={onCheck2}/>
@@ -18,28 +19,61 @@ export const EachCheckBox = ({checkbox1,checkbox2,onCheck1,onCheck2,data}) => {
 };
 function EachCheck({name, onpress, data}){
   const theme = useTheme()
-  return <Animated.View entering={FadeInDown.delay(100)} style={{
-    alignItems:"flex-start",
-    width:100,
-  }}><BouncyCheckbox
-    size={25}
-    fillColor={theme.colors.primary}
-    unfillColor="#FFFFFF"
-    text={name}
-    iconStyle={{ borderColor: "red" }}
-    innerIconStyle={{ borderWidth: 2 }}
-    textStyle={{ fontFamily: "JosefinSans-Regular", color:"white" }}
-    onPress={(isChecked)=>{
-      if (isChecked){
-        data.push(name.toLowerCase())
-      } else {
-        const index = data.indexOf(name.toLowerCase());
-        if (index > -1) {
-          data.splice(index, 1);
-        }
+  const isChecked = data.includes(name.toLowerCase());
 
+  const handlePress = () => {
+    let newData = [...data];
+    if (isChecked) {
+      const index = newData.indexOf(name.toLowerCase());
+      if (index > -1) {
+        newData.splice(index, 1);
       }
-      onpress(data)
-    }}
-  /></Animated.View>
+    } else {
+      newData.push(name.toLowerCase());
+    }
+    onpress(newData);
+  };
+
+  return (
+    <Animated.View entering={FadeInDown.delay(100)} style={{
+      alignItems:"flex-start",
+      width:100,
+    }}>
+      <Pressable
+        onPress={handlePress}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingVertical: 4,
+        }}
+      >
+        <View style={{
+          width: 22,
+          height: 22,
+          borderRadius: 4,
+          borderWidth: 2,
+          borderColor: isChecked ? theme.colors.primary : "#FFFFFF",
+          backgroundColor: isChecked ? theme.colors.primary : "transparent",
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginRight: 8,
+        }}>
+          {isChecked && (
+            <MaterialIcons
+              name="check"
+              size={16}
+              color="#FFFFFF"
+            />
+          )}
+        </View>
+        <Text style={{
+          fontFamily: "JosefinSans-Regular",
+          color: "white",
+          fontSize: 15,
+        }}>
+          {name}
+        </Text>
+      </Pressable>
+    </Animated.View>
+  );
 }

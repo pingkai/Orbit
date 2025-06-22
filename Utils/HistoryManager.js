@@ -63,6 +63,8 @@ class HistoryManager {
     try {
       console.log('HistoryManager: Initializing...');
       await this.ensureWeeklyStatsExist();
+      // Refresh all stats to ensure consistency on app start
+      await this.refreshAllStats();
       console.log('HistoryManager: Initialized successfully');
     } catch (error) {
       console.error('HistoryManager: Initialization failed:', error);
@@ -452,13 +454,19 @@ class HistoryManager {
     }
   }
 
-  // Ensure weekly stats exist
+  // Ensure weekly stats exist and are accurate
   async ensureWeeklyStatsExist() {
     try {
       const existing = await AsyncStorage.getItem(WEEKLY_STATS_KEY);
       if (!existing) {
+        // Create new stats and sync with existing history
         const newStats = createWeeklyStats();
         await AsyncStorage.setItem(WEEKLY_STATS_KEY, JSON.stringify(newStats));
+        // Sync with existing history data
+        await this.syncWeeklyStats();
+      } else {
+        // Verify existing stats are consistent with history
+        await this.syncWeeklyStats();
       }
     } catch (error) {
       console.error('HistoryManager: Error ensuring weekly stats exist:', error);
@@ -495,11 +503,57 @@ class HistoryManager {
     }
   }
 
+  // Sync weekly stats with actual history data to ensure consistency
+  async syncWeeklyStats() {
+    try {
+      const history = await this.getHistory();
+      const now = new Date();
+      const currentWeekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+      currentWeekStart.setHours(0, 0, 0, 0);
+      const weekStartTime = currentWeekStart.getTime();
+      const weekEndTime = weekStartTime + (7 * 24 * 60 * 60 * 1000);
+
+      // Filter history for current week
+      const thisWeekHistory = history.filter(item =>
+        item.lastPlayed >= weekStartTime && item.lastPlayed < weekEndTime
+      );
+
+      // Calculate actual stats from history
+      const actualSongsPlayed = thisWeekHistory.reduce((sum, item) => sum + item.playCount, 0);
+      const actualTotalTime = thisWeekHistory.reduce((sum, item) => sum + item.listenDuration, 0);
+
+      // Calculate daily stats
+      const dailyStats = Array(7).fill(0);
+      thisWeekHistory.forEach(item => {
+        const playDate = new Date(item.lastPlayed);
+        const dayOfWeek = playDate.getDay();
+        dailyStats[dayOfWeek] += item.listenDuration;
+      });
+
+      // Update weekly stats with corrected values
+      const correctedStats = {
+        weekStart: weekStartTime,
+        totalListenTime: actualTotalTime,
+        songsPlayed: actualSongsPlayed,
+        dailyStats: dailyStats,
+      };
+
+      await AsyncStorage.setItem(WEEKLY_STATS_KEY, JSON.stringify(correctedStats));
+      console.log('HistoryManager: Weekly stats synced with history data', correctedStats);
+
+      return correctedStats;
+    } catch (error) {
+      console.error('HistoryManager: Error syncing weekly stats:', error);
+      return await this.getWeeklyStats();
+    }
+  }
+
   // Get history stats
   async getHistoryStats() {
     try {
       const history = await this.getHistory();
-      const weeklyStats = await this.getWeeklyStats();
+      // Sync weekly stats to ensure consistency
+      const weeklyStats = await this.syncWeeklyStats();
 
       const totalSongs = history.length;
       const totalPlayCount = history.reduce((sum, item) => sum + item.playCount, 0);
@@ -524,7 +578,7 @@ class HistoryManager {
     }
   }
 
-  // Format duration for display
+  // Format duration for display (consistent across app)
   formatDuration(milliseconds) {
     if (!milliseconds || milliseconds < 0) return '0:00';
 
@@ -537,6 +591,22 @@ class HistoryManager {
       return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     } else {
       return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+  }
+
+  // Format time for statistics display (hours/minutes format)
+  static formatTimeForStats(milliseconds) {
+    if (!milliseconds || milliseconds < 0) return '<1m';
+
+    const hours = Math.floor(milliseconds / (1000 * 60 * 60));
+    const minutes = Math.floor((milliseconds % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else if (minutes > 0) {
+      return `${minutes}m`;
+    } else {
+      return '<1m';
     }
   }
 
@@ -682,18 +752,40 @@ class HistoryManager {
       currentTrack: this.currentTrack,
       hasCountedPlay: this.hasCountedPlay,
       startTime: this.startTime,
-      lastSavedDuration: this.lastSavedDuration
+      lastSavedDuration: this.lastSavedDuration,
+      duration: this.startTime ? Date.now() - this.startTime : 0
     };
   }
 
-  // Get current tracking info
-  getCurrentTrackingInfo() {
-    return {
-      isTracking: this.isTracking,
-      currentTrack: this.currentTrack,
-      startTime: this.startTime,
-      duration: this.startTime ? Date.now() - this.startTime : 0
-    };
+  // Refresh all statistics to ensure consistency
+  async refreshAllStats() {
+    try {
+      console.log('HistoryManager: Refreshing all statistics...');
+
+      // Sync weekly stats with history data
+      await this.syncWeeklyStats();
+
+      // Clean up any invalid entries
+      const history = await this.getHistory();
+      const validHistory = history.filter(item =>
+        item &&
+        item.id &&
+        item.title &&
+        typeof item.playCount === 'number' &&
+        typeof item.listenDuration === 'number'
+      );
+
+      if (validHistory.length !== history.length) {
+        await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(validHistory));
+        console.log(`HistoryManager: Cleaned up ${history.length - validHistory.length} invalid entries`);
+      }
+
+      console.log('HistoryManager: Statistics refresh completed');
+      return true;
+    } catch (error) {
+      console.error('HistoryManager: Error refreshing statistics:', error);
+      return false;
+    }
   }
 
   // Search history

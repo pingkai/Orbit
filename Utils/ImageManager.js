@@ -10,6 +10,7 @@ export const OPTIMIZED_IMAGES = {
   // Core UI Images (small, essential)
   DEFAULT_ALBUM: require('../Images/default.jpg'),
   DEFAULT_MUSIC: require('../Images/Music.jpeg'),
+  LOCAL_MUSIC: require('../Images/Music.jpeg'),
   DEFAULT_PLAYLIST: require('../Images/wav.png'),
   
   // Animation GIFs (small, essential)
@@ -55,6 +56,9 @@ export const getOptimizedImageSource = (type, customSource = null) => {
     
     case 'music':
       return customSource ? { uri: customSource } : OPTIMIZED_IMAGES.DEFAULT_MUSIC;
+
+    case 'local-music':
+      return customSource ? { uri: customSource } : OPTIMIZED_IMAGES.LOCAL_MUSIC;
     
     case 'playlist':
       return customSource ? { uri: customSource } : OPTIMIZED_IMAGES.DEFAULT_PLAYLIST;
@@ -65,8 +69,7 @@ export const getOptimizedImageSource = (type, customSource = null) => {
     case 'paused':
       return OPTIMIZED_IMAGES.PAUSED_ANIMATION;
     
-    case 'local-music':
-      return OPTIMIZED_IMAGES.LOCAL_MUSIC_A;
+
     
     case 'local-collapsed':
       return OPTIMIZED_IMAGES.LOCAL_MUSIC_B;
@@ -183,6 +186,7 @@ export const preloadCriticalImages = () => {
     OPTIMIZED_IMAGES.PLAYING_ANIMATION,
     OPTIMIZED_IMAGES.PAUSED_ANIMATION,
     OPTIMIZED_IMAGES.DEFAULT_MUSIC,
+    OPTIMIZED_IMAGES.LOCAL_MUSIC,
     OPTIMIZED_IMAGES.DEFAULT_ALBUM,
     OPTIMIZED_IMAGES.LOCAL_MUSIC_A,
     OPTIMIZED_IMAGES.LOCAL_MUSIC_B,

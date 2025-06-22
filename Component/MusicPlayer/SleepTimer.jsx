@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Pressable, Modal, View, Text, StyleSheet, TextInput } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { PlaySong, PauseSong } from '../../MusicPlayerFunctions'; 
+import { PlaySong, PauseSong } from '../../MusicPlayerFunctions';
 import { useThemeContext } from '../../Context/ThemeContext'; // Added for theme support
+import { usePlaybackState } from 'react-native-track-player';
 
 // Global timer state to persist across component unmounts
 let globalTimerRef = null;
 let globalCountdownRef = null;
 let globalEndTime = 0;
+let globalPausedTime = 0; // Track paused duration
 let isGlobalTimerActive = false;
+let isGlobalTimerPaused = false;
 
 const getStyles = (theme, themeMode) => StyleSheet.create({
   container: {
@@ -115,15 +118,18 @@ const getStyles = (theme, themeMode) => StyleSheet.create({
 export const SleepTimerButton = ({ size = 25 }) => {
   const { theme, themeMode } = useThemeContext(); // Added for theme support
   const styles = getStyles(theme, themeMode);
+  const playerState = usePlaybackState(); // Track playback state
   const [isTimerActive, setIsTimerActive] = useState(isGlobalTimerActive);
-  const [modalVisible, setModalVisible] = useState(false); 
-  const [customTime, setCustomTime] = useState(''); 
-  const [timeUnit, setTimeUnit] = useState('minutes'); 
+  const [isTimerPaused, setIsTimerPaused] = useState(isGlobalTimerPaused);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [customTime, setCustomTime] = useState('');
+  const [timeUnit, setTimeUnit] = useState('minutes');
   const [remainingTime, setRemainingTime] = useState(
-    isGlobalTimerActive ? Math.max(0, Math.floor((globalEndTime - Date.now()) / 1000)) : 0
+    isGlobalTimerActive ? Math.max(0, Math.floor((globalEndTime - Date.now() - globalPausedTime) / 1000)) : 0
   );
   const timerRef = useRef(globalTimerRef);
   const countdownRef = useRef(globalCountdownRef);
+  const pauseStartTimeRef = useRef(null);
 
   const timerOptions = [
     { label: '15 minutes', value: 15 * 60 },
@@ -132,14 +138,38 @@ export const SleepTimerButton = ({ size = 25 }) => {
     { label: '1 hour', value: 60 * 60 },
   ];
 
+  // Handle playback state changes for timer pause/resume
+  useEffect(() => {
+    if (!isTimerActive) return;
+
+    console.log('Sleep Timer: Playback state changed to:', playerState.state, 'Timer paused:', isTimerPaused);
+
+    if (playerState.state === 'playing') {
+      // Resume timer if it was paused
+      if (isTimerPaused) {
+        console.log('Sleep Timer: Resuming timer');
+        resumeTimer();
+      }
+    } else if (playerState.state === 'paused' || playerState.state === 'stopped') {
+      // Pause timer when music is paused/stopped
+      if (!isTimerPaused) {
+        console.log('Sleep Timer: Pausing timer');
+        pauseTimer();
+      }
+    }
+  }, [playerState.state, isTimerActive, isTimerPaused]);
+
   // Sync with global timer state on mount
   useEffect(() => {
     if (isGlobalTimerActive) {
-      const secondsRemaining = Math.max(0, Math.floor((globalEndTime - Date.now()) / 1000));
+      const secondsRemaining = Math.max(0, Math.floor((globalEndTime - Date.now() - globalPausedTime) / 1000));
       setRemainingTime(secondsRemaining);
-      setupCountdown(secondsRemaining);
+      setIsTimerPaused(isGlobalTimerPaused);
+      if (!isGlobalTimerPaused) {
+        setupCountdown(secondsRemaining);
+      }
     }
-    
+
     return () => {
       // Don't clear timers on unmount, just save references
       if (timerRef.current) {
@@ -150,6 +180,42 @@ export const SleepTimerButton = ({ size = 25 }) => {
       }
     };
   }, []);
+
+  const pauseTimer = () => {
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+      globalCountdownRef = null;
+    }
+    pauseStartTimeRef.current = Date.now();
+    setIsTimerPaused(true);
+    isGlobalTimerPaused = true;
+  };
+
+  const resumeTimer = () => {
+    console.log('Sleep Timer: resumeTimer called');
+    if (pauseStartTimeRef.current) {
+      const pauseDuration = Date.now() - pauseStartTimeRef.current;
+      globalPausedTime += pauseDuration;
+      globalEndTime += pauseDuration; // Extend end time by pause duration
+      pauseStartTimeRef.current = null;
+      console.log('Sleep Timer: Extended end time by', pauseDuration, 'ms');
+    }
+
+    const secondsRemaining = Math.max(0, Math.floor((globalEndTime - Date.now()) / 1000));
+    console.log('Sleep Timer: Seconds remaining after resume:', secondsRemaining);
+
+    if (secondsRemaining > 0) {
+      setupCountdown();
+      setRemainingTime(secondsRemaining);
+    } else {
+      // Timer expired while paused
+      clearTimer();
+    }
+
+    setIsTimerPaused(false);
+    isGlobalTimerPaused = false;
+  };
 
   const clearTimer = () => {
     if (timerRef.current) {
@@ -163,53 +229,69 @@ export const SleepTimerButton = ({ size = 25 }) => {
       globalCountdownRef = null;
     }
     setIsTimerActive(false);
+    setIsTimerPaused(false);
     isGlobalTimerActive = false;
+    isGlobalTimerPaused = false;
     globalEndTime = 0;
+    globalPausedTime = 0;
     setRemainingTime(0);
+    pauseStartTimeRef.current = null;
   };
 
-  const setupCountdown = (seconds) => {
+  const setupCountdown = () => {
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
     }
-    
+
     countdownRef.current = setInterval(() => {
+      // Only count down if timer is not paused
+      if (isGlobalTimerPaused) {
+        return;
+      }
+
       const secondsRemaining = Math.max(0, Math.floor((globalEndTime - Date.now()) / 1000));
-      
+
       if (secondsRemaining <= 0) {
         clearInterval(countdownRef.current);
         countdownRef.current = null;
         globalCountdownRef = null;
         PauseSong(); // Pause playback when countdown reaches zero
         setIsTimerActive(false);
+        setIsTimerPaused(false);
         isGlobalTimerActive = false;
+        isGlobalTimerPaused = false;
         setRemainingTime(0);
+        globalEndTime = 0;
+        globalPausedTime = 0;
       } else {
         setRemainingTime(secondsRemaining);
       }
     }, 1000);
-    
+
     globalCountdownRef = countdownRef.current;
   };
 
   const setSleepTimer = (seconds) => {
     clearTimer();
     PlaySong(); // Start playback when the timer is set
-    
+
     const endTime = Date.now() + (seconds * 1000);
     globalEndTime = endTime;
-    
-    setupCountdown(seconds);
+    globalPausedTime = 0; // Reset paused time
+
+    setupCountdown();
     setRemainingTime(seconds);
-    
+
     timerRef.current = setTimeout(() => {
       PauseSong(); // Ensure playback stops after the specified duration
       clearTimer();
     }, seconds * 1000);
-    
+
     globalTimerRef = timerRef.current;
     setIsTimerActive(true);
+    setIsTimerPaused(false);
     isGlobalTimerActive = true;
+    isGlobalTimerPaused = false;
     setModalVisible(false);
     setCustomTime('');
   };
@@ -234,10 +316,14 @@ export const SleepTimerButton = ({ size = 25 }) => {
         onPress={() => (isTimerActive ? clearTimer() : setModalVisible(true))}
         style={styles.button}
       >
-        <MaterialCommunityIcons name={isTimerActive ? "timer-off" : "timer-outline"} size={size} color={isTimerActive ? theme.colors.primary : (themeMode === 'light' ? theme.colors.text : theme.colors.icon)} />
+        <MaterialCommunityIcons
+          name={isTimerActive ? (isTimerPaused ? "pause-circle-outline" : "timer-off") : "timer-outline"}
+          size={size}
+          color={isTimerActive ? theme.colors.primary : (themeMode === 'light' ? theme.colors.text : theme.colors.icon)}
+        />
         {isTimerActive && (
-          <Text style={styles.remainingTime}>
-            {formatTime(remainingTime)}
+          <Text style={[styles.remainingTime, isTimerPaused && { color: theme.colors.notification }]}>
+            {formatTime(remainingTime)} {isTimerPaused && ''}
           </Text>
         )}
       </Pressable>

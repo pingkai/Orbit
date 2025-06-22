@@ -166,7 +166,13 @@ async function PauseSong(){
 }
 
 async function SetProgressSong(value){
-  await TrackPlayer.seekTo(value);
+  try {
+    // Ensure value is a valid number and within bounds
+    const seekValue = Math.max(0, parseFloat(value) || 0);
+    await TrackPlayer.seekTo(seekValue);
+  } catch (error) {
+    console.error('Error seeking to position:', error);
+  }
 }
 
 async function PlayNextSong(){

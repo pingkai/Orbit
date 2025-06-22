@@ -24,23 +24,14 @@ async function formatTidalSongForPlayer(tidalSong) {
     // Enhanced URL retrieval with multiple fallback strategies
     let streamingUrl = tidalPreloadManager.getPreloadedUrl(tidalSong.tidalUrl);
 
-    if (streamingUrl) {
-      console.log('Using preloaded Tidal URL for instant playback');
-    } else {
+    if (!streamingUrl) {
       // Check result cache for previously fetched URLs
       streamingUrl = tidalResultCache.getCachedStreamingUrl(tidalSong.tidalUrl);
-
-      if (streamingUrl) {
-        console.log('Using cached Tidal streaming URL for faster playback');
-      }
     }
 
     if (!streamingUrl) {
       // Check if song is in temp cache for faster processing
-      const tempCachedSong = tidalPreloadManager.getTempCachedSong(tidalSong.tidalUrl);
-      if (tempCachedSong) {
-        console.log('Song found in temp cache, prioritizing for faster loading');
-      }
+      tidalPreloadManager.getTempCachedSong(tidalSong.tidalUrl);
 
       // Show loading message for user feedback
       ToastAndroid.show('Getting Tidal streaming URL...', ToastAndroid.SHORT);
@@ -241,7 +232,6 @@ async function preloadTidalStreamingUrl(tidalSong, priority = 10) {
     }
   } catch (error) {
     // Silently fail preloading
-    console.log('Preload error for Tidal song:', error.message);
   }
 }
 
@@ -262,28 +252,16 @@ function preloadTopTidalSongs(tidalSongs, maxCount = 3) {
     tidalPreloadManager.resetForNewSearch();
   }
 
-  console.log(`Enhanced preload strategy: Processing ${tidalSongs.length} Tidal songs`);
-
   // Process all songs - top 3 for preloading, rest for temp caching
   tidalSongs.forEach((song, index) => {
     if (index < maxCount) {
       // Top songs get preloaded for instant playback
-      console.log(`Preloading top song #${index + 1}: ${song.title || song.name}`);
       preloadTidalStreamingUrl(song, index);
     } else {
       // Other songs go to temp cache for faster future access
       tidalPreloadManager.addToTempCache(song);
     }
   });
-
-  // Log enhanced status
-  setTimeout(() => {
-    const newStatus = tidalPreloadManager.getStatus();
-    console.log('Enhanced Tidal Preload Status:', {
-      ...newStatus,
-      strategy: 'Top 3 preloaded, rest temp cached'
-    });
-  }, 1000);
 }
 
 export {

@@ -434,7 +434,6 @@ export const Playlist = ({route}) => {
   
   // If no ID is provided, show an error message
   if (!id) {
-    console.log("No playlist ID available (not in route params or storage)");
     
     return (
       <MainWrapper>

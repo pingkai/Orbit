@@ -262,20 +262,7 @@ export class AudioFileValidator {
    * @param {Object} validationResult - Result from validateFiles
    */
   static logValidationSummary(validationResult) {
-    const { summary, invalidFiles } = validationResult;
-    
-    console.log(`📊 Audio File Validation Summary:`);
-    console.log(`   Total files: ${summary.total}`);
-    console.log(`   ✅ Valid: ${summary.valid}`);
-    console.log(`   ❌ Invalid: ${summary.invalid}`);
-    console.log(`   ⚠️ With warnings: ${summary.warnings}`);
-
-    if (invalidFiles.length > 0) {
-      console.log(`\n❌ Invalid files:`);
-      invalidFiles.forEach((file, index) => {
-        console.log(`   ${index + 1}. ${file.name || file.title || 'Unknown'}: ${file.validationReason}`);
-      });
-    }
+    // Silent validation summary for production
   }
 }
 

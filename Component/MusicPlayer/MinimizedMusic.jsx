@@ -18,8 +18,15 @@ import { useNavigation, useTheme } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Function to get high quality artwork URL
-const getHighQualityArtwork = (artworkUrl) => {
-  if (!artworkUrl) return "https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png";
+const getHighQualityArtwork = (artworkUrl, track = null) => {
+  if (!artworkUrl) {
+    // Check if this is a local track and use Music.jpeg
+    if (track && (track.isLocal || track.sourceType === 'mymusic' || track.path ||
+        (track.url && (track.url.startsWith('file://') || track.url.includes('content://') || track.url.includes('/storage/'))))) {
+      return require('../../Images/Music.jpeg');
+    }
+    return "https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png";
+  }
   
   try {
     // For local files, return as is
@@ -319,7 +326,9 @@ export const MinimizedMusic = memo(({setIndex, color}) => {
   });
   
   function TotalCompletedInpercent(){
-    return (position / duration) * 100
+    if (!duration || duration <= 0) return 0;
+    const progress = Math.min(Math.max((position || 0) / duration, 0), 1) * 100;
+    return Math.round(progress); // Round to avoid floating point precision issues
   }
   
   const size = Dimensions.get("window").height
@@ -345,9 +354,11 @@ export const MinimizedMusic = memo(({setIndex, color}) => {
             flex:1,
           }}>
             <FastImage
-              source={{
-                uri: getHighQualityArtwork(currentPlaying?.artwork),
-              }}
+              source={
+                typeof getHighQualityArtwork(currentPlaying?.artwork, currentPlaying) === 'string'
+                  ? { uri: getHighQualityArtwork(currentPlaying?.artwork, currentPlaying) }
+                  : getHighQualityArtwork(currentPlaying?.artwork, currentPlaying)
+              }
               style={{
                 height: (size *  0.1) - 30,
                 width: (size *  0.1) - 30,

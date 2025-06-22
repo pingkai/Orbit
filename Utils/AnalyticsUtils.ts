@@ -32,9 +32,8 @@ class AnalyticsService {
   setAnalyticsCollectionEnabled = async (enabled: boolean) => {
     try {
       await analyticsInstance.setAnalyticsCollectionEnabled(enabled);
-      console.log(`Analytics collection enabled: ${enabled}`);
     } catch (error) {
-      console.error('Error setting analytics collection state:', error);
+      // Silent error handling for analytics
     }
   };
 
@@ -49,9 +48,8 @@ class AnalyticsService {
         screen_name: screenName,
         screen_class: screenClass || screenName,
       });
-      console.log(`Screen view logged: ${screenName}`);
     } catch (error) {
-      console.error('Error logging screen view:', error);
+      // Silent error handling for analytics
     }
   };
 
@@ -63,9 +61,8 @@ class AnalyticsService {
   logEvent = async (eventName: string, params?: Record<string, any>) => {
     try {
       await analyticsInstance.logEvent(eventName, params);
-      console.log(`Event logged: ${eventName}`, params);
     } catch (error) {
-      console.error(`Error logging event ${eventName}:`, error);
+      // Silent error handling for analytics
     }
   };
 
@@ -77,9 +74,8 @@ class AnalyticsService {
   setUserProperty = async (name: string, value: string) => {
     try {
       await analyticsInstance.setUserProperty(name, value);
-      console.log(`User property set: ${name}=${value}`);
     } catch (error) {
-      console.error(`Error setting user property ${name}:`, error);
+      // Silent error handling for analytics
     }
   };
 

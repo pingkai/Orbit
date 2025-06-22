@@ -40,15 +40,15 @@ export const HistoryScreen = forwardRef((props, ref) => {
   const loadHistoryData = useCallback(async () => {
     try {
       setIsLoading(true);
-      
+
       // Load filtered history
       const history = await historyManager.getFilteredHistory(activeFilter, searchQuery);
       setHistoryData(history);
-      
-      // Load weekly stats
-      const stats = await historyManager.getWeeklyStats();
+
+      // Load and sync weekly stats to ensure consistency
+      const stats = await historyManager.syncWeeklyStats();
       setWeeklyStats(stats);
-      
+
     } catch (error) {
       console.error('Error loading history data:', error);
     } finally {

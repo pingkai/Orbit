@@ -10,17 +10,14 @@ export const useTapToCloseGestureControl = (onClose) => {
   
   /**
    * Creates a tap gesture handler for closing the player
-   * @param {Object} gestureState - Shared values from parent gesture (isDragging, volumeAdjustmentActive, etc.)
+   * @param {Object} gestureState - Shared values from parent gesture (isDragging, etc.)
    * @returns {Gesture} Tap gesture for closing player
    */
   const createTapToCloseGesture = useCallback((gestureState) => {
     return Gesture.Tap().onEnd(() => {
       'worklet';
-      // Only process if we're not in the middle of a volume adjustment or other gesture
-      if (!gestureState.isDragging || 
-          (gestureState.isDragging.value === false && 
-           gestureState.volumeAdjustmentActive && 
-           gestureState.volumeAdjustmentActive.value === 0)) {
+      // Only process if we're not in the middle of another gesture
+      if (!gestureState.isDragging || gestureState.isDragging.value === false) {
         // Can't directly navigate from a worklet, so we need to use runOnJS
         runOnJS(onClose)();
       }
@@ -81,17 +78,12 @@ export const useTapToCloseGestureControl = (onClose) => {
     if (gestureState.isDragging && gestureState.isDragging.value === true) {
       return false;
     }
-    
-    // Don't allow tap if volume adjustment is active
-    if (gestureState.volumeAdjustmentActive && gestureState.volumeAdjustmentActive.value > 0) {
-      return false;
-    }
-    
+
     // Don't allow tap if any other gesture is in progress
     if (gestureState.isGestureInProgress && gestureState.isGestureInProgress.value === true) {
       return false;
     }
-    
+
     return true;
   }, []);
 
