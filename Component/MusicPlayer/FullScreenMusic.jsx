@@ -166,7 +166,8 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
               alignItems: "center",
               justifyContent: "flex-end",
               flexDirection: "row",
-              paddingHorizontal: 10
+              paddingLeft: 10,
+              paddingRight: 2
             }}>
               <LyricsHandler
                 currentPlayingTrack={currentPlaying}
@@ -175,7 +176,7 @@ export const FullScreenMusic = ({ Index, setIndex }) => {
                 onLyricsVisibilityChange={handleLyricsVisibilityChange}
                 currentArtworkSource={getArtworkSourceFromHook(currentPlaying)}
               />
-              <View style={{ width: 20 }} />
+              <View style={{ width: 8 }} />
               <FullScreenMusicMenuButton
                 onPress={() => showMenu()}
                 size={25}
