@@ -9,6 +9,7 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet'
 import { RouteOnboarding } from "./Route/OnboardingScreen/RouteOnboarding";
 import { InitialScreen } from "./Route/InitialScreen";
 import { Album } from './Route/Album';
+import ArtistPage from './Route/ArtistPage';
 import CodePush from "react-native-code-push";
 import { useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -153,6 +154,7 @@ function App(){
               <Stack.Screen name="Onboarding" component={RouteOnboarding} />
                           <Stack.Screen name="MainRoute" component={RootRoute} />
               <Stack.Screen name="Album" component={Album} />
+              <Stack.Screen name="ArtistPage" component={ArtistPage} />
                   </Stack.Navigator>
                 </NavigationContainer>
               </>

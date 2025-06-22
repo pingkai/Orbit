@@ -121,10 +121,10 @@ const ArtistAlbums = ({
         alignItems: 'center',
         marginBottom: 15
       }}>
-        <Heading text="Albums" style={{ color: theme.colors.text, fontSize: 20 }} />
+        <Heading text="Albums" style={{ color: theme.colors.text, fontSize: 20,marginRight:30 }} />
         <SmallText
           text={safeString(`${totalAlbums || visibleAlbums?.length || 0} albums`)}
-          style={{ color: theme.colors.text, opacity: 0.6 }}
+          style={{ color: theme.colors.text, opacity: 0.6, fontSize: 14, marginRight: 10 }}
         />
       </View>
 

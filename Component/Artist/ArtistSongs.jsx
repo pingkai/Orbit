@@ -45,12 +45,12 @@ const ArtistSongs = ({
         justifyContent: 'space-between', 
         alignItems: 'center', 
         marginBottom: 15, 
-        paddingHorizontal: 10 
+        paddingHorizontal: 2 // Change this from 10 to 0
       }}>
-        <Heading text="Top Songs" style={{ color: theme.colors.text, fontSize: 20 }} />
+        <Heading text="Top Songs" style={{ color: theme.colors.text, fontSize: 20, marginRight:30}} />
         <SmallText
           text={safeString(totalSongs > 0 ? `${totalSongs} songs` : `${visibleSongs.length} songs`)}
-          style={{ color: theme.colors.text, opacity: 0.6 }}
+          style={{ color: theme.colors.text, opacity: 0.6, marginRight: 10, fontSize: 14 }}
         />
       </View>
       

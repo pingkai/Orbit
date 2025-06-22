@@ -270,16 +270,11 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
         source: 'music_player'
       });
 
-      navigation.navigate("MainRoute", {
-        screen: 'Home',
-        params: {
-          screen: 'ArtistPage',
-          params: {
-            artistId: String(finalArtistId),
-            artistName: artistName,
-            source: 'FullScreenMusic'
-          }
-        }
+      // Navigate directly to ArtistPage like albums do
+      navigation.navigate("ArtistPage", {
+        artistId: String(finalArtistId),
+        artistName: artistName,
+        source: 'FullScreenMusic'
       });
       ToastAndroid.show(`Opening ${artistName} page`, ToastAndroid.SHORT);
     } catch (error) {
@@ -536,17 +531,11 @@ export const useFullScreenMusicMenu = (currentPlaying, isOffline) => {
           source: 'music_player'
         });
 
-        // Navigate to artist page to show all songs
-        navigation.navigate("MainRoute", {
-          screen: 'Home',
-          params: {
-            screen: 'ArtistPage',
-            params: {
-              artistId: String(finalArtistId),
-              artistName: artistName,
-              source: 'FullScreenMusic'
-            }
-          }
+        // Navigate directly to artist page to show all songs
+        navigation.navigate("ArtistPage", {
+          artistId: String(finalArtistId),
+          artistName: artistName,
+          source: 'FullScreenMusic'
         });
 
         ToastAndroid.show(`Found ${songs.length} songs from ${artistName}`, ToastAndroid.SHORT);

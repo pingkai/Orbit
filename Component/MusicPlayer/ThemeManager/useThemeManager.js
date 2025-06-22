@@ -32,7 +32,7 @@ export const useThemeManager = () => {
       case 'primary':
         return themeMode === 'light' ? theme.colors.text : 'white';
       case 'secondary':
-        return themeMode === 'light' ? '#555555' : theme.colors.secondaryText;
+        return themeMode === 'light' ? '#555555' : '#FFFFFF';
       case 'icon':
         return themeMode === 'light' ? theme.colors.text : theme.colors.icon;
       default:

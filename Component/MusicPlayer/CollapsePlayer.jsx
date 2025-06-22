@@ -4,16 +4,17 @@ import FastImage from 'react-native-fast-image';
 import { useActiveTrack } from 'react-native-track-player';
 import { PlayPauseButton } from './PlayPauseButton';
 import { NextSongButton } from './NextSongButton';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
 // Add other imports as needed
 
 export const CollapsePlayer = ({ setIndex }) => {
   const navigation = useNavigation();
   const route = useRoute();
-  
+  const theme = useTheme();
+
   // Get the current screen name from the route
   const currentScreenName = route.name;
-  
+
   const currentPlaying = useActiveTrack();
   const isLocal = currentPlaying?.isLocal;
   
@@ -26,7 +27,7 @@ export const CollapsePlayer = ({ setIndex }) => {
   if (!currentPlaying) return null;
 
   return (
-    <Pressable onPress={handlePress} style={styles.container}>
+    <Pressable onPress={handlePress} style={[styles.container, { backgroundColor: theme.colors.card }]}>
       {/* Show b.gif when playing local music */}
       {isLocal ? (
         <Image
@@ -39,16 +40,16 @@ export const CollapsePlayer = ({ setIndex }) => {
           style={styles.artwork}
         />
       )}
-      
+
       <View style={styles.songInfo}>
-        <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+        <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={1} ellipsizeMode="tail">
           {currentPlaying.title}
         </Text>
-        <Text style={styles.artist} numberOfLines={1} ellipsizeMode="tail">
+        <Text style={[styles.artist, { color: theme.colors.textSecondary }]} numberOfLines={1} ellipsizeMode="tail">
           {currentPlaying.artist}
         </Text>
       </View>
-      
+
       <View style={styles.controls}>
         <PlayPauseButton isFullScreen={false} />
         <NextSongButton size={24} />
@@ -61,7 +62,6 @@ const styles = {
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(20, 20, 20, 0.9)',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.1)',
     padding: 10,
@@ -80,16 +80,14 @@ const styles = {
     flex: 1,
   },
   title: {
-    color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
   },
   artist: {
-    color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 14,
   },
   controls: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-}; 
+};

@@ -22,8 +22,8 @@ export const SongInfoDisplay = ({
     if (!currentPlaying?.artist) {
       return isOffline ? "Local Music Available" : "Explore now!";
     }
-    return currentPlaying.artist.length > 20 
-      ? currentPlaying.artist.substring(0, 20) + "..." 
+    return currentPlaying.artist.length > 30
+      ? currentPlaying.artist.substring(0, 30) + "..."
       : currentPlaying.artist;
   };
 
