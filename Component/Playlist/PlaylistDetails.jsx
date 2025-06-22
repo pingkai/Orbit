@@ -321,6 +321,16 @@ export const PlaylistDetails = ({name = "", listener = "", notReleased = false, 
           playlistId: id || playlistId || "",
           // Include basic info for debugging
           downloadUrl: e?.downloadUrl || e?.download_url || [],
+          // Preserve additional metadata for song info display
+          year: e?.year,
+          playCount: e?.playCount,
+          label: e?.label,
+          copyright: e?.copyright,
+          hasLyrics: e?.hasLyrics,
+          album: e?.album,
+          artists: e?.artists,
+          releaseDate: e?.releaseDate,
+          explicitContent: e?.explicitContent
         });
       }
       

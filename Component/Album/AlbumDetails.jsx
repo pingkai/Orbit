@@ -183,6 +183,16 @@ export const AlbumDetails = ({name,releaseData,liked,Data}) => {
           albumId: Data?.data?.id,
           language:e?.language,
           artistID:e?.primary_artists_id,
+          // Preserve additional metadata for song info display
+          year: e?.year || Data?.data?.year,
+          playCount: e?.playCount,
+          label: e?.label || Data?.data?.label,
+          copyright: e?.copyright || Data?.data?.copyright,
+          hasLyrics: e?.hasLyrics,
+          album: e?.album || { name: Data?.data?.name, id: Data?.data?.id },
+          artists: e?.artists,
+          releaseDate: e?.releaseDate || Data?.data?.releaseDate,
+          explicitContent: e?.explicitContent
         }
       });
       

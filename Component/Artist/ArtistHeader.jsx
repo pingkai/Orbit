@@ -38,12 +38,13 @@ const ArtistHeader = ({ artistData, artistName, onPlayAll }) => {
           }}
           resizeMode={FastImage.resizeMode.cover}
         />
+        {/* Black shade overlay for both light and dark themes */}
         <LinearGradient
           colors={[
             'transparent',
             'rgba(0,0,0,0.3)',
-            'rgba(0,0,0,0.7)',
-            theme.colors.background
+            'rgba(0,0,0,0.6)',
+            'rgba(0,0,0,0.8)'
           ]}
           style={{
             position: 'absolute',

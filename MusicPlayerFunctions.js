@@ -137,7 +137,7 @@ async function AddPlaylist (songs){
       console.error('Invalid songs array provided to AddPlaylist');
       return;
     }
-    
+
     // Ensure all songs have albumId if it exists on the first song
     const albumId = songs[0]?.albumId;
     if (albumId) {
@@ -146,7 +146,7 @@ async function AddPlaylist (songs){
         albumId: albumId // Ensure all songs have the same albumId
       }));
     }
-    
+
     await TrackPlayer.reset();
     await TrackPlayer.add(songs);
     await TrackPlayer.play();
@@ -302,18 +302,22 @@ async function getIndexQuality(){
 
 async function AddOneSongToPlaylist(song) {
   try {
-    // Direct import to avoid circular dependency issues
-    const { showPlaylistSelector } = require('./Utils/PlaylistManager');
-    
+    console.log('🎵 AddOneSongToPlaylist called with song:', song?.title || 'Unknown');
+
+    // Import the bottom sheet playlist selector manager for better UX
+    const { PlaylistSelectorBottomSheetManager } = require('./Utils/PlaylistSelectorBottomSheetManager');
+
     // Validate song object
     if (!song || !song.id) {
-      console.error('Invalid song object provided to AddOneSongToPlaylist');
+      console.error('❌ Invalid song object provided to AddOneSongToPlaylist:', song);
       ToastAndroid.show('Invalid song data', ToastAndroid.SHORT);
       return false;
     }
-    
-    console.log('AddOneSongToPlaylist called with song:', song.title);
-    
+
+    console.log('✅ Song validation passed, song ID:', song.id);
+
+    console.log('AddOneSongToPlaylist called with song (bottom sheet):', song.title);
+
     // Safe image URL extraction
     const getImageUrl = (imageData) => {
       if (!imageData) return null;
@@ -339,12 +343,14 @@ async function AddOneSongToPlaylist(song) {
       language: song.language || '',
       artistID: song.artistID || song.primary_artists_id || '',
     };
-    
-    // Use the PlaylistManager function to show the playlist selector
-    const result = await showPlaylistSelector(formattedSong);
+
+    // Use the PlaylistSelectorBottomSheetManager to show the bottom drawer
+    console.log('📱 Attempting to show PlaylistSelectorBottomSheet...');
+    const result = PlaylistSelectorBottomSheetManager.show(formattedSong);
+    console.log('📱 PlaylistSelectorBottomSheetManager.show result:', result);
     return result;
   } catch (error) {
-    console.error('Error showing playlist selector:', error);
+    console.error('❌ Error showing playlist selector bottom sheet:', error);
     ToastAndroid.show('Error opening playlist selector', ToastAndroid.SHORT);
     return false;
   }

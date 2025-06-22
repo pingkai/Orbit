@@ -188,6 +188,7 @@ export const SearchPage = ({navigation}) => {
           <TextInput
             cursorColor={colors.text}
             placeholder="Search songs"
+            placeholderTextColor={colors.text + '80'} // Theme-aware placeholder with opacity
             style={{
               color: colors.text,
               fontSize:25,

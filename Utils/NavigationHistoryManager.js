@@ -99,7 +99,13 @@ class NavigationHistoryManager {
             }
           });
         } else if (previousScreen.screenName === 'ArtistPage') {
-          navigation.navigate('ArtistPage', previousScreen.params);
+          navigation.navigate('MainRoute', {
+            screen: 'Home',
+            params: {
+              screen: 'ArtistPage',
+              params: previousScreen.params
+            }
+          });
         } else if (previousScreen.screenName === 'Album') {
           navigation.navigate('Album', previousScreen.params);
         } else {

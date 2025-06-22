@@ -1,7 +1,21 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { PermissionHandler } from './PermissionHandler';
 import { DownloadManager } from './DownloadManager';
 import EventRegister from '../../Utils/EventRegister';
+
+// Global cache for download status to prevent excessive API calls
+const downloadStatusCache = new Map();
+const cacheExpiry = 30000; // 30 seconds cache
+
+// Cleanup old cache entries periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of downloadStatusCache.entries()) {
+    if (now - value.timestamp > cacheExpiry) {
+      downloadStatusCache.delete(key);
+    }
+  }
+}, 60000); // Clean up every minute
 
 /**
  * useDownload - Custom hook for managing download state and functionality
@@ -12,29 +26,47 @@ export const useDownload = (songData = null, isOffline = false) => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadError, setDownloadError] = useState(null);
+  const lastCheckedRef = useRef(0);
 
   const songId = songData?.id;
 
-  // Check if song is downloaded when songId changes
+  // Check if song is downloaded with caching to prevent excessive calls
   const checkDownloadStatus = useCallback(async (id) => {
     if (!id) {
-      console.log('useDownload: No songId provided to checkDownloadStatus');
       setIsDownloaded(false);
       return false;
     }
 
+    const now = Date.now();
+    const cacheKey = `${id}_${isOffline}`;
+
+    // Check cache first
+    const cached = downloadStatusCache.get(cacheKey);
+    if (cached && (now - cached.timestamp) < cacheExpiry) {
+      setIsDownloaded(cached.status);
+      return cached.status;
+    }
+
+    // Throttle API calls - don't check more than once every 5 seconds per song
+    if (now - lastCheckedRef.current < 5000) {
+      return isDownloaded;
+    }
+
     try {
-      console.log('useDownload: Checking download status for songId:', id);
+      lastCheckedRef.current = now;
 
       // In offline mode, if a song is playing, it must be downloaded
       if (isOffline && songData?.isLocal) {
-        console.log('useDownload: Offline mode with local song, marking as downloaded');
-        setIsDownloaded(true);
-        return true;
+        const status = true;
+        downloadStatusCache.set(cacheKey, { status, timestamp: now });
+        setIsDownloaded(status);
+        return status;
       }
 
       const downloaded = await DownloadManager.isDownloaded(id);
-      console.log('useDownload: Download status result:', downloaded);
+
+      // Cache the result
+      downloadStatusCache.set(cacheKey, { status: downloaded, timestamp: now });
       setIsDownloaded(downloaded);
       return downloaded;
     } catch (error) {
@@ -42,7 +74,7 @@ export const useDownload = (songData = null, isOffline = false) => {
       setIsDownloaded(false);
       return false;
     }
-  }, [isOffline, songData?.isLocal]);
+  }, [isOffline, songData?.isLocal, isDownloaded]);
 
   // Effect to check download status when songId changes
   useEffect(() => {
@@ -64,6 +96,10 @@ export const useDownload = (songData = null, isOffline = false) => {
   useEffect(() => {
     const handleDownloadComplete = (completedSongId) => {
       if (completedSongId === songId) {
+        // Clear cache for this song
+        const cacheKey = `${completedSongId}_${isOffline}`;
+        downloadStatusCache.delete(cacheKey);
+
         setIsDownloaded(true);
         setIsDownloading(false);
         setDownloadProgress(100);
@@ -73,6 +109,10 @@ export const useDownload = (songData = null, isOffline = false) => {
 
     const handleDownloadRemoved = (removedSongId) => {
       if (removedSongId === songId) {
+        // Clear cache for this song
+        const cacheKey = `${removedSongId}_${isOffline}`;
+        downloadStatusCache.delete(cacheKey);
+
         setIsDownloaded(false);
         setIsDownloading(false);
         setDownloadProgress(0);
@@ -86,7 +126,7 @@ export const useDownload = (songData = null, isOffline = false) => {
       EventRegister.removeEventListener('download-complete', handleDownloadComplete);
       EventRegister.removeEventListener('download-removed', handleDownloadRemoved);
     };
-  }, [songId]);
+  }, [songId, isOffline]);
 
   // Download function with permission handling
   const startDownload = useCallback(async () => {

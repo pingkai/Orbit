@@ -362,7 +362,7 @@ export const MinimizedMusic = memo(({setIndex, color}) => {
               paddingHorizontal:10,
             }}>
               <PlainText 
-                text={currentPlaying?.title?.length > 20 ? currentPlaying.title.substring(0, 20) + '...' : currentPlaying?.title ?? "No music :("}
+                text={currentPlaying?.title?.length > 18 ? currentPlaying.title.substring(0, 18) + '...' : currentPlaying?.title ?? "No music :("}
                 style={{ color: colors.text }}               
               />
               <SmallText 

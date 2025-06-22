@@ -6,6 +6,7 @@ import { LoadingComponent } from '../Global/Loading'
 import { PlainText } from '../Global/PlainText'
 import { SmallText } from '../Global/SmallText'
 import { EachArtistCardGrid } from '../Global/EachArtistCardGrid'
+import { useTheme } from '@react-navigation/native'
 
 // Helper function to normalize artist names for comparison
 function normalizeArtistName(name) {
@@ -61,6 +62,7 @@ export default function ArtistDisplay({data, limit, Searchtext}) {
   const totalPages = Math.ceil(Data?.data?.total ?? 1 / limit)
   const [Page, setPage] = useState(1)
   const [Loading, setLoading] = useState(false)
+  const theme = useTheme()
 
   // Update data when props change with deduplication
   useEffect(() => {
@@ -173,8 +175,21 @@ export default function ArtistDisplay({data, limit, Searchtext}) {
         alignItems:"center",
         justifyContent:"center",
       }}>
-        <PlainText text={"No Artist found!"}/>
-        <SmallText text={"Opps!  T_T"}/>
+        <PlainText
+          text={"No Artist found!"}
+          style={{
+            color: theme.dark ? '#CCCCCC' : '#666666',
+            fontSize: 18,
+            fontWeight: '600'
+          }}
+        />
+        <SmallText
+          text={"Opps!  T_T"}
+          style={{
+            color: theme.dark ? '#999999' : '#888888',
+            marginTop: 8
+          }}
+        />
         </View> }
      </View>
   )

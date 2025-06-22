@@ -10,6 +10,7 @@ import DraggableFlatList, { ScaleDecorator } from "react-native-draggable-flatli
 import { SkipToTrack } from "../../MusicPlayerFunctions";
 import NetInfo from "@react-native-community/netinfo";
 import { StorageManager } from '../../Utils/StorageManager';
+import { useThemeContext } from "../../Context/ThemeContext";
 
 // Function to get high quality artwork URL
 const getHighQualityArtwork = (artworkUrl) => {
@@ -50,6 +51,7 @@ const getHighQualityArtwork = (artworkUrl) => {
 const QueueRenderSongs = memo(() => {
   // Context and state
   const { Queue } = useContext(Context);
+  const { theme, themeMode } = useThemeContext();
   const currentPlaying = useActiveTrack();
   const [upcomingQueue, setUpcomingQueue] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -474,6 +476,65 @@ const QueueRenderSongs = memo(() => {
       restoreConsole();
     };
   }, [currentPlaying, isDragging, isOffline]);
+
+  // Function to handle removing track from queue
+  const handleRemoveFromQueue = async (displayIndex, trackId) => {
+    operationInProgressRef.current = true;
+    try {
+      // Get the full TrackPlayer queue
+      const queue = await TrackPlayer.getQueue();
+
+      // Find the track in the actual queue by ID
+      const actualIndex = queue.findIndex(track => track.id === trackId);
+
+      if (actualIndex === -1) {
+        console.warn(`Track with ID ${trackId} not found in player queue`);
+        operationInProgressRef.current = false;
+        return;
+      }
+
+      // Check if we're removing the currently playing track
+      const currentIndex = await TrackPlayer.getCurrentTrack();
+      const isCurrentTrack = actualIndex === currentIndex;
+
+      if (isCurrentTrack && queue.length > 1) {
+        // If removing current track and there are other tracks, skip to next
+        if (actualIndex < queue.length - 1) {
+          await TrackPlayer.skipToNext();
+        } else {
+          await TrackPlayer.skipToPrevious();
+        }
+      }
+
+      // Remove the track from the queue
+      await TrackPlayer.remove(actualIndex);
+
+      // If this was the only track, stop playback
+      if (queue.length === 1) {
+        await TrackPlayer.stop();
+      }
+
+      // Update the queue display
+      const currentTrack = await TrackPlayer.getActiveTrack();
+      if (currentTrack) {
+        const filtered = await filterQueueBySource(currentTrack);
+        const uniqueIds = new Set();
+        const uniqueFiltered = filtered.filter(track => {
+          if (!track || !track.id || uniqueIds.has(track.id)) return false;
+          uniqueIds.add(track.id);
+          return true;
+        });
+        setUpcomingQueue(uniqueFiltered);
+      } else {
+        setUpcomingQueue([]);
+      }
+
+    } catch (error) {
+      console.error('Error removing track from queue:', error);
+    } finally {
+      operationInProgressRef.current = false;
+    }
+  };
 
   // Function to handle track selection from the queue
   const handleTrackSelect = async (item, displayIndex) => {
@@ -951,12 +1012,33 @@ const QueueRenderSongs = memo(() => {
     }
     
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#151515', paddingHorizontal: 20 }}>
-        <Ionicons name="musical-notes-outline" size={40} color="#777" />
-        <Text style={{ color: '#fff', fontSize: 16, marginTop: 10, textAlign: 'center' }}>
+      <View style={{
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: theme.colors.background,
+        paddingHorizontal: 20
+      }}>
+        <Ionicons
+          name="musical-notes-outline"
+          size={40}
+          color={themeMode === 'light' ? '#999' : '#777'}
+        />
+        <Text style={{
+          color: theme.colors.text,
+          fontSize: 16,
+          marginTop: 10,
+          textAlign: 'center'
+        }}>
           {emptyQueueMessage}
         </Text>
-        <Text style={{ color: '#aaa', fontSize: 12, marginTop: 5, textAlign: 'center', paddingHorizontal: 20 }}>
+        <Text style={{
+          color: themeMode === 'light' ? '#666' : '#aaa',
+          fontSize: 12,
+          marginTop: 5,
+          textAlign: 'center',
+          paddingHorizontal: 20
+        }}>
           {subMessage}
         </Text>
       </View>
@@ -972,9 +1054,9 @@ const QueueRenderSongs = memo(() => {
         renderItem={({ item, index }) => {
           // Enhance the item with high-quality artwork
           const enhancedItem = enhanceTrackWithHighQualityArtwork(item);
-          
+
           return (
-            <EachSongQueue 
+            <EachSongQueue
               title={enhancedItem.title}
               artist={enhancedItem.artist}
               id={enhancedItem.id}
@@ -982,6 +1064,8 @@ const QueueRenderSongs = memo(() => {
               artwork={enhancedItem.artwork}
               isActive={false}
               onPress={() => handleTrackSelect(enhancedItem, index)}
+              songData={enhancedItem}
+              onRemoveFromQueue={handleRemoveFromQueue}
             />
           );
         }}
@@ -1007,23 +1091,24 @@ const QueueRenderSongs = memo(() => {
         paddingTop: 8,
       }}
       showsVerticalScrollIndicator={false}
-      activationDistance={8} // Increased for more reliable activation
-      dragHitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }} // Larger touch area for easier grabbing
-      autoscrollSpeed={300} // Faster autoscroll for improved long-distance dragging
-      autoscrollThreshold={50} // Larger threshold for earlier autoscrolling
-      animationConfig={{ 
-        damping: 20, // More responsive damping
-        stiffness: 320, // Stiffer spring for snappier animations
+      activationDistance={10} // Slightly increased for better reliability
+      dragHitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }} // Generous touch area
+      autoscrollSpeed={250} // Smooth autoscroll speed
+      autoscrollThreshold={60} // Comfortable threshold for autoscrolling
+      animationConfig={{
+        damping: 25, // Smooth, natural damping
+        stiffness: 280, // Balanced spring for fluid animations
+        mass: 0.8, // Lighter feel for better responsiveness
       }}
-      dragItemOverflow={true} // Enable overflow for better visibility when dragging
-      scrollEnabled={!isDragging} // Disable regular scrolling during drag for smoother interaction
+      dragItemOverflow={true} // Enable overflow for better visibility
+      scrollEnabled={!isDragging} // Disable scrolling during drag
       renderItem={({ item, index, drag, isActive }) => {
         // Enhance the item with high-quality artwork
         const enhancedItem = enhanceTrackWithHighQualityArtwork(item);
         
         return (
-          <ScaleDecorator activeScale={0.98}>
-            <EachSongQueue 
+          <ScaleDecorator activeScale={1.0}>
+            <EachSongQueue
               title={enhancedItem.title}
               artist={enhancedItem.artist}
               id={enhancedItem.id}
@@ -1032,6 +1117,8 @@ const QueueRenderSongs = memo(() => {
               drag={drag}
               isActive={isActive}
               onPress={() => handleTrackSelect(enhancedItem, index)}
+              songData={enhancedItem}
+              onRemoveFromQueue={handleRemoveFromQueue}
             />
           </ScaleDecorator>
         );

@@ -8,7 +8,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet'
 import { RouteOnboarding } from "./Route/OnboardingScreen/RouteOnboarding";
 import { InitialScreen } from "./Route/InitialScreen";
-import ArtistPage from './Route/ArtistPage';
+import { Album } from './Route/Album';
 import CodePush from "react-native-code-push";
 import { useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -19,6 +19,7 @@ import { analyticsService, AnalyticsEvents } from './Utils/AnalyticsUtils';
 import { ThemeProvider, useThemeContext } from './Context/ThemeContext';
 // Import theme types
 import { darkTheme } from './Theme/darkTheme';
+
 type ThemeContextType = {
   theme: typeof darkTheme;
   themeMode: string;
@@ -130,29 +131,31 @@ function App(){
             }
             
             return (
-              <NavigationContainer 
-                ref={navigationRef}
-                theme={theme}
-                onStateChange={(state) => {
-                  const currentRouteName = navigationRef.current?.getCurrentRoute()?.name;
-                  if (currentRouteName) {
-                    console.log("Current screen:", currentRouteName);
-                    // Log screen view to Firebase Analytics
-                    analyticsService.logScreenView(currentRouteName);
-                  }
-                }}
-                fallback={<InitialScreen navigation={undefined as any} />}
-              >
-                <Stack.Navigator screenOptions={{
-                  headerShown: false,
-                  cardStyle: { backgroundColor: theme.colors.background }
-                }}>
-            <Stack.Screen name="Initial" component={InitialScreen} />
-            <Stack.Screen name="Onboarding" component={RouteOnboarding} />
-                        <Stack.Screen name="MainRoute" component={RootRoute} />
-            <Stack.Screen name="ArtistPage" component={ArtistPage} />
-                </Stack.Navigator>
-              </NavigationContainer>
+              <>
+                <NavigationContainer
+                  ref={navigationRef}
+                  theme={theme}
+                  onStateChange={(state) => {
+                    const currentRouteName = navigationRef.current?.getCurrentRoute()?.name;
+                    if (currentRouteName) {
+                      console.log("Current screen:", currentRouteName);
+                      // Log screen view to Firebase Analytics
+                      analyticsService.logScreenView(currentRouteName);
+                    }
+                  }}
+                  fallback={<InitialScreen navigation={undefined as any} />}
+                >
+                  <Stack.Navigator screenOptions={{
+                    headerShown: false,
+                    cardStyle: { backgroundColor: theme.colors.background }
+                  }}>
+              <Stack.Screen name="Initial" component={InitialScreen} />
+              <Stack.Screen name="Onboarding" component={RouteOnboarding} />
+                          <Stack.Screen name="MainRoute" component={RootRoute} />
+              <Stack.Screen name="Album" component={Album} />
+                  </Stack.Navigator>
+                </NavigationContainer>
+              </>
             );
           }}
         </ThemeProvider>

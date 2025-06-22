@@ -185,89 +185,152 @@ export const useNavigationHandler = (options = {}) => {
         if (cleanPath.startsWith('MainRoute/')) {
           cleanPath = cleanPath.replace('MainRoute/', '');
         }
-        
+
         const parts = cleanPath.split('/');
         console.log('useNavigationHandler: Back navigation path:', parts);
-        
+
         // Special handling for Search
         if (parts.length >= 1 && parts[0] === 'Search') {
           console.log('useNavigationHandler: Back to Search screen');
           setTimeout(() => {
-            navigation.navigate('Home', {
-              screen: 'Search',
+            navigation.navigate('MainRoute', {
+              screen: 'Home',
               params: {
-                timestamp: Date.now()
+                screen: 'Search',
+                params: {
+                  timestamp: Date.now()
+                }
               }
             });
-            
+
             if (onNavigationChange) {
               onNavigationChange('Home/Search', { timestamp: Date.now() });
             }
           }, 100);
           return;
         }
-        
+
         // Special handling for download screen
-        if (parts.length >= 2 && parts[0] === 'Library' && 
+        if (parts.length >= 2 && parts[0] === 'Library' &&
            (parts[1] === 'DownloadScreen' || parts[1] === 'DownloadSongsPage')) {
           console.log('useNavigationHandler: Back to DownloadScreen');
-          
+
           setTimeout(() => {
-            navigation.navigate('Library', { 
-              screen: 'DownloadScreen',
-              params: { 
-                previousScreen: 'Library',
-                timestamp: Date.now()
+            navigation.navigate('MainRoute', {
+              screen: 'Library',
+              params: {
+                screen: 'DownloadScreen',
+                params: {
+                  previousScreen: 'Library',
+                  timestamp: Date.now()
+                }
               }
             });
-            
+
             AsyncStorage.setItem('came_from_fullscreen_player', 'true');
-            
+
             if (onNavigationChange) {
               onNavigationChange('Library/DownloadScreen', { previousScreen: 'Library' });
             }
           }, 100);
           return;
         }
-        
+
         // Special handling for MyMusicPage
         if (parts.length >= 2 && parts[0] === 'Library' && parts[1] === 'MyMusicPage') {
           console.log('useNavigationHandler: Back to MyMusicPage');
           setTimeout(() => {
-            navigation.navigate('Library', { 
-              screen: 'MyMusicPage',
-              params: { previousScreen: 'Library' }
+            navigation.navigate('MainRoute', {
+              screen: 'Library',
+              params: {
+                screen: 'MyMusicPage',
+                params: { previousScreen: 'Library' }
+              }
             });
-            
+
             if (onNavigationChange) {
               onNavigationChange('Library/MyMusicPage', { previousScreen: 'Library' });
             }
           }, 100);
           return;
         }
-        
+
         // For CustomPlaylistView
         if (parts.length >= 2 && parts[1] === 'CustomPlaylistView' && preserveParams) {
           const playlistData = await AsyncStorage.getItem('last_viewed_custom_playlist');
           if (playlistData) {
             const parsedData = JSON.parse(playlistData);
             console.log('useNavigationHandler: Back to CustomPlaylistView with data');
-            
+
             setTimeout(() => {
-              navigation.navigate(parts[0], {
-                screen: parts[1],
-                params: parsedData
+              navigation.navigate('MainRoute', {
+                screen: parts[0],
+                params: {
+                  screen: parts[1],
+                  params: parsedData
+                }
               });
-              
+
               if (onNavigationChange) {
                 onNavigationChange(`${parts[0]}/${parts[1]}`, parsedData);
               }
             }, 100);
           }
         }
+
+        // Generic fallback for other screens
+        if (parts.length >= 2) {
+          console.log('useNavigationHandler: Generic back navigation to:', parts[0], parts[1]);
+          setTimeout(() => {
+            navigation.navigate('MainRoute', {
+              screen: parts[0],
+              params: {
+                screen: parts[1]
+              }
+            });
+
+            if (onNavigationChange) {
+              onNavigationChange(`${parts[0]}/${parts[1]}`);
+            }
+          }, 100);
+        } else if (parts.length === 1) {
+          console.log('useNavigationHandler: Back to main tab:', parts[0]);
+          setTimeout(() => {
+            navigation.navigate('MainRoute', {
+              screen: parts[0]
+            });
+
+            if (onNavigationChange) {
+              onNavigationChange(`MainRoute/${parts[0]}`);
+            }
+          }, 100);
+        }
+      } else {
+        // No previous screen info, default to Home
+        console.log('useNavigationHandler: No previous screen, defaulting to Home');
+        setTimeout(() => {
+          navigation.navigate('MainRoute', {
+            screen: 'Home'
+          });
+
+          if (onNavigationChange) {
+            onNavigationChange('MainRoute/Home');
+          }
+        }, 100);
       }
     } catch (error) {
       console.error('useNavigationHandler: Error in back navigation:', error);
+      // Final fallback
+      try {
+        navigation.navigate('MainRoute', {
+          screen: 'Home'
+        });
+        if (onNavigationChange) {
+          onNavigationChange('MainRoute/Home');
+        }
+      } catch (e) {
+        console.error('useNavigationHandler: Even fallback navigation failed:', e);
+      }
     }
   }, [navigation, musicPreviousScreen, onNavigationChange, preserveParams]);
 
@@ -323,18 +386,37 @@ export const useNavigationHandler = (options = {}) => {
     }
   }, [navigation]);
 
-  // Go back if possible
+  // Go back if possible, with fallback navigation
   const goBack = useCallback(() => {
     try {
       if (navigation.canGoBack()) {
         navigation.goBack();
-        
+
         if (onNavigationChange) {
           onNavigationChange('back');
+        }
+      } else {
+        // Fallback: navigate to MainRoute if can't go back
+        console.log('useNavigationHandler: Cannot go back, navigating to MainRoute');
+        navigation.navigate('MainRoute', {
+          screen: 'Home'
+        });
+
+        if (onNavigationChange) {
+          onNavigationChange('MainRoute/Home');
         }
       }
     } catch (error) {
       console.error('useNavigationHandler: Error going back:', error);
+      // Final fallback: try to navigate to MainRoute
+      try {
+        navigation.navigate('MainRoute');
+        if (onNavigationChange) {
+          onNavigationChange('MainRoute');
+        }
+      } catch (e) {
+        console.error('useNavigationHandler: Even fallback navigation failed:', e);
+      }
     }
   }, [navigation, onNavigationChange]);
 

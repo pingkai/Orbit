@@ -113,6 +113,7 @@ const getDownloadsDirectory = async () => {
 
 const STORAGE_KEYS = {
   DOWNLOADED_SONGS_METADATA: '@orbit_downloaded_songs_metadata',
+  LOCAL_MUSIC_CACHE: '@orbit_local_music_cache',
 };
 
 // Saves metadata for a downloaded song to AsyncStorage
@@ -246,6 +247,59 @@ const cleanupOrphanedMetadata = async () => {
   }
 };
 
+// Saves local music cache to AsyncStorage
+const saveLocalMusicCache = async (musicData) => {
+  try {
+    const cacheData = {
+      music: musicData,
+      timestamp: Date.now(),
+    };
+    await AsyncStorage.setItem(
+      STORAGE_KEYS.LOCAL_MUSIC_CACHE,
+      JSON.stringify(cacheData),
+    );
+    console.log('Local music cache saved successfully');
+  } catch (error) {
+    console.error('Error saving local music cache:', error);
+  }
+};
+
+// Retrieves local music cache from AsyncStorage
+const getLocalMusicCache = async () => {
+  try {
+    const cacheJson = await AsyncStorage.getItem(STORAGE_KEYS.LOCAL_MUSIC_CACHE);
+    if (cacheJson) {
+      const cacheData = JSON.parse(cacheJson);
+      // Check if cache is less than 24 hours old
+      const cacheAge = Date.now() - (cacheData.timestamp || 0);
+      const maxCacheAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+      if (cacheAge < maxCacheAge) {
+        console.log('Retrieved local music cache (age:', Math.round(cacheAge / (60 * 1000)), 'minutes)');
+        return cacheData;
+      } else {
+        console.log('Local music cache expired, clearing...');
+        await AsyncStorage.removeItem(STORAGE_KEYS.LOCAL_MUSIC_CACHE);
+        return null;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting local music cache:', error);
+    return null;
+  }
+};
+
+// Clears local music cache
+const clearLocalMusicCache = async () => {
+  try {
+    await AsyncStorage.removeItem(STORAGE_KEYS.LOCAL_MUSIC_CACHE);
+    console.log('Local music cache cleared');
+  } catch (error) {
+    console.error('Error clearing local music cache:', error);
+  }
+};
+
 export const StorageManager = {
   ensureDirectoriesExist,
   getSongPath,
@@ -257,4 +311,7 @@ export const StorageManager = {
   isSongDownloaded,
   saveArtwork,
   cleanupOrphanedMetadata,
+  saveLocalMusicCache,
+  getLocalMusicCache,
+  clearLocalMusicCache,
 };

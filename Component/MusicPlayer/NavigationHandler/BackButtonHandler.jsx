@@ -43,16 +43,14 @@ export const BackButtonHandler = ({
         // Minimize the player
         setIndex(0);
         
-        // Handle navigation after minimizing
-        const handleNavigation = async () => {
+        // Handle navigation after minimizing with delay
+        setTimeout(async () => {
           try {
             await handleBackNavigation();
           } catch (error) {
             console.error('BackButtonHandler: Error in navigation handling:', error);
           }
-        };
-        
-        handleNavigation();
+        }, 100);
         return true; // Prevent default back action
       }
       

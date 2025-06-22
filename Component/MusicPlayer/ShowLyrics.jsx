@@ -110,19 +110,18 @@ export const ShowLyrics = ({ ShowDailog, Loading, Lyric, setShowDailog, currentA
       paddingBottom: 20, // Remove gradient spacing
     },
     lyricText: {
-      fontFamily: 'Poppins', // Added Poppins font
+      fontFamily: 'System', // Use system font for better performance
       fontWeight: 'bold', // Made base lyric text bold
       fontSize: screenWidth * 0.055,
       paddingVertical: 10,
       textAlign: "center",
-      lineHeight: screenWidth * 0.055 * 1.5, 
+      lineHeight: screenWidth * 0.055 * 1.5,
     },
     plainLyricText: {
-      fontFamily: 'Poppins', // Added Poppins font
-      fontWeight: 'bold', // Made plain lyric text bold
+      fontFamily: 'System', // Use system font for better performance
+      fontWeight: '300', // Fixed duplicate fontWeight
       color: theme.colors.text,
       fontSize: screenWidth * 0.055,
-      fontWeight: '300',
       textAlign: "center",
       lineHeight: screenWidth * 0.055 * 1.5,
     },

@@ -13,7 +13,8 @@ import { getAlbumData } from "../Api/Album";
 import FormatArtist from "../Utils/FormatArtists";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LinearGradient from "react-native-linear-gradient";
-import navigationHistoryManager from '../Utils/NavigationHistoryManager';
+// import { useNavigationBreadcrumbs } from '../hooks/useNavigationBreadcrumbs.jsx';
+
 
 // AsyncStorage keys
 const CURRENT_ALBUM_ID_KEY = "orbit_current_album_id";
@@ -38,13 +39,21 @@ export const Album = ({route}) => {
   const [Loading, setLoading] = useState(true);
   const [Data, setData] = useState({});
   const navigation = useNavigation();
-  
+
   // Safely destructure route.params with default values
   const routeId = route?.params?.id;
-  
+
   // State to hold the actual ID we'll use (either from route or storage)
   const [id, setId] = useState(routeId);
   const [source, setSource] = useState(route?.params?.source || null);
+
+  // Navigation breadcrumbs - temporarily disabled
+  // const { goBack } = useNavigationBreadcrumbs({
+  //   screenName: 'Album',
+  //   displayName: route?.params?.name || Data?.data?.name || 'Album',
+  //   params: route?.params || {},
+  //   source: route?.params?.source || 'unknown'
+  // });
   
   // When component mounts, check if we have a route ID - if not, try to recover from AsyncStorage
   useEffect(() => {
@@ -102,30 +111,14 @@ export const Album = ({route}) => {
     recoverAlbumData();
   }, [routeId, route?.params?.source, route?.params?.language, route?.params?.searchText, navigation]);
   
-  // Handle back button press
-  useEffect(() => {
-    const handleBackPress = () => {
-      handleBackNavigation();
-      return true;
-    };
+  // Handle back button press - now handled by useNavigationBreadcrumbs hook
 
-    BackHandler.addEventListener('hardwareBackPress', handleBackPress);
-    return () => {
-      BackHandler.removeEventListener('hardwareBackPress', handleBackPress);
-    };
-  }, [source]);
-
-  // Handle navigation based on source
-  const handleBackNavigation = async () => {
-    console.log('Handling back navigation from Album with source:', source);
-    
-    // Clear playlist data from AsyncStorage to prevent it from being restored
-    // when navigating back from album
+  // Clean up AsyncStorage when leaving album
+  const cleanupAlbumData = async () => {
     try {
       await Promise.all([
         AsyncStorage.removeItem(CURRENT_PLAYLIST_ID_KEY),
         AsyncStorage.removeItem(CURRENT_PLAYLIST_DATA_KEY),
-        // Also clear album data to ensure it doesn't persist either
         AsyncStorage.removeItem(CURRENT_ALBUM_ID_KEY),
         AsyncStorage.removeItem(CURRENT_ALBUM_DATA_KEY)
       ]);
@@ -133,113 +126,18 @@ export const Album = ({route}) => {
     } catch (error) {
       console.error('Error clearing navigation data:', error);
     }
-    
-    if (source === 'LanguageDetail' && route?.params?.language) {
-      // Navigate back to LanguageDetailPage with the language parameter
-      navigation.navigate('DiscoverPage', {
-        screen: 'LanguageDetail',
-        params: { language: route.params.language }
-      });
-      return true;
-    } else if (source === 'ShowPlaylistofType' && route?.params?.searchText) {
-      // Navigate back to ShowPlaylistofType with the search text
-      navigation.navigate('DiscoverPage', {
-        screen: 'ShowPlaylistofType',
-        params: { text: route.params.searchText }
-      });
-      return true;
-    } else if (source === 'Search') {
-      // Navigate back to Search tab with the search text if available
-      console.log('Navigating back to Search screen from Album with searchText:', route?.params?.searchText);
-      // Try to go back without explicit navigation first
-      if (navigation.canGoBack()) {
-        navigation.goBack();
-      } else {
-        // If that fails, force navigation to the Search screen
-        navigation.navigate('Home', {
-          screen: 'Search',
-          params: { 
-            searchText: route?.params?.searchText || '',
-            timestamp: Date.now() // Add timestamp to force refresh
-          }
-        });
-      }
-      return true;
-    } else if (source === 'Home') {
-      // Navigate back to Home tab's HomePage
-      console.log('Navigating back to HomePage from Album');
-      navigation.navigate('Home', {
-        screen: 'HomePage'
-      });
-      return true;
-    } else if (source === 'Artist') {
-      // Navigate back to Artist page - use smart navigation to prevent loops
-      console.log('Navigating back to Artist page from Album');
-
-      try {
-        // Check navigation state to detect potential loops
-        const navigationState = navigation.getState();
-        const routes = navigationState?.routes || [];
-
-        // Count how many ArtistPage and Album instances are in the stack
-        const artistPageCount = routes.filter(route => route.name === 'ArtistPage').length;
-        const albumPageCount = routes.filter(route => route.name === 'Album').length;
-
-        console.log('Navigation stack analysis:');
-        console.log('- ArtistPage instances:', artistPageCount);
-        console.log('- Album instances:', albumPageCount);
-        console.log('- Total routes:', routes.length);
-        console.log('- Route names:', routes.map(r => r.name));
-
-        // Only detect loop if we have multiple instances of BOTH pages (indicating a true loop)
-        if (artistPageCount >= 3 || (artistPageCount >= 2 && albumPageCount >= 2)) {
-          console.log('Detected true navigation loop, resetting to Search');
-          navigation.navigate('MainRoute', {
-            screen: 'Home',
-            params: {
-              screen: 'Search'
-            }
-          });
-          return true;
-        }
-
-        // Use navigation history manager for proper back navigation
-        const backAction = navigationHistoryManager.getBackNavigationAction(navigation);
-        backAction();
-      } catch (error) {
-        console.error('Error navigating back to Artist page:', error);
-        // Error fallback - go to Search to break any potential loops
-        navigationHistoryManager.clearHistory();
-        navigation.navigate('MainRoute', {
-          screen: 'Home',
-          params: {
-            screen: 'Search'
-          }
-        });
-      }
-      return true;
-    } else {
-      // Check if we can go back in the navigation stack
-      if (navigation.canGoBack()) {
-        console.log('Using standard navigation.goBack()');
-        navigation.goBack();
-      } else {
-        // Fallback to HomePage if we can't go back
-        console.log('Cannot go back, navigating to HomePage as fallback');
-        navigation.navigate('Home', { 
-          screen: 'HomePage' 
-        });
-      }
-      return true;
-    }
   };
 
   const fetchAlbumData = async (albumId) => {
     if (!albumId) {
       console.error("Album ID is missing from route params");
-      // Navigate back to prevent errors
-      navigation.goBack();
-        return;
+      // Navigate back to prevent errors with fallback
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      } else {
+        navigation.navigate('MainRoute', { screen: 'Home' });
+      }
+      return;
     }
     
     try {
@@ -273,20 +171,15 @@ export const Album = ({route}) => {
   useEffect(() => {
     if (id) {
       fetchAlbumData(id);
-
-      // Add this screen to navigation history
-      navigationHistoryManager.addScreen({
-        screenName: 'Album',
-        params: {
-          id,
-          source,
-          artistId: route?.params?.artistId,
-          artistName: route?.params?.artistName,
-          previousTab: route?.params?.previousTab
-        }
-      });
     }
   }, [id]);
+
+  // Cleanup when component unmounts
+  useEffect(() => {
+    return () => {
+      cleanupAlbumData();
+    };
+  }, []);
   
   return (
     <MainWrapper>

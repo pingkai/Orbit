@@ -7,6 +7,7 @@ import { useThemeContext } from "../../Context/ThemeContext";
 import LinearGradient from "react-native-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import FastImage from "react-native-fast-image";
+import navigationBreadcrumbs from '../../Utils/NavigationBreadcrumbs';
 
 
 export const EachAlbumCard = memo(function EachAlbumCard({image, name, artists, id, mainContainerStyle, Search, source, searchText, language}) {
@@ -80,27 +81,41 @@ export const EachAlbumCard = memo(function EachAlbumCard({image, name, artists, 
     : require('../../Images/default.jpg');
   
   return (
-    <Pressable 
+    <Pressable
       onPress={async () => {
       try {
+        // Add current screen to breadcrumbs before navigating
+        const currentScreenName = source || 'Home';
+        const currentDisplayName = source === 'Search' ? 'Search' :
+                                  source === 'ShowPlaylistofType' ? 'Playlists' :
+                                  source === 'LanguageDetail' ? 'Language' : 'Home';
+
+        navigationBreadcrumbs.addBreadcrumb({
+          screenName: currentScreenName,
+          displayName: currentDisplayName,
+          params: { source, searchText, language },
+          source: 'navigation'
+        });
+
         // Create params object with source tracking
-        const params = { 
+        const params = {
           id,
+          name: name, // Add album name for breadcrumb display
           timestamp: Date.now() // Add timestamp to ensure fresh navigation and prevent caching issues
         };
-        
+
         // Add source tracking if available
         if (source) {
           params.source = source;
-          
+
           if (source === 'ShowPlaylistofType' && searchText) {
             params.searchText = searchText;
           } else if (source === 'LanguageDetail' && language) {
             params.language = language;
           }
-          
+
           console.log(`Navigating to Album with params:`, JSON.stringify(params));
-          
+
           // First, clear any existing album and playlist data to prevent navigation conflicts
           // Await all operations to ensure they complete before navigation
           await Promise.all([
@@ -109,7 +124,7 @@ export const EachAlbumCard = memo(function EachAlbumCard({image, name, artists, 
             AsyncStorage.removeItem("orbit_current_playlist_id"),
             AsyncStorage.removeItem("orbit_current_playlist_data")
           ]);
-          
+
           // Choose the appropriate navigation method based on source
           if (source === 'Home') {
             navigation.navigate("Home", {
@@ -122,7 +137,7 @@ export const EachAlbumCard = memo(function EachAlbumCard({image, name, artists, 
         } else {
           // Default navigation if no source is provided
           console.log(`Navigating to Album with id:`, id);
-          
+
           // First, clear any existing album and playlist data to prevent navigation conflicts
           // Await all operations to ensure they complete before navigation
           await Promise.all([
@@ -131,15 +146,15 @@ export const EachAlbumCard = memo(function EachAlbumCard({image, name, artists, 
             AsyncStorage.removeItem("orbit_current_playlist_id"),
             AsyncStorage.removeItem("orbit_current_playlist_data")
           ]);
-          
-          navigation.navigate("Album", { id, timestamp: Date.now() });
+
+          navigation.navigate("Album", { id, name: name, timestamp: Date.now() });
         }
       } catch (error) {
         console.error('Error navigating to Album:', error);
         // Fallback navigation to prevent dead-end
         navigation.navigate("Home", { screen: "HomePage" });
       }
-    }} 
+    }}
       style={{
         ...(mainContainerStyle || {}),
         margin: 2,

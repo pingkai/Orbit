@@ -88,7 +88,7 @@ class HistoryManager {
 
       // FIXED: Check if this song was recently played to continue cumulative tracking
       const history = await this.getHistory();
-      const existingEntry = history.find(item => item.id === song.id);
+      const existingEntry = history.find(item => item && item.id === song.id);
       const isRecentPlay = existingEntry && (Date.now() - existingEntry.lastPlayed) < 300000; // 5 minutes
 
       this.currentTrack = song;
@@ -139,9 +139,11 @@ class HistoryManager {
 
       // FIXED: Reset currentSessionDuration in history entry when stopping
       try {
-        if (this.currentTrack && this.currentTrack.id) {
+        // Store reference to avoid race condition where currentTrack becomes null
+        const trackToReset = this.currentTrack;
+        if (trackToReset && trackToReset.id) {
           const history = await this.getHistory();
-          const existingIndex = history.findIndex(item => item.id === this.currentTrack.id);
+          const existingIndex = history.findIndex(item => item && item.id === trackToReset.id);
           if (existingIndex !== -1) {
             history[existingIndex].currentSessionDuration = 0; // Reset for next session
             await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
@@ -275,7 +277,7 @@ class HistoryManager {
       }
 
       const history = await this.getHistory();
-      const existingIndex = history.findIndex(item => item.id === song.id);
+      const existingIndex = history.findIndex(item => item && item.id === song.id);
 
       if (existingIndex !== -1) {
         // Update existing entry

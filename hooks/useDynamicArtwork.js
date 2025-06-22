@@ -16,7 +16,7 @@ const useDynamicArtwork = () => {
    */
   const getArtworkSourceFromHook = (track) => {
     if (!track) {
-      return { uri: 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png' };
+      return require('../Images/Music.jpeg'); // Use Music.jpeg as default fallback
     }
 
     try {
@@ -73,10 +73,17 @@ const useDynamicArtwork = () => {
         return { uri: artworkUrl };
       }
 
-      // Final fallback
+      // Final fallback - use Music.jpeg for local tracks, gray background for others
+      if (track.isLocal || track.sourceType === 'mymusic' || track.path) {
+        return require('../Images/Music.jpeg');
+      }
       return { uri: 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png' };
     } catch (error) {
       console.error('Error getting artwork source:', error);
+      // Use Music.jpeg for error fallback when dealing with local tracks
+      if (track && (track.isLocal || track.sourceType === 'mymusic' || track.path)) {
+        return require('../Images/Music.jpeg');
+      }
       return { uri: 'https://htmlcolorcodes.com/assets/images/colors/gray-color-solid-background-1920x1080.png' };
     }
   };

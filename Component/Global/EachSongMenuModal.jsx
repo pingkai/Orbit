@@ -229,6 +229,16 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
           language: Visible.language,
           image: getImageUrl(Visible.image),
           downloadUrl: Visible.url,
+          // Preserve additional metadata
+          year: Visible.year,
+          playCount: Visible.playCount,
+          label: Visible.label,
+          copyright: Visible.copyright,
+          hasLyrics: Visible.hasLyrics,
+          album: Visible.album,
+          artists: Visible.artists,
+          releaseDate: Visible.releaseDate,
+          explicitContent: Visible.explicitContent
         }
       }
       
@@ -462,6 +472,16 @@ export const EachSongMenuModal = ({Visible, setVisible}) => {
           language: Visible.language,
           image: getImageUrl(Visible.image),
           downloadUrl: Visible.url,
+          // Preserve additional metadata
+          year: Visible.year,
+          playCount: Visible.playCount,
+          label: Visible.label,
+          copyright: Visible.copyright,
+          hasLyrics: Visible.hasLyrics,
+          album: Visible.album,
+          artists: Visible.artists,
+          releaseDate: Visible.releaseDate,
+          explicitContent: Visible.explicitContent
         };
       }
     

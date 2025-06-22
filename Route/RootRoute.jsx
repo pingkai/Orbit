@@ -22,6 +22,7 @@ import { MusicMain } from './MusicIndex';
 import { MainRoute } from './MainRoute';
 import { LogBox } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
+import { PlaylistSelectorBottomSheetWrapper } from '../Component/Playlist/PlaylistSelectorBottomSheetWrapper';
 
 const Tab = createBottomTabNavigator();
 
@@ -294,6 +295,8 @@ export const RootRoute = () => {
   // Track screen changes continuously to better remember which screen the user was on
   // This helps with navigation after closing the fullscreen player
   useEffect(() => {
+    let lastRecordedPath = '';
+
     // Function to record the current screen path
     const recordScreenPath = () => {
       // STRONG PROTECTION: Don't update navigation state vars if fullscreen is active
@@ -330,7 +333,10 @@ export const RootRoute = () => {
             const deepNestedRoute = activeNestedRoute.state.routes[activeNestedRoute.state.index];
             // Store the full navigation path with tab, screen and nested screen
             fullNavPath = `${currentTabRoute.name}/${activeNestedRoute.name}/${deepNestedRoute.name}`;
-            console.log('Deep nested navigation detected:', fullNavPath);
+            // Only log in development mode and when path actually changes
+            if (process.env.NODE_ENV === 'development' && fullNavPath !== previousScreen) {
+              console.log('Deep nested navigation detected:', fullNavPath);
+            }
           } else {
           // Store the full navigation path (tab/screen)
           fullNavPath = `${currentTabRoute.name}/${activeNestedRoute.name}`;
@@ -361,28 +367,47 @@ export const RootRoute = () => {
           }
         }
         
+        // Only proceed if the path has actually changed
+        if (fullNavPath === lastRecordedPath) {
+          return;
+        }
+
+        lastRecordedPath = fullNavPath;
+
         // Don't update if Index is 1 (fullscreen player active) - extra safety check
         if (!isFullscreenActive.current) {
-          console.log('Setting previous screen to:', fullNavPath);
-        setPreviousScreen(fullNavPath);
-          
+          // Only log when the path actually changes to reduce console spam
+          if (fullNavPath !== previousScreen && process.env.NODE_ENV === 'development') {
+            console.log('Setting previous screen to:', fullNavPath);
+          }
+          setPreviousScreen(fullNavPath);
+
           // Only update musicPreviousScreen if we're in a music-related screen
           // This preserves the music context even when navigating to non-music screens
           if (fullNavPath.includes('Library') || fullNavPath.includes('MyMusic')) {
-            console.log('Setting music previous screen to:', fullNavPath);
+            if (fullNavPath !== musicPreviousScreen && process.env.NODE_ENV === 'development') {
+              console.log('Setting music previous screen to:', fullNavPath);
+            }
             setMusicPreviousScreen(fullNavPath);
           }
         } else {
-          console.log('PROTECTED: Fullscreen active - not updating navigation state');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('PROTECTED: Fullscreen active - not updating navigation state');
+          }
         }
       }
     };
 
-    // Set up a listener for state changes with delayed execution
-    // This ensures we don't update during the transition to fullscreen
+    // Set up a listener for state changes with debounced execution
+    // This ensures we don't update during the transition to fullscreen and prevents infinite loops
+    let debounceTimer = null;
     const unsubscribe = navigation.addListener('state', () => {
-      // Add a slight delay to ensure Index has been updated first
-      setTimeout(recordScreenPath, 100);
+      // Clear previous timer
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      // Add a debounced delay to prevent rapid successive calls
+      debounceTimer = setTimeout(recordScreenPath, 200);
     });
     
     // Record the initial screen - but only if not in fullscreen player
@@ -390,8 +415,13 @@ export const RootRoute = () => {
       recordScreenPath();
     }
     
-    // Clean up the listener when the component unmounts
-    return unsubscribe;
+    // Clean up the listener and timer when the component unmounts
+    return () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      unsubscribe();
+    };
   }, [navigation, setPreviousScreen, setMusicPreviousScreen]);
 
   // Track tab changes to clear navigation history
@@ -463,14 +493,14 @@ export const RootRoute = () => {
         <FullScreenMusic setIndex={setIndex} Index={Index} />
       ) : (
         <>
-          <Tab.Navigator 
+          <Tab.Navigator
             initialRouteName="Home"
             tabBar={(props) => (
               <>
                 <BottomSheetMusic />
                 <CustomTabBar {...props}/>
               </>
-            )} 
+            )}
             screenOptions={{
               tabBarShowLabel: false,
               tabBarLabelStyle: {
@@ -484,34 +514,34 @@ export const RootRoute = () => {
                 borderColor: "rgba(28,27,27,0)"
               }
             }}>
-            <Tab.Screen  
+            <Tab.Screen
               options={{
                 tabBarIcon: ({ color, size }) => (
                   <Octicons name="home" color={color} size={size - 4} />
                 ),
-              }} 
-              name="Home" 
-              component={HomeRoute} 
+              }}
+              name="Home"
+              component={HomeRoute}
             />
-            <Tab.Screen 
+            <Tab.Screen
               options={{
                 tabBarIcon: ({ color, size }) => (
                   <Entypo name="compass" color={color} size={size - 4} />
                 ),
-              }} 
-              name="Discover" 
-              component={DiscoverRoute} 
+              }}
+              name="Discover"
+              component={DiscoverRoute}
               listeners={{
                 tabPress: () => {
                   // Handle Discover tab reset without event parameters
                   // Get current tab state from navigation
                   const state = navigation.getState();
                   const currentTabIndex = state.index;
-                  
+
                   // Only reset if coming from a different tab (not within Discover)
                   if (currentTabIndex !== 1) { // 1 is the index of Discover tab
                     console.log("Switching to Discover tab - resetting to DiscoverPage");
-                    
+
                     // Navigate to DiscoverPage
                     setTimeout(() => {
                       navigation.navigate('Discover', {
@@ -522,18 +552,21 @@ export const RootRoute = () => {
                 }
               }}
             />
-            <Tab.Screen 
+            <Tab.Screen
               options={{
                 tabBarIcon: ({ color, size }) => (
                   <MaterialCommunityIcons name="music-box-multiple-outline" color={color} size={size - 4} />
                 ),
-              }}  
-              name="Library" 
-              component={LibraryRoute} 
+              }}
+              name="Library"
+              component={LibraryRoute}
             />
           </Tab.Navigator>
         </>
       )}
+
+      {/* Global PlaylistSelector for FullScreenMusic */}
+      <PlaylistSelectorBottomSheetWrapper />
     </View>
   );
 };

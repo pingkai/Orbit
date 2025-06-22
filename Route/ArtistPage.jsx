@@ -14,8 +14,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { AddPlaylist } from '../MusicPlayerFunctions';
 
 // Import custom hooks
-import { useArtistData, useArtistSongs } from '../hooks/useArtistData';
-import { useArtistNavigation } from '../hooks/useArtistNavigation';
+import { useArtistData, useArtistSongs, useArtistAlbums } from '../hooks/useArtistData';
 
 // Import utility functions
 import { validateRouteParams, formatSongsForPlaylist } from '../Utils/ArtistUtils';
@@ -26,6 +25,7 @@ import ArtistTabs from '../Component/Artist/ArtistTabs';
 import ArtistSongs from '../Component/Artist/ArtistSongs';
 import ArtistAlbums from '../Component/Artist/ArtistAlbums';
 import ArtistBio from '../Component/Artist/ArtistBio';
+
 
 const { height: screenHeight } = Dimensions.get('window');
 
@@ -64,7 +64,7 @@ const ArtistPage = () => {
   const [activeTab, setActiveTab] = useState(safeInitialTab || 'songs');
 
   // Custom hooks for data management
-  const { artistData, artistAlbums, loading, refreshing, onRefresh } = useArtistData(safeArtistId);
+  const { artistData, loading, refreshing, onRefresh } = useArtistData(safeArtistId);
   const {
     visibleSongs,
     songLoading,
@@ -73,9 +73,31 @@ const ArtistPage = () => {
     loadMoreSongs,
     resetSongs
   } = useArtistSongs(safeArtistId);
+  const {
+    visibleAlbums,
+    albumLoading,
+    hasMoreAlbums,
+    totalAlbums,
+    loadMoreAlbums,
+    resetAlbums
+  } = useArtistAlbums(safeArtistId);
 
-  // Navigation hook
-  const { navigateToAlbum } = useArtistNavigation(safeArtistId, safeArtistName, activeTab);
+  // Navigate to album function
+  const navigateToAlbum = (album, currentTab) => {
+    try {
+      navigation.navigate('Album', {
+        id: album.id,
+        name: album.name,
+        source: 'Artist',
+        artistId: safeArtistId,
+        artistName: safeArtistName,
+        previousTab: currentTab
+      });
+    } catch (error) {
+      console.error('Error navigating to album:', error);
+      ToastAndroid.show('Failed to open album', ToastAndroid.SHORT);
+    }
+  };
 
   // Play all songs handler
   const playAllSongs = async () => {
@@ -123,12 +145,14 @@ const ArtistPage = () => {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={async () => {
             resetSongs();
+            resetAlbums();
             await onRefresh();
           }} />
         }
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={400}
+        contentContainerStyle={{ paddingBottom: 100 }} // Add padding for minimize player
       >
         {/* Artist Header */}
         <ArtistHeader
@@ -144,7 +168,7 @@ const ArtistPage = () => {
         />
 
         {/* Tab Content */}
-        <View style={{ marginTop: 20, paddingBottom: 100 }}>
+        <View style={{ marginTop: 20 }}>
           {activeTab === 'songs' && (
             <ArtistSongs
               visibleSongs={visibleSongs}
@@ -157,7 +181,11 @@ const ArtistPage = () => {
 
           {activeTab === 'albums' && (
             <ArtistAlbums
-              artistAlbums={artistAlbums}
+              visibleAlbums={visibleAlbums}
+              totalAlbums={totalAlbums}
+              albumLoading={albumLoading}
+              hasMoreAlbums={hasMoreAlbums}
+              onLoadMore={loadMoreAlbums}
               onAlbumPress={navigateToAlbum}
             />
           )}

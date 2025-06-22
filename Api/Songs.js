@@ -367,4 +367,32 @@ async function getArtistAlbums(artistId) {
   }
 }
 
-export { getSearchSongData, getLyricsSongData, getArtistSongs, getArtistSongsPaginated, getAlbumSongs, getSearchArtistData, getArtistDetails, getArtistAlbums, validateArtist, filterValidArtists };
+async function getArtistAlbumsPaginated(artistId, page = 1, limit = 10) {
+  const cacheKey = `artist_albums_paginated_${artistId}_page${page}_limit${limit}`;
+
+  const fetchFunction = async () => {
+    let config = {
+      method: 'get',
+      maxBodyLength: Infinity,
+      url: `https://jiosavan-api-with-playlist.vercel.app/api/artists/${artistId}/albums?page=${page}&limit=${limit}`,
+      headers: {},
+    };
+
+    try {
+      const response = await axios.request(config);
+      return response.data;
+    } catch (error) {
+      console.error(`API error fetching paginated albums for artist ID ${artistId}:`, error.response ? `Status: ${error.response.status}` : error.message || error);
+      throw error;
+    }
+  };
+
+  try {
+    return await getCachedData(cacheKey, fetchFunction, 30, CACHE_GROUPS.SEARCH); // Shorter cache for paginated data
+  } catch (error) {
+    console.error(`Error getting paginated albums for artist ID ${artistId}:`, error);
+    throw error;
+  }
+}
+
+export { getSearchSongData, getLyricsSongData, getArtistSongs, getArtistSongsPaginated, getAlbumSongs, getSearchArtistData, getArtistDetails, getArtistAlbums, getArtistAlbumsPaginated, validateArtist, filterValidArtists };

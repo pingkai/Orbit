@@ -442,8 +442,14 @@ export const Playlist = ({route}) => {
           <PlainText text={"Playlist not available"} />
           <SmallText text={"No playlist ID found"} />
           <Spacer height={20} />
-          <Pressable 
-            onPress={() => navigation.goBack()}
+          <Pressable
+            onPress={() => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                navigation.navigate('MainRoute', { screen: 'Home' });
+              }
+            }}
             style={styles.goBackButton}
             android_ripple={{color: 'rgba(255,255,255,0.1)'}}
           >

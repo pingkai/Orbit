@@ -6,6 +6,7 @@ import { searchAll } from "../Api/Search";
 import EachAlbumCard from "../Component/Global/EachAlbumCard";
 import EachPlaylistCard from "../Component/Global/EachPlaylistCard";
 import EachSongCard from "../Component/Global/EachSongCard";
+import navigationBreadcrumbs from '../Utils/NavigationBreadcrumbs';
 
 const { width } = Dimensions.get('window');
 
@@ -15,6 +16,16 @@ export const Search = ({route}) => {
   const [searchResults, setSearchResults] = useState({});
   const [loading, setLoading] = useState(false);
   const backAttempted = useRef(false);
+
+  // Add Search screen to breadcrumbs when component mounts
+  useEffect(() => {
+    navigationBreadcrumbs.addBreadcrumb({
+      screenName: 'Search',
+      displayName: 'Search',
+      params: { searchText },
+      source: 'initial'
+    });
+  }, []);
   
   // Simple direct approach for back button
   useEffect(() => {
@@ -103,14 +114,25 @@ export const Search = ({route}) => {
   // Render album with improved UI
   const renderAlbum = ({ item }) => (
     <View style={styles.albumContainer}>
-      <EachAlbumCard 
+      <EachAlbumCard
         item={item}
-        onPress={() => navigation.navigate('Album', {
-          id: item.id,
-          timestamp: Date.now(),
-          source: 'Search',
-          searchText: searchText
-        })}
+        onPress={() => {
+          // Add Search screen to breadcrumbs before navigating
+          navigationBreadcrumbs.addBreadcrumb({
+            screenName: 'Search',
+            displayName: 'Search',
+            params: { searchText },
+            source: 'navigation'
+          });
+
+          navigation.navigate('Album', {
+            id: item.id,
+            name: item.title || item.name,
+            timestamp: Date.now(),
+            source: 'Search',
+            searchText: searchText
+          });
+        }}
       />
     </View>
   );

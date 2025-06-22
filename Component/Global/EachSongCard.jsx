@@ -231,6 +231,16 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
           language: e?.language,
           artistID: e?.primary_artists_id,
           downloadUrl: e?.downloadUrl,
+          // Preserve additional metadata for song info display
+          year: e?.year,
+          playCount: e?.playCount,
+          label: e?.label,
+          copyright: e?.copyright,
+          hasLyrics: e?.hasLyrics,
+          album: e?.album,
+          artists: e?.artists,
+          releaseDate: e?.releaseDate,
+          explicitContent: e?.explicitContent
         })
       }
       
@@ -288,6 +298,18 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
           artistID:artistID,
           image: safeImageUri,
           downloadUrl:url,
+          // Preserve additional metadata for song info display
+          ...(Data?.data?.results?.[index] && {
+            year: Data.data.results[index].year,
+            playCount: Data.data.results[index].playCount,
+            label: Data.data.results[index].label,
+            copyright: Data.data.results[index].copyright,
+            hasLyrics: Data.data.results[index].hasLyrics,
+            album: Data.data.results[index].album,
+            artists: Data.data.results[index].artists,
+            releaseDate: Data.data.results[index].releaseDate,
+            explicitContent: Data.data.results[index].explicitContent
+          })
         }
         PlayOneSong(song)
       }

@@ -1,18 +1,38 @@
-import { Pressable, View, Dimensions, Text } from "react-native";
+import { Pressable, View, Dimensions, ToastAndroid } from "react-native";
 import FastImage from "react-native-fast-image";
 import { PlainText } from "../Global/PlainText";
 import { SmallText } from "../Global/SmallText";
-import { memo } from "react";
+import { memo, useState } from "react";
 import { useActiveTrack, usePlaybackState } from "react-native-track-player";
 import FontAwesome6 from "react-native-vector-icons/FontAwesome6";
+import MaterialIcons from "react-native-vector-icons/MaterialIcons";
+import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
+import { useThemeContext } from "../../Context/ThemeContext";
+import { useThemeManager } from "./ThemeManager/useThemeManager";
+import { useDownload } from "../Download/useDownload";
+import { DownloadControl } from "../Download/DownloadControl";
+import TrackPlayer from "react-native-track-player";
 
 // Get screen dimensions for responsive layout
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-export const EachSongQueue = memo(function EachSongQueue({ title, artist, index, artwork, id, drag, isActive, onPress }) {
+export const EachSongQueue = memo(function EachSongQueue({ title, artist, index, artwork, id, drag, isActive, onPress, songData, onRemoveFromQueue }) {
   const playerState = usePlaybackState();
   const currentPlaying = useActiveTrack();
-  
+  const { theme, themeMode } = useThemeContext();
+  const { getOpacityColor } = useThemeManager();
+
+  // No longer need menu state since we're using direct trash icon
+
+  // Download functionality
+  const {
+    isDownloaded,
+    isDownloading,
+    downloadProgress,
+    startDownload,
+    canDownload
+  } = useDownload(songData || { id, title, artist, artwork }, false);
+
   // Check if this is the currently playing track
   const isCurrentTrack = id === currentPlaying?.id;
   
@@ -93,8 +113,8 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
     return text.length > limit ? text.substring(0, limit) + '...' : text;
   };
   
-  // Calculate max text width based on screen size (accounting for drag handle but no queue number)
-  const maxTextWidth = SCREEN_WIDTH - 110; // 48px for image + 12px gap + drag icon + padding
+  // Calculate max text width based on screen size (accounting for download button and three-dot menu)
+  const maxTextWidth = SCREEN_WIDTH - 140; // 48px for image + 12px gap + download button + three-dot menu + padding
   
   // Handle long press with immediate feedback
   const handleLongPress = () => {
@@ -132,12 +152,65 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
       console.error('Error in song press handler:', error);
     }
   };
+
+  // Handle direct remove from queue (no menu needed)
+  const handleDirectRemove = () => {
+    handleRemoveFromQueue();
+  };
+
+  // Handle remove from queue
+  const handleRemoveFromQueue = async () => {
+    try {
+      if (typeof onRemoveFromQueue === 'function') {
+        await onRemoveFromQueue(index, id);
+        ToastAndroid.show('Removed from queue', ToastAndroid.SHORT);
+      } else {
+        // Fallback: remove using TrackPlayer directly
+        const queue = await TrackPlayer.getQueue();
+        const trackIndex = queue.findIndex(track => track.id === id);
+        if (trackIndex !== -1) {
+          await TrackPlayer.remove(trackIndex);
+          ToastAndroid.show('Removed from queue', ToastAndroid.SHORT);
+        }
+      }
+    } catch (error) {
+      console.error('Error removing from queue:', error);
+      ToastAndroid.show('Failed to remove from queue', ToastAndroid.SHORT);
+    }
+  };
+
+
   
+  // Theme-aware colors
+  const getRippleColor = () => {
+    return themeMode === 'light'
+      ? 'rgba(0, 0, 0, 0.05)'
+      : 'rgba(255, 255, 255, 0.05)';
+  };
+
+  const getActiveBackgroundColor = () => {
+    // Uniform gray background for all dragged items - consistent like image 2
+    return themeMode === 'light'
+      ? 'rgba(0, 0, 0, 0.1)' // Consistent gray for all items
+      : 'rgba(255, 255, 255, 0.15)'; // Consistent light gray for all items
+  };
+
+  const getCurrentTrackBackgroundColor = () => {
+    // Use theme's playingColor with proper opacity conversion
+    const playingColor = theme.colors.playingColor || theme.colors.primary;
+    const opacity = themeMode === 'light' ? 0.08 : 0.12; // Light theme: lower opacity, dark theme: slightly higher
+    return getOpacityColor(playingColor, opacity);
+  };
+
+  const getShadowColor = () => {
+    return themeMode === 'light' ? "#000" : "#000";
+  };
+
   return (
-    <Pressable 
+    <Pressable
       onPress={handlePress}
       {...dragHandlers}
-      android_ripple={{ color: 'rgba(255, 255, 255, 0.05)' }} // Very subtle ripple effect for Android
+      android_ripple={{ color: getRippleColor() }}
       style={{
         flexDirection: 'row',
         alignItems: "center",
@@ -145,36 +218,34 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
         paddingVertical: 8,
         marginVertical: 2,
         width: SCREEN_WIDTH,
-        backgroundColor: isActive 
-          ? 'rgba(40, 40, 40, 0.7)' // Dark background when dragging
-          : isCurrentTrack 
-            ? 'rgba(29, 185, 84, 0.08)' 
+        backgroundColor: isActive
+          ? getActiveBackgroundColor()
+          : isCurrentTrack
+            ? getCurrentTrackBackgroundColor()
             : 'transparent',
-        borderRadius: 6,
-        // No border styling at all
+        borderRadius: 8,
+        // Clean, simple drag styling like reference image
         ...(isActive && {
-          // Only keep the shadow effects
-          elevation: 5,
-          shadowColor: "#000",
+          elevation: 1, // Minimal elevation
+          shadowColor: '#000',
           shadowOffset: {
             width: 0,
-            height: 3,
+            height: 1,
           },
-          shadowOpacity: 0.27,
-          shadowRadius: 4.65,
+          shadowOpacity: 0.1, // Very light shadow
+          shadowRadius: 1,
         }),
       }}
     >
-      {/* Song image - no border styling */}
-      <FastImage 
-        source={getImageSource()} 
+      {/* Song image - clean and simple */}
+      <FastImage
+        source={getImageSource()}
         style={{
           height: 48,
           width: 48,
           borderRadius: 8,
           marginRight: 12,
-          opacity: 1,
-          // No border styling
+          opacity: 1, // No opacity change - keep it clean
         }}
       />
       
@@ -184,55 +255,69 @@ export const EachSongQueue = memo(function EachSongQueue({ title, artist, index,
         width: maxTextWidth,
         justifyContent: 'center',
       }}>
-        <PlainText 
-          text={truncateText(formatText(title), 20)} 
-          style={{ 
+        <PlainText
+          text={truncateText(formatText(title), 20)}
+          style={{
             width: maxTextWidth,
-            fontWeight: isCurrentTrack ? '700' : '600', // Bolder text for all song titles
-            color: isCurrentTrack ? '#1DB954' : '#FFFFFF', // Only title is colored when active
+            fontWeight: isCurrentTrack ? '700' : '600',
+            color: isCurrentTrack
+              ? (theme.colors.playingColor || theme.colors.primary)
+              : theme.colors.text,
             fontSize: 15,
             lineHeight: 20,
           }}
           numberOfLine={1}
         />
-        <SmallText 
-          text={truncateText(formatText(artist), 20)} 
-          style={{ 
+        <SmallText
+          text={truncateText(formatText(artist), 20)}
+          style={{
             width: maxTextWidth,
             opacity: 0.8,
             marginTop: 2,
-            fontWeight: '500', // Semi-bold for artist names
-            color: '#FFFFFF', // Always white for artist name
+            fontWeight: '500',
+            color: theme.colors.text,
           }}
           maxLine={1}
         />
       </View>
       
-      {/* Drag handle - only show if drag function is available */}
-      {typeof drag === 'function' && (
-        <Pressable
-          onLongPress={handleLongPress}
-          delayLongPress={80}
-          style={{
-            width: 44,
-            height: 48,
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 10,
-            backgroundColor: isActive 
-              ? 'rgba(40, 40, 40, 0.5)' // Dark handle when active 
-              : 'rgba(40, 40, 40, 0.3)',
-            borderRadius: 4,
-            marginLeft: 4,
-          }}
-        >
-          <FontAwesome6 
-            name="grip-lines" 
-            size={18}
-            color="#FFFFFF" // Always white for icon
-          />
-        </Pressable>
-      )}
+      {/* Download button */}
+      <View style={{ marginRight: 8 }}>
+        <DownloadControl
+          isDownloaded={isDownloaded}
+          isDownloading={isDownloading}
+          downloadProgress={downloadProgress}
+          onDownloadPress={startDownload}
+          isOffline={false}
+          disabled={!canDownload}
+          size={20}
+          style={{ padding: 6 }}
+        />
+      </View>
+
+      {/* Trash icon for removing from queue */}
+      <Pressable
+        onPress={handleDirectRemove}
+        {...(typeof drag === 'function' ? dragHandlers : {})}
+        style={{
+          width: 36,
+          height: 48,
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 8,
+          backgroundColor: 'transparent', // Keep trash icon area clean
+          borderRadius: 4,
+        }}
+      >
+        <MaterialCommunityIcons
+          name="delete-outline"
+          size={20}
+          color={theme.colors.text}
+          style={{ opacity: 0.8 }}
+        />
+      </Pressable>
+
+
     </Pressable>
   );
 });

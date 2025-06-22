@@ -17,8 +17,14 @@ export const EachArtistCard = memo(function EachArtistCard({name, role, image, i
       params: {}
     });
 
-    // Navigate to artist page with artist ID
-    navigation.navigate("ArtistPage", { artistId: id, artistName: name });
+    // Navigate to artist page with artist ID using nested navigation
+    navigation.navigate("MainRoute", {
+      screen: 'Home',
+      params: {
+        screen: 'ArtistPage',
+        params: { artistId: id, artistName: name }
+      }
+    });
   };
 
   const safeImageUri = image || 'https://via.placeholder.com/150x150/cccccc/666666?text=Artist';

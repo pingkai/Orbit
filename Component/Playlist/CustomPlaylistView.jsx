@@ -476,10 +476,17 @@ export const CustomPlaylistView = (props) => {
         // Always try to navigate to the playlist list first
         if (previousScreen === "CustomPlaylist") {
           console.log('Navigating back to CustomPlaylist');
-          navigation.goBack();
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            navigation.navigate('Library', {
+              screen: 'CustomPlaylist',
+              params: { fromCustomPlaylistView: true }
+            });
+          }
         } else {
           console.log('Navigating to Library/CustomPlaylist screen');
-          navigation.navigate('Library', { 
+          navigation.navigate('Library', {
             screen: 'CustomPlaylist',
             params: { fromCustomPlaylistView: true }
           });
@@ -507,10 +514,17 @@ export const CustomPlaylistView = (props) => {
       // Always try to navigate to the playlist list first
       if (previousScreen === "CustomPlaylist") {
         console.log('Navigating back to CustomPlaylist');
-        navigation.goBack();
+        if (navigation.canGoBack()) {
+          navigation.goBack();
+        } else {
+          navigation.navigate('Library', {
+            screen: 'CustomPlaylist',
+            params: { fromCustomPlaylistView: true }
+          });
+        }
       } else {
         console.log('Navigating to Library/CustomPlaylist screen');
-        navigation.navigate('Library', { 
+        navigation.navigate('Library', {
           screen: 'CustomPlaylist',
           params: { fromCustomPlaylistView: true }
         });

@@ -54,17 +54,26 @@ export const EachArtistCardGrid = memo(function EachArtistCardGrid({
 
   const handlePress = () => {
     try {
-      // Simplified navigation without history manager to avoid errors
-      navigation.navigate("ArtistPage", {
-        artistId: id,
-        artistName: name,
-        source: source,
-        searchText: searchText
+      // Navigate using nested navigation structure
+      navigation.navigate("MainRoute", {
+        screen: 'Home',
+        params: {
+          screen: 'ArtistPage',
+          params: {
+            artistId: id,
+            artistName: name,
+            source: source,
+            searchText: searchText
+          }
+        }
       });
     } catch (error) {
       console.error('Error navigating to Artist:', error);
       // Fallback navigation to prevent dead-end
-      navigation.navigate("Home", { screen: "HomePage" });
+      navigation.navigate("MainRoute", {
+        screen: 'Home',
+        params: { screen: "HomePage" }
+      });
     }
   };
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ToastAndroid } from 'react-native';
-import { getArtistDetails, getArtistSongsPaginated, getArtistAlbums } from '../Api/Songs';
+import { getArtistDetails, getArtistSongsPaginated, getArtistAlbumsPaginated } from '../Api/Songs';
 
 /**
  * Custom hook for managing artist data fetching and state
@@ -9,7 +9,6 @@ import { getArtistDetails, getArtistSongsPaginated, getArtistAlbums } from '../A
  */
 export const useArtistData = (artistId) => {
   const [artistData, setArtistData] = useState(null);
-  const [artistAlbums, setArtistAlbums] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -17,22 +16,8 @@ export const useArtistData = (artistId) => {
     try {
       setLoading(true);
 
-      const [detailsResponse, albumsResponse] = await Promise.allSettled([
-        getArtistDetails(artistId),
-        getArtistAlbums(artistId)
-      ]);
-
-      if (detailsResponse.status === 'fulfilled') {
-        setArtistData(detailsResponse.value);
-      } else {
-        console.error('Failed to fetch artist details:', detailsResponse.reason);
-      }
-
-      if (albumsResponse.status === 'fulfilled') {
-        setArtistAlbums(albumsResponse.value);
-      } else {
-        console.error('Failed to fetch artist albums:', albumsResponse.reason);
-      }
+      const detailsResponse = await getArtistDetails(artistId);
+      setArtistData(detailsResponse);
 
     } catch (error) {
       console.error('Error fetching artist data:', error);
@@ -56,7 +41,6 @@ export const useArtistData = (artistId) => {
 
   return {
     artistData,
-    artistAlbums,
     loading,
     refreshing,
     fetchArtistData,
@@ -143,5 +127,87 @@ export const useArtistSongs = (artistId, songsPerPage = 10) => {
     loadMoreSongs,
     resetSongs,
     loadInitialSongs
+  };
+};
+
+/**
+ * Custom hook for managing infinite scroll albums
+ * @param {string} artistId - Artist ID
+ * @param {number} albumsPerPage - Number of albums per page
+ * @returns {object} - Albums state and functions
+ */
+export const useArtistAlbums = (artistId, albumsPerPage = 10) => {
+  const [visibleAlbums, setVisibleAlbums] = useState([]);
+  const [currentAlbumPage, setCurrentAlbumPage] = useState(1);
+  const [albumLoading, setAlbumLoading] = useState(false);
+  const [hasMoreAlbums, setHasMoreAlbums] = useState(true);
+  const [totalAlbums, setTotalAlbums] = useState(0);
+
+  const loadInitialAlbums = async () => {
+    try {
+      setAlbumLoading(true);
+      const response = await getArtistAlbumsPaginated(artistId, 1, albumsPerPage);
+
+      if (response?.data?.albums) {
+        setVisibleAlbums(response.data.albums);
+        setTotalAlbums(response.data.total || 0);
+        setCurrentAlbumPage(1);
+        setHasMoreAlbums(response.data.albums.length >= albumsPerPage && response.data.albums.length < response.data.total);
+      }
+    } catch (error) {
+      console.error('Error loading initial albums:', error);
+      ToastAndroid.show('Failed to load albums', ToastAndroid.SHORT);
+    } finally {
+      setAlbumLoading(false);
+    }
+  };
+
+  const loadMoreAlbums = async () => {
+    if (albumLoading || !hasMoreAlbums) return;
+
+    try {
+      setAlbumLoading(true);
+      const nextPage = currentAlbumPage + 1;
+      const response = await getArtistAlbumsPaginated(artistId, nextPage, albumsPerPage);
+
+      if (response?.data?.albums && response.data.albums.length > 0) {
+        setVisibleAlbums(prev => [...prev, ...response.data.albums]);
+        setCurrentAlbumPage(nextPage);
+
+        // Check if there are more albums to load
+        const totalLoaded = visibleAlbums.length + response.data.albums.length;
+        setHasMoreAlbums(totalLoaded < response.data.total);
+      } else {
+        setHasMoreAlbums(false);
+      }
+    } catch (error) {
+      console.error('Error loading more albums:', error);
+      ToastAndroid.show('Failed to load more albums', ToastAndroid.SHORT);
+    } finally {
+      setAlbumLoading(false);
+    }
+  };
+
+  const resetAlbums = () => {
+    setVisibleAlbums([]);
+    setCurrentAlbumPage(1);
+    setHasMoreAlbums(true);
+    setTotalAlbums(0);
+  };
+
+  useEffect(() => {
+    if (artistId) {
+      loadInitialAlbums();
+    }
+  }, [artistId]);
+
+  return {
+    visibleAlbums,
+    albumLoading,
+    hasMoreAlbums,
+    totalAlbums,
+    loadMoreAlbums,
+    resetAlbums,
+    loadInitialAlbums
   };
 };

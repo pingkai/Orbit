@@ -1,4 +1,4 @@
-import React, { useState, useContext, useRef, useEffect } from 'react';
+import React, { useState, useContext, useRef, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet, findNodeHandle, UIManager, Platform } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -56,18 +56,41 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
     fetchAlbumArt();
   }, [song.path, song.title, song.cover]);
 
+  // Initialize navigation path once on mount
   useEffect(() => {
-    // Try to identify if we're in the MyMusic page on mount
-    try {
-      const navigationPath = getNavigationPath();
-      if (navigationPath) {
-        setFullNavPath(navigationPath);
-        console.log('Set fullNavPath on mount:', navigationPath);
+    if (!fullNavPath) {
+      try {
+        const currentState = navigation.getState();
+        if (currentState && currentState.routes && currentState.routes.length > 0) {
+          const currentTabRoute = currentState.routes[currentState.index];
+
+          // Check for Library tab with nested screens
+          if (currentTabRoute.name === 'Library' && currentTabRoute.state) {
+            const libraryRoute = currentTabRoute.state.routes[currentTabRoute.state.index];
+            if (libraryRoute.name === 'MyMusicPage') {
+              setFullNavPath('Library/MyMusicPage');
+              return;
+            } else if (libraryRoute.name === 'DownloadScreen') {
+              setFullNavPath('Library/DownloadScreen');
+              return;
+            }
+          }
+
+          // Check for nested screens in any tab
+          if (currentTabRoute.state && currentTabRoute.state.routes) {
+            const activeNestedRoute = currentTabRoute.state.routes[currentTabRoute.state.index];
+            setFullNavPath(`${currentTabRoute.name}/${activeNestedRoute.name}`);
+            return;
+          }
+
+          setFullNavPath(currentTabRoute.name);
+        }
+      } catch (error) {
+        console.warn('Error detecting current route:', error);
+        setFullNavPath('Library/MyMusicPage');
       }
-    } catch (error) {
-      console.warn('Error detecting current route:', error);
     }
-  }, [navigation]);
+  }, []); // Only run once on mount
 
   const handleMenuPress = () => {
     if (menuButtonRef.current) {
@@ -84,40 +107,10 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
     }
   };
 
-  // Handle potential missing fullNavPath state
-  const getNavigationPath = () => {
-    try {
-      // Get current navigation state
-      const currentState = navigation.getState();
-      if (currentState && currentState.routes && currentState.routes.length > 0) {
-        const currentTabRoute = currentState.routes[currentState.index];
-        let navPath = currentTabRoute.name;
-        
-        // Check for Library tab with nested screens
-        if (currentTabRoute.name === 'Library' && currentTabRoute.state) {
-          const libraryRoute = currentTabRoute.state.routes[currentTabRoute.state.index];
-          if (libraryRoute.name === 'MyMusicPage') {
-            return 'Library/MyMusicPage';
-          } else if (libraryRoute.name === 'DownloadScreen') {
-            return 'Library/DownloadScreen';
-          }
-        }
-        
-        // Check for nested screens in any tab
-        if (currentTabRoute.state && currentTabRoute.state.routes) {
-          const activeNestedRoute = currentTabRoute.state.routes[currentTabRoute.state.index];
-          navPath = `${currentTabRoute.name}/${activeNestedRoute.name}`;
-        }
-        
-        return navPath;
-      }
-    } catch (error) {
-      console.log('Error getting navigation path:', error);
-    }
-    
-    // Fallback to using fullNavPath state if available, or a default value
+  // Optimized navigation path getter using stored value
+  const getNavigationPath = useCallback(() => {
     return fullNavPath || 'Library/MyMusicPage';
-  };
+  }, [fullNavPath]);
 
   const handlePress = async () => {
     try {
@@ -150,7 +143,7 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
         if (song.cover && typeof song.cover === 'string' && song.cover.trim() !== '') {
           artwork = { uri: song.cover };
         } else {
-          // Use default local image
+          // Use Music.jpeg for local tracks
           artwork = DEFAULT_MUSIC_IMAGE;
         }
         
@@ -306,23 +299,28 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
   
   // Helper function to get artwork for a track
   const getArtworkForTrack = (track) => {
-    // Ensure we have a valid artwork that won't cause type issues
+    // For local tracks, use Music.jpeg as default artwork
+    if (track.isLocal || track.path) {
+      return DEFAULT_MUSIC_IMAGE;
+    }
+
+    // For online tracks, use cover art if available
     if (track.cover && typeof track.cover === 'string' && track.cover.trim() !== '') {
       // For online streaming tracks - ensure highest quality
       if (track.cover.startsWith('http')) {
         // Find quality parameter
         try {
           const url = new URL(track.cover);
-          
+
           // Always use the highest quality (100)
           url.searchParams.set('quality', '100');
-          
-          // Force image CDN to provide highest resolution 
+
+          // Force image CDN to provide highest resolution
           if (url.hostname.includes('saavn') || url.hostname.includes('jiosaavn')) {
             url.searchParams.set('w', '500');
             url.searchParams.set('h', '500');
           }
-          
+
           return { uri: url.toString() };
         } catch (e) {
           // If URL parsing fails, use original URL at highest quality
@@ -336,7 +334,7 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
       }
       return { uri: track.cover };
     } else {
-      // Use static Music.jpeg image
+      // Use Music.jpeg for all tracks as default
       return DEFAULT_MUSIC_IMAGE;
     }
   };
@@ -350,9 +348,8 @@ export const LocalMusicCard = ({ song, index, allSongs, artist }) => {
       return require("../../Images/playing.gif");
     } else if (isPaused) {
       return require("../../Images/songPaused.gif");
-    } else if (song.cover && typeof song.cover === 'string' && song.cover.trim() !== '') {
-      return { uri: song.cover };
     } else {
+      // For local songs, use Music.jpeg as default artwork
       return DEFAULT_MUSIC_IMAGE;
     }
   };

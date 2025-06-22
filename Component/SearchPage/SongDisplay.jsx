@@ -5,9 +5,11 @@ import { LoadingComponent } from '../Global/Loading';
 import { PlainText } from '../Global/PlainText';
 import { SmallText } from '../Global/SmallText';
 import { preloadTopTidalSongs } from '../../Utils/TidalMusicHandler';
+import { useTheme } from '@react-navigation/native';
 
 export default function SongDisplay({ data, source = 'saavn' }) {
   const [displayData, setDisplayData] = useState(data);
+  const theme = useTheme();
 
   useEffect(() => {
     setDisplayData(data);
@@ -29,8 +31,21 @@ export default function SongDisplay({ data, source = 'saavn' }) {
   if (!displayData?.data?.results || displayData.data.results.length === 0) {
     return (
       <View style={{ height: 400, alignItems: 'center', justifyContent: 'center' }}>
-        <PlainText text={'No Songs Found!'} />
-        <SmallText text={'Try searching for something else. T_T'} />
+        <PlainText
+          text={'No Songs Found!'}
+          style={{
+            color: theme.dark ? '#CCCCCC' : '#666666',
+            fontSize: 18,
+            fontWeight: '600'
+          }}
+        />
+        <SmallText
+          text={'Try searching for something else. T_T'}
+          style={{
+            color: theme.dark ? '#999999' : '#888888',
+            marginTop: 8
+          }}
+        />
       </View>
     );
   }

@@ -6,12 +6,14 @@ import { EachPlaylistCard } from '../Global/EachPlaylistCard'
 import { PlainText } from '../Global/PlainText'
 import { SmallText } from '../Global/SmallText'
 import { getSearchPlaylistData } from '../../Api/Playlist'
+import { useTheme } from '@react-navigation/native'
 
 export default function PlaylistDisplay({data, limit, Searchtext}) {
   const [Data, setData] = useState(data)
   const totalPages = Math.ceil(Data?.data?.total ?? 1 / limit)
   const [Page, setPage] = useState(1)
   const [Loading, setLoading] = useState(false)
+  const theme = useTheme()
   
   async function fetchSearchData(text,page){
     if (Page <= totalPages){
@@ -92,7 +94,7 @@ export default function PlaylistDisplay({data, limit, Searchtext}) {
           }}
         />
       }
-      {Data?.data?.results?.length === 0 && 
+      {Data?.data?.results?.length === 0 &&
         <View style={{
           flex: 1,
           height: 400,
@@ -100,8 +102,23 @@ export default function PlaylistDisplay({data, limit, Searchtext}) {
           justifyContent: "center",
           paddingHorizontal: 20,
         }}>
-          <PlainText text={"No Playlist found!"} style={{textAlign: 'center'}}/>
-          <SmallText text={"Opps!  T_T"} style={{textAlign: 'center'}}/>
+          <PlainText
+            text={"No Playlist found!"}
+            style={{
+              textAlign: 'center',
+              color: theme.dark ? '#CCCCCC' : '#666666',
+              fontSize: 18,
+              fontWeight: '600'
+            }}
+          />
+          <SmallText
+            text={"Opps!  T_T"}
+            style={{
+              textAlign: 'center',
+              color: theme.dark ? '#999999' : '#888888',
+              marginTop: 8
+            }}
+          />
         </View>
       }
     </>

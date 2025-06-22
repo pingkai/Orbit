@@ -6,11 +6,9 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 const FullScreenLocalTrackItem = ({ song, onPress }) => {
   // Determine the source for the image
   let imageSource;
-  // Assuming 'a.gif' is a placeholder for local/mymusic, and Music.jpeg for others
+  // Use Music.jpeg for all local tracks
   if (song.isLocal || song.sourceType === 'mymusic') {
-    // It's generally better to have specific artwork if available, 
-    // but following the original logic for now.
-    imageSource = require('../../Images/a.gif'); 
+    imageSource = require('../../Images/Music.jpeg');
   } else {
     imageSource = song.artwork ? { uri: song.artwork } : require('../../Images/Music.jpeg');
   }
