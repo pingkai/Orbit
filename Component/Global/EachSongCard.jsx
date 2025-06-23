@@ -322,7 +322,6 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
         const albumId = Data.data.results[index].album.id;
         const albumData = await getAlbumData(albumId);
         if (albumData?.data?.songs?.length > 0) {
-          // Format album songs for queue, skip the current song
           const quality = await getIndexQuality();
           const albumSongs = albumData.data.songs
             .filter(e => e.id !== id)
@@ -373,6 +372,67 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
         }
       } catch (err) {
         console.error('Error adding album songs to queue from search:', err);
+      }
+      // --- Injected: After album, add 10 songs for each artist (untruncated) ---
+      try {
+        const { getArtistSongsPaginated } = require('../../Api/Songs');
+        const { AddSongsToQueue } = require('../../MusicPlayerFunctions');
+        // Extract full artist objects from the original song (not truncated)
+        const songObj = Data?.data?.results?.[index];
+        const artistArr = songObj?.artists?.primary || [];
+        for (const artist of artistArr) {
+          const artistId = artist.id;
+          if (!artistId) continue;
+          const artistSongsData = await getArtistSongsPaginated(artistId, 1, 10);
+          const artistSongs = (artistSongsData?.data?.songs || [])
+            .filter(e => e.id !== id && (!songObj.album || e.album?.id !== songObj.album.id)) // avoid current and album songs
+            .map(e => {
+              let songUrl = '';
+              const quality = 4; // fallback to high quality if not user-selected
+              if (e.downloadUrl && Array.isArray(e.downloadUrl) && e.downloadUrl.length > quality && e.downloadUrl[quality]?.url) {
+                songUrl = e.downloadUrl[quality].url;
+              } else if (e.download_url && Array.isArray(e.download_url) && e.download_url.length > quality && e.download_url[quality]?.url) {
+                songUrl = e.download_url[quality].url;
+              } else if (e.downloadUrl && Array.isArray(e.downloadUrl) && e.downloadUrl.length > 0 && e.downloadUrl[0]?.url) {
+                songUrl = e.downloadUrl[0].url;
+              } else if (e.download_url && Array.isArray(e.download_url) && e.download_url.length > 0 && e.download_url[0]?.url) {
+                songUrl = e.download_url[0].url;
+              }
+              let artworkUri = '';
+              if (typeof e?.image === 'string') {
+                artworkUri = e.image;
+              } else if (e?.image && typeof e.image === 'object') {
+                if (typeof e.image.uri === 'string') {
+                  artworkUri = e.image.uri;
+                } else if (typeof e.image.url === 'string') {
+                  artworkUri = e.image.url;
+                } else if (Array.isArray(e.image) && e.image.length > 0) {
+                  if (typeof e.image[0] === 'string') {
+                    artworkUri = e.image[0];
+                  } else if (e.image[0] && typeof e.image[0].url === 'string') {
+                    artworkUri = e.image[0].url;
+                  }
+                }
+              }
+              return {
+                url: songUrl,
+                title: e?.name,
+                artist: FormatArtist(e?.artists?.primary),
+                artwork: artworkUri,
+                image: artworkUri,
+                duration: e?.duration,
+                id: e?.id,
+                language: e?.language,
+                downloadUrl: e?.downloadUrl || e?.download_url || [],
+                albumId: e?.album?.id || null
+              };
+            });
+          if (artistSongs.length > 0) {
+            await AddSongsToQueue(artistSongs);
+          }
+        }
+      } catch (err) {
+        console.error('Error adding artist songs to queue from search:', err);
       }
     }
 
