@@ -314,6 +314,68 @@ export const EachSongCard = memo(function EachSongCard({title, artist, image, id
         PlayOneSong(song)
       }
     }
+
+    // --- Injected: If played from search, add album songs to queue ---
+    if (source === 'search' && Data?.data?.results?.[index]?.album?.id) {
+      try {
+        const { getAlbumData } = require('../../Api/Album');
+        const albumId = Data.data.results[index].album.id;
+        const albumData = await getAlbumData(albumId);
+        if (albumData?.data?.songs?.length > 0) {
+          // Format album songs for queue, skip the current song
+          const quality = await getIndexQuality();
+          const albumSongs = albumData.data.songs
+            .filter(e => e.id !== id)
+            .map(e => {
+              let songUrl = '';
+              if (e.downloadUrl && Array.isArray(e.downloadUrl) && e.downloadUrl.length > quality && e.downloadUrl[quality]?.url) {
+                songUrl = e.downloadUrl[quality].url;
+              } else if (e.download_url && Array.isArray(e.download_url) && e.download_url.length > quality && e.download_url[quality]?.url) {
+                songUrl = e.download_url[quality].url;
+              } else if (e.downloadUrl && Array.isArray(e.downloadUrl) && e.downloadUrl.length > 0 && e.downloadUrl[0]?.url) {
+                songUrl = e.downloadUrl[0].url;
+              } else if (e.download_url && Array.isArray(e.download_url) && e.download_url.length > 0 && e.download_url[0]?.url) {
+                songUrl = e.download_url[0].url;
+              }
+              let artworkUri = '';
+              if (typeof e?.image === 'string') {
+                artworkUri = e.image;
+              } else if (e?.image && typeof e.image === 'object') {
+                if (typeof e.image.uri === 'string') {
+                  artworkUri = e.image.uri;
+                } else if (typeof e.image.url === 'string') {
+                  artworkUri = e.image.url;
+                } else if (Array.isArray(e.image) && e.image.length > 0) {
+                  if (typeof e.image[0] === 'string') {
+                    artworkUri = e.image[0];
+                  } else if (e.image[0] && typeof e.image[0].url === 'string') {
+                    artworkUri = e.image[0].url;
+                  }
+                }
+              }
+              return {
+                url: songUrl,
+                title: e?.name,
+                artist: FormatArtist(e?.artists?.primary),
+                artwork: artworkUri,
+                image: artworkUri,
+                duration: e?.duration,
+                id: e?.id,
+                language: e?.language,
+                downloadUrl: e?.downloadUrl || e?.download_url || [],
+                albumId: albumId
+              };
+            });
+          if (albumSongs.length > 0) {
+            const { AddSongsToQueue } = require('../../MusicPlayerFunctions');
+            await AddSongsToQueue(albumSongs);
+          }
+        }
+      } catch (err) {
+        console.error('Error adding album songs to queue from search:', err);
+      }
+    }
+
     updateTrack()
   }
 

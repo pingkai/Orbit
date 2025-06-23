@@ -71,8 +71,10 @@ export default function SongDisplay({ data, source = 'saavn' }) {
               artist={source === 'tidal' ? item?.artist : FormatArtist(item?.artists?.primary)}
               url={item?.downloadUrl} // This is used for Saavn downloads
               showNumber={false}
-              source={source}
+              source={'search'} // Mark as from search for special queue logic
               tidalUrl={item?.url} // Correctly pass the tidal track URL
+              Data={displayData}
+              index={displayData.data.results.findIndex(x => x.id === item.id)}
             />
           );
         }}
