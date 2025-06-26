@@ -18,9 +18,9 @@
 </p>
 
 <a href="https://ibb.co/PztFkfDX"><img src="https://i.ibb.co/S7J5S9fY/Neon-gradient-mobile-mockup-instagram-post-20250331-234406-0000.png" alt="Neon-gradient-mobile-mockup-instagram-post-20250331-234406-0000" border="0"></a>
-## ✨ Experience the Magic of Orbit
+## ✨ Experience the Magic of Amit Saini Rohtakiya
 
-Orbit isn't just another music app—it's a revolution in how you experience sound. Built with passion and cutting-edge technology, Orbit delivers a premium, uninterrupted listening experience that puts your musical journey first.
+Amit Saini Rohtakiya isn't just another music app—it's a revolution in how you experience sound. Built with passion and cutting-edge technology, Amit Saini Rohtakiya delivers a premium, uninterrupted listening experience that puts your musical journey first.
 
 ### 🚀 Key Features
 
