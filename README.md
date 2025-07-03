@@ -16,6 +16,7 @@
   This application serves as a demonstration of modern mobile development techniques and API integration.
 </p>
 
+<a href="https://ibb.co/PztFkfDX"><img src="https://i.ibb.co/S7J5S9fY/Neon-gradient-mobile-mockup-instagram-post-20250331-234406-0000.png" alt="Orbit Mobile App Mockup" border="0"></a>
 ## ✨ Experience the Magic of Orbit
 
 Orbit isn't just another music app—it's a revolution in how you experience sound. Built with passion and cutting-edge technology, Orbit delivers a premium, uninterrupted listening experience that puts your musical journey first.
@@ -24,7 +25,7 @@ Orbit isn't just another music app—it's a revolution in how you experience sou
 
 - **🎵 Music-First Experience** — Focused on delivering the best music experience
 - **👆 Intuitive Gesture Controls** — Swipe, tap, and pinch for seamless navigation
-- **🌐 Multi-Source Playback** — Stream from JioSaavn or play local files
+- **🌐 Multi-Source Playback** — Stream from JioSaavn API or play local files
 - **🎚️ Advanced Audio Controls** — Fine-tune your listening experience with equalizer
 - **📱 Offline Mode** — Download and listen without an internet connection
 - **🌙 Dark & Light Themes** — Choose your preferred viewing experience
