@@ -45,8 +45,8 @@ In a world cluttered with subscription-based streaming services and ad-interrupt
 ## 🤝 Join Our Community
 
 <p align="center">
-  <a href="https://t.me/+k7vvHEZ5DK5kZmI1">
-    <img src="https://private-user-images.githubusercontent.com/97950192/329830321-98d4e8b5-62c2-41ec-8d66-73d791181fca.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NDMyMjAxNDcsIm5iZiI6MTc0MzIxOTg0NywicGF0aCI6Ii85Nzk1MDE5Mi8zMjk4MzAzMjEtOThkNGU4YjUtNjJjMi00MWVjLThkNjYtNzNkNzkxMTgxZmNhLnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNTAzMjklMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjUwMzI5VDAzNDQwN1omWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTNkMDliOWZmNDEyOGVmNTZlMmIyODE0ZDBmZTBiYjZhMGFhYTRlMTNlMTc3ZDQ3NDE3MTA4NWMzYTU1YmEzMDUmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.m46xT0QjTlHa9TWyAphnJnZJYzKb9-GCTxn-D9wc8UU" alt="Telegram Community" width="200">
+  <a href="https://t.me/OrbitMusicOfficial">
+    <img src="https://miro.medium.com/v2/resize:fit:720/format:webp/1*6kEaKNm8WMvWeP0W2B3W0g.png" alt="Telegram Community" width="200">
   </a>
 </p>
 
