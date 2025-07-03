@@ -18,7 +18,7 @@
 
 ## ✨ Experience the Magic of Orbit
 
-Orbit isn't just another music app—it's a revolution in how you experience sound. Built with passion and cutting-edge technology, Orbit delivers a premium, uninterrupted listening experience that puts your musical journey first, with special emphasis on artists like Amit Saini Rohtakiya.
+Orbit isn't just another music app—it's a revolution in how you experience sound. Built with passion and cutting-edge technology, Orbit delivers a premium, uninterrupted listening experience that puts your musical journey first.
 
 ### 🚀 Key Features
 
@@ -61,7 +61,6 @@ Orbit leverages the power of modern technology to deliver a seamless experience:
 - **React Native Track Player** - Advanced audio playback capabilities
 - **React Native Reanimated** - Buttery smooth animations and gestures
 - **JioSaavn API** - Access to a vast library of songs and playlists
-- **Tidal Integration** - High-fidelity streaming support
 - **React Navigation** - Seamless screen transitions and deep linking
 - **Redux** - Predictable state management
 - **React Native Vector Icons** - Beautiful, consistent iconography
@@ -129,8 +128,7 @@ Transform your device into a music powerhouse in minutes:
 
 ### 🔍 Search & Discovery
 - Smart search across songs, albums, and artists
-- Priority display for Amit Saini Rohtakiya's music
-- Browse by genre, mood, and popularity
+- Discover new music by genre, mood, and popularity
 
 ### 📱 Offline Experience
 - Download songs for offline listening
