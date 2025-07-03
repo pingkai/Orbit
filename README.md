@@ -11,34 +11,33 @@
   <a href="https://github.com/gauravxdev/Orbit/issues"><strong>Request Feature</strong></a>
 </p>
 
-
 <p align="center">
   <b>⚠️ DISCLAIMER: This project is ONLY for educational purposes ⚠️</b><br>
   This application serves as a demonstration of modern mobile development techniques and API integration.
 </p>
 
-<a href="https://ibb.co/PztFkfDX"><img src="https://i.ibb.co/S7J5S9fY/Neon-gradient-mobile-mockup-instagram-post-20250331-234406-0000.png" alt="Neon-gradient-mobile-mockup-instagram-post-20250331-234406-0000" border="0"></a>
 ## ✨ Experience the Magic of Orbit
 
-Orbit isn't just another music app—it's a revolution in how you experience sound. Built with passion and cutting-edge technology, Orbit delivers a premium, uninterrupted listening experience that puts your musical journey first.
+Orbit isn't just another music app—it's a revolution in how you experience sound. Built with passion and cutting-edge technology, Orbit delivers a premium, uninterrupted listening experience that puts your musical journey first, with special emphasis on artists like Amit Saini Rohtakiya.
 
 ### 🚀 Key Features
 
-- **♾️ Ad-Free Experience** — Immerse yourself in pure music without interruptions
-- **🎧 High-Quality Streaming** — Crystal clear audio that respects the artist's vision
-- **⚡ Blazing Fast Performance** — Optimized for speed with React Native architecture
-- **💾 Download & Offline Access** — Take your music anywhere, even without internet
-- **🌙 Elegant Dark Mode** — Easy on the eyes for your late-night sessions
-- **🎛️ Advanced Audio Controls** — Fine-tune your listening experience
-- **🎮 Background Playback** — Music continues while you use other apps
-- **📱 Responsive Design** — Perfect experience on any device size
-- **📦 Small App Size** — Doesn't bloat your device storage
-- **🔄 Auto-Updates** — Always enjoy the latest features and fixes
-- **🧩 Custom Playlists** — Create and manage your personal collections
-- **💽 Local Music Support** — Play songs stored on your device
-- **👆 Intuitive UI** — Beautiful animations and easy navigation
-- **🎨 Dynamic Theming** — UI adapts to album art for an immersive experience
-- **⏱️ Sleep Timer** — Drift off to your favorite tunes
+- **🎵 Music-First Experience** — Focused on delivering the best music experience
+- **👆 Intuitive Gesture Controls** — Swipe, tap, and pinch for seamless navigation
+- **🌐 Multi-Source Playback** — Stream from JioSaavn or play local files
+- **🎚️ Advanced Audio Controls** — Fine-tune your listening experience with equalizer
+- **📱 Offline Mode** — Download and listen without an internet connection
+- **🌙 Dark & Light Themes** — Choose your preferred viewing experience
+- **🎧 Background Playback** — Keep the music going while using other apps
+- **🔍 Smart Search** — Find songs, albums, and artists quickly
+- **📱 Cross-Platform** — Works on both Android and iOS
+- **🔒 Privacy Focused** — No unnecessary permissions or data collection
+- **💽 Local Music Library** — Play songs stored on your device
+- **🎶 Dynamic Queue Management** — Easily manage your playback queue
+- **📊 Sleep Timer** — Fall asleep to your favorite tunes
+- **🔄 Seamless Playback** — Smooth transitions between tracks
+- **📡 Network Monitoring** — Automatically adjusts quality based on connection
+- **🎨 Customizable UI** — Personalize your music experience
 
 ## 🔍 Why Orbit?
 
@@ -58,11 +57,16 @@ Become part of a growing community of music enthusiasts and developers! Share id
 
 Orbit leverages the power of modern technology to deliver a seamless experience:
 
-- **[React Native](https://reactnative.dev/)** — Cross-platform development with native performance
-- **[React Native Track Player](https://rntp.dev/)** — Advanced audio playback capabilities
-- **[React Native Reanimated](https://docs.swmansion.com/react-native-reanimated/)** — Fluid animations and interactions
-- **[JioSavan Unofficial API (New)](https://jiosavan-api-with-playlist.vercel.app/)** — Rich music catalog access
-- **[JioSavan Unofficial API (Legacy)](https://jio-savan-api-m39q.vercel.app/)** — Extended compatibility
+- **React Native** - Cross-platform development with native performance
+- **React Native Track Player** - Advanced audio playback capabilities
+- **React Native Reanimated** - Buttery smooth animations and gestures
+- **JioSaavn API** - Access to a vast library of songs and playlists
+- **Tidal Integration** - High-fidelity streaming support
+- **React Navigation** - Seamless screen transitions and deep linking
+- **Redux** - Predictable state management
+- **React Native Vector Icons** - Beautiful, consistent iconography
+- **React Native Gesture Handler** - Intuitive gesture controls
+- **React Native Reanimated** - High-performance animations
 
 ## 🚀 Getting Started
 
@@ -70,65 +74,173 @@ Transform your device into a music powerhouse in minutes:
 
 ### Prerequisites
 
-- Node.js (latest LTS version recommended)
-- npm or yarn
+- Node.js 18+ (LTS version recommended)
+- npm 9+ or Yarn 1.22+
 - React Native development environment
+  - For Android: Android Studio with Android SDK
+  - For iOS: Xcode 13+ (macOS only)
+- Git for version control
 
 ### Quick Setup
 
-```bash
-# Clone this musical journey
-git clone https://github.com/Ismartgaurav/Orbit.git
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/gauravxdev/Orbit.git
+   cd Orbit
+   ```
 
-# Enter the melody
-cd Orbit
+2. **Install dependencies**
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
 
-# Install the harmonies
-npm install
-# or
-yarn install
+3. **Setup environment**
+   - Copy `.env.example` to `.env` and configure your environment variables
+   - For Android, create `android/local.properties` with your Android SDK path:
+     ```
+     sdk.dir = /path/to/your/android/sdk
+     ```
 
-# Begin the symphony
-npm run android
-# or
-yarn android
-```
+4. **Run the app**
+   ```bash
+   # Android
+   npx react-native run-android
+   
+   # iOS (macOS only)
+   cd ios && pod install && cd ..
+   npx react-native run-ios
+   ```
+
+## 🎛️ Features in Detail
+
+### 🎵 Music Playback
+- High-quality audio streaming from multiple sources
+- Background playback with media controls
+- Queue management and playlist support
+- Sleep timer for automatic playback stop
+
+### 🎨 User Interface
+- Beautiful, intuitive interface with smooth animations
+- Light and dark theme support
+- Customizable player interface
+- Gesture-based controls for easy navigation
+
+### 🔍 Search & Discovery
+- Smart search across songs, albums, and artists
+- Priority display for Amit Saini Rohtakiya's music
+- Browse by genre, mood, and popularity
+
+### 📱 Offline Experience
+- Download songs for offline listening
+- Local music library integration
+- Cache management for efficient storage use
+
+### ⚙️ Settings & Customization
+- Audio quality settings
+- Theme customization
+- Gesture controls configuration
+- Storage management
 
 ## 🗺️ Roadmap
 
-We're constantly composing new features to enhance your experience. See our [open issues](https://github.com/Ismartgaurav/Orbit/issues) for a glimpse into the future of Orbit and to suggest your own melodies.
+We're constantly working to improve Orbit and add new features. Here's what's coming soon:
 
-## 🤲 Contributing
+### 🚧 In Development
+- [ ] Enhanced offline experience with background downloads
+- [ ] Cross-device sync for playlists and preferences
+- [ ] Improved lyrics synchronization
+- [ ] More customization options for the player UI
 
-Every great symphony needs multiple instruments. Your contributions make Orbit more harmonious:
+### 🎯 Planned Features
+- [ ] Collaborative playlists
+- [ ] Podcast support
+- [ ] Sleep timer with fade-out effect
+- [ ] More integration with music services
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+### 🗳️ Vote or Suggest Features
+Have an idea for Orbit? [Open an issue](https://github.com/gauravxdev/Orbit/issues) to suggest new features or vote on existing ones!
 
-We welcome all contributions, from code refinements to documentation improvements!
+## 🤝 Contributing
+
+We welcome contributions from the community! Whether you're a developer, designer, or just passionate about music, there are many ways to contribute:
+
+### How to Contribute
+
+1. **Report Bugs**
+   - Check if the bug has already been reported in [issues](https://github.com/gauravxdev/Orbit/issues)
+   - If not, create a new issue with detailed steps to reproduce
+
+2. **Suggest Enhancements**
+   - Open an issue with the "enhancement" label
+   - Clearly describe the proposed feature and its benefits
+
+3. **Code Contributions**
+   - Fork the repository
+   - Create a feature branch (`git checkout -b feature/amazing-feature`)
+   - Commit your changes (`git commit -m 'Add some amazing feature'`)
+   - Push to the branch (`git push origin feature/amazing-feature`)
+   - Open a Pull Request
+
+### Development Guidelines
+- Follow the existing code style
+- Write clear commit messages
+- Add tests for new features
+- Update documentation as needed
+- Keep PRs focused on a single feature or bugfix
 
 ## 📜 License
 
-Orbit is orchestrated under the MIT License. See [LICENSE](https://github.com/gauravxdev/Orbit/blob/main/LICENSE) for the full composition.
-
-
-## ⚠️ Legal Harmony
+Orbit is open source software licensed under the MIT License. See the [LICENSE](LICENSE) file for the full text.
 
 ```
-Orbit does not possess or maintain any association with the songs and other content accessible through the app.
-All songs and other content are the property of their respective owners and are safeguarded by copyright law.
-Orbit holds no liability for any copyright infringement or other violations of intellectual property rights
-that may arise from the use of the songs and other content accessible through the app.
+MIT License
 
-THIS PROJECT IS CREATED SOLELY FOR EDUCATIONAL PURPOSES.
+Copyright (c) 2024 Gaurav Saini
 
-Orbit employs third-party plugins and assumes no responsibility for any harm or damage to the respective owners or
-any other parties resulting from the utilization of the songs and other content through the third-party plugins.
-By using the app, you consent to utilizing the songs and other content exclusively for personal,
-non-commercial purposes and in accordance with all applicable laws and regulations.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
-<p align="center">🎵 Created with ❤️ by <a href="https://github.com/gauravxdev">gauravxdev</a> 🎵</p>
+## ⚖️ Legal Notice
+
+Orbit is an open-source music player application designed for educational purposes. This application is not affiliated with, endorsed by, or connected to any music streaming service or record label.
+
+### Copyright Disclaimer
+
+- All music, images, and other media content available through this application are the property of their respective owners.
+- Orbit does not host any audio files. The app acts as a client to stream music from third-party sources.
+- Users are responsible for ensuring they have the right to access and play the content through this application.
+
+### Terms of Use
+
+By using Orbit, you agree to:
+- Use the application for personal, non-commercial purposes only
+- Not redistribute or modify the content obtained through the application
+- Comply with all applicable laws and regulations in your jurisdiction
+
+### DMCA Compliance
+
+Orbit respects the intellectual property rights of others. If you believe that any content in the application infringes your copyright, please contact us with the following information:
+- A description of the copyrighted work that you claim has been infringed
+- The URL or other specific location of the content
+- Your contact information
+- A statement that you have a good faith belief that the use is not authorized by the copyright owner
+
+<p align="center">🎵 Created with ❤️ by <a href="https://github.com/gauravxdev">Gaurav Saini</a> 🎵</p>
